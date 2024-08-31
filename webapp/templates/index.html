@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PyControl</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <!--~ GPS ~-->
+    <h1>GPS Status</h1>
+    <table>
+        <!--~ Header ~-->
+        <tr>
+            <th>Connection</th>
+            <th>Mode</th>
+            <th>Mode Time</th>
+            <th>Sats</th>
+            <th>Time UCT</th>
+            <th>Latitude</th>
+            <th>Longitude</th>
+            <th>Altitude (m)</th>
+        </tr>
+
+        <!--~ ROW 1 ~-->
+        <tr>
+            <td>
+                <img
+                    id="gps-connection"
+                    src="{{url_for('static', filename='gps-disconnected.svg')}}"
+                    alt="GPS"
+                    width="64"
+                    height="64"
+                >
+            </td>
+            <td id="gps-mode">N/A</td>
+            <td id="gps-mode-time">N/A</td>
+            <td id="gps-sats">N/A</td>
+            <td id="gps-time">N/A</td>
+            <td id="gps-latitude">N/A</td>
+            <td id="gps-longitude">N/A</td>
+            <td id="gps-altitude">N/A</td>
+        </tr>
+    </table>
+
+    <!--~ Cameras ~-->
+    <h1>Cameras</h1>
+
+    <table id="cameras">
+
+        <!--~ Header ~-->
+        <thead>
+            <tr>
+                <th>Serial</th>
+                <th>Port</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+
+        <!--~ Rows ~-->
+        <tbody></tbody>
+
+    </table>
+
+
+    <!--~ Scripts ~-->
+    <script>
+
+        // Library stuff.
+        function sprintf()
+        {
+            // https://stackoverflow.com/a/4795914/562106
+            var args = arguments,
+            string = args[0],
+            i = 1;
+            return string.replace(/%((%)|s|d)/g, function (m) {
+                // m is the matched format, e.g. %s, %d
+                var val = null;
+                if (m[2]) {
+                    val = m[2];
+                } else {
+                    val = args[i];
+                    // A switch statement so that the formatter can be extended. Default is %s
+                    switch (m) {
+                        case '%d':
+                            val = parseFloat(val);
+                            if (isNaN(val)) {
+                                val = 0;
+                            }
+                            break;
+                    }
+                    i++;
+                }
+                return val;
+            });
+        }
+
+        // GPS.
+        let gps_connection = document.getElementById("gps-connection");
+        let gps_mode = document.getElementById("gps-mode");
+        let gps_mode_time = document.getElementById("gps-mode-time");
+        let gps_sats = document.getElementById("gps-sats");
+        let gps_time = document.getElementById("gps-time");
+        let gps_latitude = document.getElementById("gps-latitude");
+        let gps_longitude = document.getElementById("gps-longitude");
+        let gps_altitude = document.getElementById("gps-altitude");
+
+        function fetch_gps()
+        {
+            fetch('/api/gps')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+
+                    if (!data.connected)
+                    {
+                        gps_connection.src = "/static/gps-disconnected.svg";
+                        gps_mode.textContent = data.mode;
+                        gps_mode_time.textContent = data.mode_time;
+
+                        gps_sats.textContent = "N/A";
+                        gps_time.textContent = "N/A";
+                        gps_latitude.textContent = "N/A";
+                        gps_longitude.textContent = "N/A";
+                        gps_altitude.textContent = "N/A";
+                        return;
+                    }
+
+                    if (data.mode == "2D FIX")
+                    {
+                        gps_connection.src = "/static/gps-degraded.svg";
+                    }
+                    else if (data.mode == "3D FIX")
+                    {
+                        gps_connection.src = "/static/gps-connected.svg";
+                    }
+
+                    gps_mode.textContent = data.mode;
+                    gps_mode_time.textContent = data.mode_time;
+                    gps_sats.textContent = sprintf("%d/%d", data.sats_used, data.sats_seen);
+                    gps_time.textContent = data.time;
+                    // Using 4 decimal places for about 10 meteters of precision.
+                    //     https://gis.stackexchange.com/a/8674
+                    gps_latitude.textContent = data.lat.toFixed(4);
+                    gps_longitude.textContent = data.long.toFixed(4);
+                    gps_altitude.textContent = data.altitude.toFixed(1);
+                })
+                .catch(error => {
+                  console.error('Error fetching data:', error);
+                });
+        }
+
+        // Cameras.
+        const cameras = document.getElementById("cameras").tBodies[0];
+
+        function fetch_cameras()
+        {
+            fetch('/api/cameras')
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+
+                    // Erase.
+                    cameras.innerHTML = "";
+
+                    if (data.num_cameras == 0)
+                    {
+                        const row = document.createElement('tr');
+                        const cell0 = document.createElement('td');
+                        const cell1 = document.createElement('td');
+                        const cell2 = document.createElement('td');
+
+                        cell0.textContent = "N/A";
+                        cell1.textContent = "N/A";
+                        cell2.textContent = "N/A";
+                        row.appendChild(cell0);
+                        row.appendChild(cell1);
+                        row.appendChild(cell2);
+                        cameras.appendChild(row);
+                        return;
+                    }
+
+                    for (let info of data.detected)
+                    {
+                        const row = document.createElement('tr');
+                        const cell0 = document.createElement('td');
+                        const cell1 = document.createElement('td');
+                        const cell2 = document.createElement('td');
+
+                        cell0.textContent = info.serial;
+                        cell1.textContent = info.port;
+                        cell2.textContent = info.desc;
+                        row.appendChild(cell0);
+                        row.appendChild(cell1);
+                        row.appendChild(cell2);
+                        cameras.appendChild(row);
+                    }
+                })
+                .catch(error => {
+                  console.error('Error fetching data:', error);
+                });
+        }
+
+
+
+        // Run once and schedule every 3 secons.
+        let interval = 3000;
+
+        fetch_gps();
+        setInterval(fetch_gps, interval);
+
+        fetch_cameras();
+        setInterval(fetch_cameras, interval);
+    </script>
+
+</body>
+</html>

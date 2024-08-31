@@ -1,0 +1,5 @@
+external/cactus-rt
+webapp/venv
+webapp/__pycache__
+rasberry-pi-4/ansible/venv
+
