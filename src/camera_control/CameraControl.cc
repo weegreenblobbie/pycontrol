@@ -1,3 +1,5 @@
+#include <gphoto2cpp/gphoto2cpp.h>
+
 #include <common/str_utils.h>
 #include <camera_control/CameraControl.h>
 #include <camera_control/Camera.h>
@@ -49,13 +51,78 @@ CameraControl::init(const std::string & config_file)
     INFO_LOG << "init():       udp_port: " << _port << "\n";
     INFO_LOG << "init(): control_period: " << _control_period << " ms\n";
 
+    ABORT_ON_FAILURE(_socket.init(_ip, _port), "UpdSocket::init() failed", result::failure);
+
     return result::success;
 }
+
+
+void
+CameraControl::_camera_scan()
+{
+    const auto new_detections = gphoto2cpp::auto_detect();
+    const auto detections = port_set(new_detections.begin(), new_detections.end());
+    const bool cameras_changed = detections != _current_ports;
+    if (cameras_changed)
+    {
+        // Add or update cameras.
+        for (const auto & port : detections)
+        {
+            if (not _current_ports.contains(port))
+            {
+                auto camera = gphoto2cpp::open_camera(port);
+                if (not camera) continue;
+                const auto serial = gphoto2cpp::read_property(camera, "serialnumber");
+
+                // Add new camera.
+                if (not _cameras.contains(serial))
+                {
+                    auto cam = std::make_shared<Camera>(
+                        camera,
+                        port,
+                        serial,
+                        "config_camera"
+                    );
+                    _cameras[serial] = cam;
+                }
+
+                // Update existing camera.
+                else
+                {
+                    _cameras[serial]->reconnect(camera, port);
+                }
+
+                _current_ports.insert(port);
+            }
+        }
+
+        // Mark any cameras not detected as disconnected.
+        for (auto & pair : _cameras)
+        {
+            auto & cam = pair.second;
+            const auto & port = cam->read_settings().port;
+            if (not detections.contains(port))
+            {
+                cam->disconnect();
+                _current_ports.erase(port);
+            }
+        }
+    }
+
+    // Always fetch camera settings to reflect the camera state.
+    for (auto & pair : _cameras)
+    {
+        auto & cam = pair.second;
+        cam->fetch_settings();
+    }
+}
+
 
 result
 CameraControl::dispatch()
 {
     auto next_state = CameraControl::State::init;
+    bool send_telemetry = false;
 
     switch(_state)
     {
@@ -67,28 +134,16 @@ CameraControl::dispatch()
         }
         case CameraControl::State::scan:
         {
-            auto detected = Camera::detect_cameras();
-
-            // TODO: add detected cameras to serial to camera map.
-
+            _camera_scan();
+            send_telemetry = true;
             next_state = CameraControl::State::monitor;
-
             break;
         }
 
         case CameraControl::State::monitor:
         {
-
-            // TODO: check for any usb events.
-
-            // TODO: handle unplug events, moving cameras to an unplugged set.
-
-            // TODO: handle plug events, connect to camera and get port, read
-            //       serial, command unplugged camera to reconnect on new port,
-            //       if known.
-
-            // TODO: Read all camera settings and store.
-
+            _camera_scan();
+            send_telemetry = true;
             // TODO: transition to execute_ready if we have a schedule.
             next_state = CameraControl::State::monitor;
             break;
@@ -135,19 +190,53 @@ CameraControl::dispatch()
         }
     }
 
-    _control_time += _control_period;
 
+    // TODO: perform and log state transitions.
+    _control_time += _control_period;
     if (_state != next_state)
     {
         INFO_LOG << "time: " << _control_time << " state: " << _state << " -> " << next_state << "\n";
         _state = next_state;
     }
 
-    auto detected = Camera::detect_cameras();
+    // Send out 1 Hz telemetry.
+    if (_send_time <= _control_time)
+    {
+        _send_time = _control_time + 1000;
+        if (send_telemetry)
+        {
+            INFO_LOG << "time: " << _control_time << " state: " << _state << ", sending telemetry\n";
 
-    // TODO: perform and log state transitions.
+            _message.seekp(0, std::ios::beg);
+            _message << "CAM_CONTROL\n"
+                     << "state " << _state << "\n"
+                     << "num_cameras " << _cameras.size() << "\n";
+            for (const auto & pair : _cameras)
+            {
+                const auto & cam = pair.second;
+                const auto & info = cam->read_settings();
+                _message << "connected " << info.connected << "\n"
+                         << "serial " << info.serial << "\n"
+                         << "port " << info.port << "\n"
+                         << "desc " << info.desc << "\n"
+                         << "mode " << info.mode << "\n"
+                         << "shutter " << info.shutter << "\n"
+                         << "fstop " << info.fstop << "\n"
+                         << "iso " << info.iso << "\n"
+                         << "quality " << info.quality << "\n"
+                         << "batt " << info.battery_level << "\n"
+                         << "num_photos " << info.num_photos << "\n";
+            }
 
-    // TODO: send out 1 Hz telemetry.
+            // Emit telemetry packet.
+            _message.seekp(0, std::ios::beg);
+            ABORT_ON_FAILURE(
+                _socket.send(_message.str()),
+                "UdpSocket::send() failed",
+                result::failure
+            );
+        }
+    }
 
     return result::success;
 }

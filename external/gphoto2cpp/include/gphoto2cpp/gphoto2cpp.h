@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string.h>
+
 #include <iostream>
 #include <memory>
 #include <string>
@@ -189,27 +191,91 @@ inline
 std::string
 read_property(const camera_ptr & camera, const std::string & property)
 {
-    GP2::CameraWidget * raw_widget = nullptr;
+    GP2::CameraWidget * raw_widget {nullptr};
+//~    GP2::CameraWidget * raw_child {nullptr};
+    widget_ptr widget {nullptr};
+    widget_ptr child {nullptr};
+
+    auto result = GP2::gp_camera_get_single_config(
+        camera.get(),
+        property.c_str(),
+        &raw_widget,
+        get_context().get()
+    );
+
+    if (result == GP2::OK)
+    {
+        widget = make_widget(raw_widget);
+        child = widget;
+    }
+    // Current not used, but I saw this in gphoto2/examples/config.c, leaving
+    // here for now in case I need it.
+//~    else if (result != GP2::OK)
+//~    {
+//~        GPHOTO2CPP_SAFE_CALL(
+//~            gp_camera_get_config(camera.get(), &raw_widget, get_context().get()),
+//~            "__ERROR__"
+//~        );
+
+//~        widget = make_widget(raw_widget);
+
+//~        GPHOTO2CPP_SAFE_CALL(
+//~            gp_widget_get_child_by_name(
+//~                widget.get(),
+//~                property.c_str(),
+//~                &raw_child
+//~            ),
+//~            "__ERROR__"
+//~        );
+
+//~        GPHOTO2CPP_SAFE_CALL(
+//~            gp_widget_get_child_by_label(
+//~                widget.get(),
+//~                property.c_str(),
+//~                &raw_child
+//~            ),
+//~            "__ERROR__"
+//~        );
+
+//~        child = make_widget(raw_child);
+//~    }
+
+    GP2::CameraWidgetType widget_type;
     GPHOTO2CPP_SAFE_CALL(
-        GP2::gp_camera_get_single_config(
-            camera.get(),
-            property.c_str(),
-            &raw_widget,
-            get_context().get()
-        ),
+        gp_widget_get_type(child.get(), &widget_type),
         "__ERROR__"
     );
 
-    // Cleanup.
-    auto widget = make_widget(raw_widget);
+    switch(widget_type)
+    {
+        case GP2::GP_WIDGET_MENU:  // fall througth
+        case GP2::GP_WIDGET_RADIO: // fall througth
+        case GP2::GP_WIDGET_RANGE: // fall througth
+        case GP2::GP_WIDGET_TEXT:  break;
+        default:
+        {
+            GPHOTO2CPP_ERROR_LOG << "widget has bad type " << widget_type << "\n";
+            return "__ERROR__";
+        }
+    }
 
-    const char * value;
+    const char * value {nullptr};
     GPHOTO2CPP_SAFE_CALL(
-        GP2::gp_widget_get_value(widget.get(), &value),
+        GP2::gp_widget_get_value(child.get(), &value),
         "__ERROR__"
     );
-    // Strip off leading zeros.
-    while (*value == '0') ++value;
+
+    if (value == nullptr or strlen(value) <= 0)
+    {
+        return "__ERROR__";
+    }
+
+    if (property == "serialnumber")
+    {
+        // Strip off leading zeros.
+        while (*value == '0') ++value;
+    }
+
     return std::string(value);
 }
 

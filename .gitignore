@@ -2,4 +2,7 @@ external/cactus-rt
 webapp/venv
 webapp/__pycache__
 rasberry-pi-4/ansible/venv
-
+rasberry-pi-4/rpi4-64-bit-fresh.img.bz2
+*.o
+lib*.a
+src/*/*_bin

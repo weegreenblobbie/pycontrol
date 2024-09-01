@@ -1,4 +1,5 @@
 #include <chrono>
+#include <thread>
 
 #include <gphoto2cpp/gphoto2cpp.h>
 #include <camera_control/Camera.h>
@@ -44,34 +45,36 @@ private:
 
 int main(int argc, char ** argv)
 {
-//~    auto cc = pycontrol::CameraControl();
-//~    ABORT_IF(cc.init("config_camera_control"), "init() failed", 1);
+    auto cc = pycontrol::CameraControl();
+    ABORT_IF(cc.init("config_camera_control"), "init() failed", 1);
 
-//~    for (int i = 0; i < 10; ++i)
-//~    {
-//~        ABORT_IF(cc.dispatch(), "failed", 1);
-//~    }
-
-    auto timer = Timer("detecting cameras");
-
-    for (int i = 0; i < 30; ++i)
+    while(true)
     {
-        auto detected = gphoto2cpp::auto_detect();
-        for (const auto & port : detected)
-        {
-            auto camera = gphoto2cpp::open_camera(port);
-            if (camera)
-            {
-                std::cout << "detected camera with serial number: "
-                          << gphoto2cpp::read_property(camera, "serialnumber")
-                          << "\n";
-            }
-        }
+        ABORT_IF(cc.dispatch(), "failed", 1);
+        using namespace std::chrono_literals;
+        std::this_thread::sleep_for(100ms);
     }
 
-    double total_seconds = timer;
+//~    auto timer = Timer("detecting cameras");
 
-    std::cout << "detecting cameras took " << total_seconds/ 30.0 << " per call\n";
+//~    for (int i = 0; i < 30; ++i)
+//~    {
+//~        auto detected = gphoto2cpp::auto_detect();
+//~        for (const auto & port : detected)
+//~        {
+//~            auto camera = gphoto2cpp::open_camera(port);
+//~            if (camera)
+//~            {
+//~                std::cout << "detected camera with serial number: "
+//~                          << gphoto2cpp::read_property(camera, "serialnumber")
+//~                          << "\n";
+//~            }
+//~        }
+//~    }
+
+//~    double total_seconds = timer;
+
+//~    std::cout << "detecting cameras took " << total_seconds/ 30.0 << " per call\n";
 
     return 0;
 }

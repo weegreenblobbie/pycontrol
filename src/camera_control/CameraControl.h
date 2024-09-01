@@ -1,13 +1,16 @@
 #pragma once
 
 #include <cstdint>
-#include <set>
+#include <map>
 #include <memory>
-#include <vector>
+#include <set>
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include <common/io.h>
 #include <common/types.h>
+#include <common/UdpSocket.h>
 
 namespace boost { namespace process { class ipstream; } }
 namespace pycontrol
@@ -17,7 +20,7 @@ using port_set = std::set<std::string>;
 
 
 class Camera;
-using CameraVector = std::vector<std::shared_ptr<Camera>>;
+using camera_map = std::map<std::string, std::shared_ptr<Camera>>;
 
 class CameraControl
 {
@@ -36,14 +39,21 @@ public:
     result dispatch();
 
 private:
-    State        _state   {State::init};
-    CameraVector _cameras {};
-    port_set     _port_set {};
+
+    void _camera_scan();
+
+    State             _state   {State::init};
+    camera_map        _cameras {};
+    port_set          _current_ports {};
+    std::stringstream _message {};
 
     std::string    _ip    {"239.192.168.1"};
     std::uint16_t  _port  {10018};
     std::uint64_t  _control_time {0};
-    std::uint64_t  _control_period {50}; // 20 Hz.
+    std::uint64_t  _control_period {100}; // 10 Hz.
+    std::uint64_t  _send_time {0};
+
+    UdpSocket      _socket;
 };
 
 

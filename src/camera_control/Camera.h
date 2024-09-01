@@ -5,6 +5,10 @@
 #include <vector>
 #include <string>
 
+#include <gphoto2cpp/gphoto2cpp.h>
+
+#include <common/types.h>
+
 namespace pycontrol
 {
 
@@ -15,26 +19,31 @@ public:
 
     struct Info
     {
+        bool        connected;
         std::string serial;
         std::string port;
         std::string desc;
-        std::string mode; // manual, A, S, P, etc.
+        std::string mode;     // manual, A, S, P, etc.
         std::string shutter;
         std::string fstop;
         std::string iso;
-        std::uint32_t quality;
-        std::uint32_t battery_level;
-        std::uint32_t num_photos;
+        std::string quality;
+        std::string battery_level;
+        std::string num_photos;
     };
 
-    using info_vec = std::vector<Info>;
+    Camera(
+        gphoto2cpp::camera_ptr & camera,
+        const std::string & port,
+        const std::string & serial,
+        const std::string & config_file
+    );
 
-    static info_vec detect_cameras();
+    void reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port);
+    void disconnect() {_info.connected = false; }
 
-    bool init(const std::string & config_file);
-    bool reconnect(const std::string & port);
-
-    const Info & read_settings();
+    void fetch_settings();
+    const Info & read_settings() { return _info; }
     void write_settings();
 
     void set_shutter(const std::string & speed);
@@ -43,10 +52,11 @@ public:
 
 private:
 
-    bool _stale_shutter {1};
-    bool _stale_fstop   {1};
-    bool _stale_iso     {1};
-    Info _info;
+    bool                   _stale_shutter {1};
+    bool                   _stale_fstop   {1};
+    bool                   _stale_iso     {1};
+    Info                   _info;
+    gphoto2cpp::camera_ptr _camera;
 };
 
 

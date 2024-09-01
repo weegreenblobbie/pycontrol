@@ -22,6 +22,7 @@
 //#include <string.h>
 
 
+#define INFO_LOG std::cout << __FILE__ << "(" << __LINE__ << "): INFO: "
 #define DEBUG_LOG std::cout << __FILE__ << "(" << __LINE__ << "): DEBUG: "
 #define ERROR_LOG std::cerr << __FILE__ << "(" << __LINE__ << "): ERROR: "
 
@@ -392,7 +393,7 @@ int main(int argc, char ** argv)
 
             // create UDP socket.
             sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-            if (not sockfd < 0)
+            if (sockfd < 0)
             {
                 ERROR_LOG << "Failed to open socket!\n";
                 continue;

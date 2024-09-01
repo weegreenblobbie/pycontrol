@@ -9,7 +9,7 @@ OBJECTS = $(SOURCES:.cc=.o)
 
 all: $(LIB)
 
-$(OBJECTS): $(SOURCES)
+%.o: %.cc
 	$(CC) $(CXXFLAGS) -c $< -o $@
 
 $(LIB): $(OBJECTS)
