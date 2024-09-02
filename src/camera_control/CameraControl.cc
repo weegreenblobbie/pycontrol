@@ -79,10 +79,11 @@ CameraControl::_camera_scan()
 
                 const auto serial = gphoto2cpp::read_property(camera, "serialnumber");
 
+                DEBUG_LOG << "adding " << port << "\n";
+
                 // Add new camera.
                 if (not _cameras.contains(serial))
                 {
-                    DEBUG_LOG << "adding " << port << "\n";
                     auto cam = std::make_shared<Camera>(
                         camera,
                         port,

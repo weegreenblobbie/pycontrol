@@ -256,6 +256,11 @@ read_property(const camera_ptr & camera, const std::string & property, const std
                 GP2::gp_widget_get_value(raw_child, &value),
                 default_
             );
+            GPHOTO2CPP_CHECK_PTR(
+                value,
+                "gp_widget_get_value('" << property << "') failed",
+                default_
+            );
             if (property == "serialnumber")
             {
                 // Strip off leading zeros.

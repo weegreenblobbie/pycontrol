@@ -15,6 +15,8 @@
 
 RAPI_IP=192.168.1.173
 
-rsync -avrt --delete --exclude={"venv","*.o","*_bin","cactus-rt"} . $RAPI_IP:pycontrol
+rsync -avrt --delete \
+    --exclude={".git","venv","*.o","*_bin","lib*.a","cactus-rt","*img.bz2","__pycache__"} \
+    . $RAPI_IP:pycontrol
 
-ssh -t $RAPI_IP "cd pycontrol && make"
+ssh -t $RAPI_IP "cd pycontrol && make $1"

@@ -1,6 +1,6 @@
 TOPTARGETS := all clean real-clean
 
-SUBDIRS := $(wildcard */)
+SUBDIRS := common camera_control control
 
 $(TOPTARGETS): $(SUBDIRS)
 $(SUBDIRS):

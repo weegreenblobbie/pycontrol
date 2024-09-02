@@ -51,11 +51,18 @@ class CameraInfoReader:
             # Join the multicast group
             mreq = socket.inet_aton(UDP_IP) + socket.inet_aton('0.0.0.0')
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+            sock.settimeout(3.0)
 
             buffer_size = 16 * (3 * 128)
 
             while True:
-                data, addr = sock.recvfrom(buffer_size)
+                try:
+                    data, addr = sock.recvfrom(buffer_size)
+                except socket.timeout:
+                    with self._lock:
+                        for cam in self._detected:
+                            cam["connected"] = 0
+                    continue
                 data = data.decode('utf-8')
 
                 # Example message:

@@ -231,9 +231,10 @@
 
                         cell_serial          .textContent = info.serial;
                         cell_desc            .textContent = info.desc;
-                        cell_battery         .textContent = info.batt;
+                        cell_battery         .textContent = "N/A";
                         cell_port            .textContent = info.port;
-                        cell_available_shots .textContent = "N/A";                        cell_quality         .textContent = "N/A";
+                        cell_available_shots .textContent = "N/A";
+                        cell_quality         .textContent = "N/A";
                         cell_mode            .textContent = "N/A";
                         cell_iso             .textContent = "N/A";
                         cell_fstop           .textContent = "N/A";
@@ -253,6 +254,7 @@
                         else
                         {
                             svg_connected.src = "{{url_for('static', filename='cam-connected.svg')}}";
+                            cell_battery         .textContent = info.batt;
                             cell_port            .textContent = info.port;
                             cell_available_shots .textContent = info.num_photos;
                             cell_quality         .textContent = info.quality;
