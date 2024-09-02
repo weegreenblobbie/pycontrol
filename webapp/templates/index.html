@@ -51,9 +51,17 @@
         <!--~ Header ~-->
         <thead>
             <tr>
+                <th>Connected</th>
                 <th>Serial</th>
-                <th>Port</th>
                 <th>Description</th>
+                <th>Batter Level</th>
+                <th>Port</th>
+                <th>Available Shots</th>
+                <th>Quality</th>
+                <th>Mode</th>
+                <th>ISO</th>
+                <th>F-Stop</th>
+                <th>Shutter</th>
             </tr>
         </thead>
 
@@ -166,16 +174,42 @@
                     if (data.num_cameras == 0)
                     {
                         const row = document.createElement('tr');
-                        const cell0 = document.createElement('td');
-                        const cell1 = document.createElement('td');
-                        const cell2 = document.createElement('td');
+                        const cell_connected       = document.createElement('td');
+                        const cell_serial          = document.createElement('td');
+                        const cell_desc            = document.createElement('td');
+                        const cell_battery         = document.createElement('td');
+                        const cell_port            = document.createElement('td');
+                        const cell_available_shots = document.createElement('td');
+                        const cell_quality         = document.createElement('td');
+                        const cell_mode            = document.createElement('td');
+                        const cell_iso             = document.createElement('td');
+                        const cell_fstop           = document.createElement('td');
+                        const cell_shutter         = document.createElement('td');
 
-                        cell0.textContent = "N/A";
-                        cell1.textContent = "N/A";
-                        cell2.textContent = "N/A";
-                        row.appendChild(cell0);
-                        row.appendChild(cell1);
-                        row.appendChild(cell2);
+                        cell_connected       .textContent = "N/A";
+                        cell_serial          .textContent = "N/A";
+                        cell_desc            .textContent = "N/A";
+                        cell_battery         .textContent = "N/A";
+                        cell_port            .textContent = "N/A";
+                        cell_available_shots .textContent = "N/A";
+                        cell_quality         .textContent = "N/A";
+                        cell_mode            .textContent = "N/A";
+                        cell_iso             .textContent = "N/A";
+                        cell_fstop           .textContent = "N/A";
+                        cell_shutter         .textContent = "N/A";
+
+                        row.appendChild(cell_connected       );
+                        row.appendChild(cell_serial          );
+                        row.appendChild(cell_desc            );
+                        row.appendChild(cell_battery         );
+                        row.appendChild(cell_port            );
+                        row.appendChild(cell_available_shots );
+                        row.appendChild(cell_quality         );
+                        row.appendChild(cell_mode            );
+                        row.appendChild(cell_iso             );
+                        row.appendChild(cell_fstop           );
+                        row.appendChild(cell_shutter         );
+
                         cameras.appendChild(row);
                         return;
                     }
@@ -183,16 +217,65 @@
                     for (let info of data.detected)
                     {
                         const row = document.createElement('tr');
-                        const cell0 = document.createElement('td');
-                        const cell1 = document.createElement('td');
-                        const cell2 = document.createElement('td');
+                        const cell_connected       = document.createElement('td');
+                        const cell_serial          = document.createElement('td');
+                        const cell_desc            = document.createElement('td');
+                        const cell_battery         = document.createElement('td');
+                        const cell_port            = document.createElement('td');
+                        const cell_available_shots = document.createElement('td');
+                        const cell_quality         = document.createElement('td');
+                        const cell_mode            = document.createElement('td');
+                        const cell_iso             = document.createElement('td');
+                        const cell_fstop           = document.createElement('td');
+                        const cell_shutter         = document.createElement('td');
 
-                        cell0.textContent = info.serial;
-                        cell1.textContent = info.port;
-                        cell2.textContent = info.desc;
-                        row.appendChild(cell0);
-                        row.appendChild(cell1);
-                        row.appendChild(cell2);
+                        cell_serial          .textContent = info.serial;
+                        cell_desc            .textContent = info.desc;
+                        cell_battery         .textContent = info.batt;
+                        cell_port            .textContent = info.port;
+                        cell_available_shots .textContent = "N/A";                        cell_quality         .textContent = "N/A";
+                        cell_mode            .textContent = "N/A";
+                        cell_iso             .textContent = "N/A";
+                        cell_fstop           .textContent = "N/A";
+                        cell_shutter         .textContent = "N/A";
+
+                        /*
+                         * Image object for visual status of camera connection.
+                         */
+                        const svg_connected = document.createElement('img');
+                        svg_connected.width = "70";
+                        svg_connected.height = "50";
+
+                        if (info.connected == "0")
+                        {
+                            svg_connected.src = "{{url_for('static', filename='cam-disconnected.svg')}}";
+                        }
+                        else
+                        {
+                            svg_connected.src = "{{url_for('static', filename='cam-connected.svg')}}";
+                            cell_port            .textContent = info.port;
+                            cell_available_shots .textContent = info.num_photos;
+                            cell_quality         .textContent = info.quality;
+                            cell_mode            .textContent = info.mode;
+                            cell_iso             .textContent = info.iso;
+                            cell_fstop           .textContent = info.fstop;
+                            cell_shutter         .textContent = info.shutter;
+                        }
+
+                        cell_connected.appendChild(svg_connected);
+
+                        row.appendChild(cell_connected       );
+                        row.appendChild(cell_serial          );
+                        row.appendChild(cell_desc            );
+                        row.appendChild(cell_battery         );
+                        row.appendChild(cell_port            );
+                        row.appendChild(cell_available_shots );
+                        row.appendChild(cell_quality         );
+                        row.appendChild(cell_mode            );
+                        row.appendChild(cell_iso             );
+                        row.appendChild(cell_fstop           );
+                        row.appendChild(cell_shutter         );
+
                         cameras.appendChild(row);
                     }
                 })
@@ -202,9 +285,8 @@
         }
 
 
-
         // Run once and schedule every 3 secons.
-        let interval = 3000;
+        let interval = 1000;
 
         fetch_gps();
         setInterval(fetch_gps, interval);

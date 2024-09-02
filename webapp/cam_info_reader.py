@@ -60,43 +60,68 @@ class CameraInfoReader:
 
                 # Example message:
                 #
-                # CAM_INFO
-                #    1
-                #    7 3052284
-                #   11 usb:001,004
-                #   11 Nikon Z 6_2
+                #     CAM_CONTROL
+                #     state monitor
+                #     num_cameras 2
+                #     connected 1
+                #     serial 3006513
+                #     port usb:001,005
+                #     desc Nikon Corporation Z 7
+                #     mode M
+                #     shutter 1/400
+                #     fstop f/8
+                #     iso 500
+                #     quality NEF (Raw)
+                #     batt 60%
+                #     num_photos 845
+                #     connected 1
+                #     serial 3052284
+                #     port usb:001,006
+                #     desc Nikon Corporation Z 6_2
+                #     mode M
+                #     shutter 1/400
+                #     fstop f/8
+                #     iso 500
+                #     quality NEF+Fine
+                #     batt 100%
+                #     num_photos 1231
                 #
 
                 # Parse the message.
-                tokens = data.split("\n")
+                lines = data.split("\n")
                 idx = 0
 
                 # Assert the message type.
-                msg_type = tokens[idx].strip()
+                msg_type = lines[idx].strip()
                 idx += 1
 
-                if msg_type != "CAM_INFO":
+                if msg_type != "CAM_CONTROL":
                     print(f"Unknown message type '{msg_type}'")
                     continue
 
-                num_cameras = int(tokens[idx])
+                # State.
+                state = lines[idx].split()[-1]
+                idx += 1
+
+                # num _cameras.
+                num_cameras = int(lines[idx].split()[-1])
                 idx += 1
 
                 detected = []
                 for i in range(num_cameras):
 
-                    # Serial Number.
-                    len_serial, serial = tokens[idx].split()
-                    idx += 1
+                    # 11 properties
+                    cam = dict()
 
-                    # Port.
-                    len_port, port = int(tokens[idx][0:4]), tokens[idx][5:]
-                    idx += 1
+                    for j in range(11):
+                        tokens = lines[idx].split()
+                        idx += 1
+                        key = tokens[0]
+                        value = " ".join(tokens[1:])
+                        if value != "__ERROR__":
+                            cam[key] = value
 
-                    # Description.
-                    len_desc, desc = int(tokens[idx][0:4]), tokens[idx][5:]
-                    idx += 1
-                    detected.append(dict(serial=serial, port=port, desc=desc))
+                    detected.append(cam)
 
                 detected = sorted(detected, key = lambda x: x['serial'])
 
