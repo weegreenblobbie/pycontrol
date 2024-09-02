@@ -64,8 +64,7 @@ Camera::fetch_settings()
     _info.fstop = gphoto2cpp::read_property(_camera, "f-number");
     _info.iso = gphoto2cpp::read_property(_camera, "iso");
     _info.quality = gphoto2cpp::read_property(_camera, "imagequality");
-    // currently causes a program crash.
-//~    _info.num_photos = gphoto2cpp::read_property(_camera, "availableshots");
+    _info.num_photos = gphoto2cpp::read_property(_camera, "availableshots");
 }
 
 
