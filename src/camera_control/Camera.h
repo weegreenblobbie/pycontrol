@@ -29,7 +29,7 @@ public:
         std::string iso;
         std::string quality;
         std::string battery_level;
-        std::string num_photos;
+        std::string num_photos {"__ERROR__"};
     };
 
     Camera(
@@ -40,7 +40,7 @@ public:
     );
 
     void reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port);
-    void disconnect() {_info.connected = false; }
+    void disconnect();
 
     void fetch_settings();
     const Info & read_settings() { return _info; }

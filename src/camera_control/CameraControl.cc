@@ -71,12 +71,18 @@ CameraControl::_camera_scan()
             if (not _current_ports.contains(port))
             {
                 auto camera = gphoto2cpp::open_camera(port);
-                if (not camera) continue;
+                if (not camera)
+                {
+                    INFO_LOG << "open_camera() failed, ignoring" << std::endl;
+                    continue;
+                }
+
                 const auto serial = gphoto2cpp::read_property(camera, "serialnumber");
 
                 // Add new camera.
                 if (not _cameras.contains(serial))
                 {
+                    DEBUG_LOG << "adding " << port << "\n";
                     auto cam = std::make_shared<Camera>(
                         camera,
                         port,
@@ -103,6 +109,7 @@ CameraControl::_camera_scan()
             const auto & port = cam->read_settings().port;
             if (not detections.contains(port))
             {
+                DEBUG_LOG << "removing " << port << "\n";
                 cam->disconnect();
                 _current_ports.erase(port);
             }
@@ -190,23 +197,22 @@ CameraControl::dispatch()
         }
     }
 
-
-    // TODO: perform and log state transitions.
     _control_time += _control_period;
+
     if (_state != next_state)
     {
-        INFO_LOG << "time: " << _control_time << " state: " << _state << " -> " << next_state << "\n";
+        INFO_LOG << "time: " << _control_time
+                 << " state: " << _state << " -> " << next_state
+                 << std::endl;
         _state = next_state;
     }
 
     // Send out 1 Hz telemetry.
     if (_send_time <= _control_time)
     {
-        _send_time = _control_time + 1000;
+        _send_time = (_send_time + 1000);
         if (send_telemetry)
         {
-            INFO_LOG << "time: " << _control_time << " state: " << _state << ", sending telemetry\n";
-
             _message.seekp(0, std::ios::beg);
             _message << "CAM_CONTROL\n"
                      << "state " << _state << "\n"
@@ -227,9 +233,12 @@ CameraControl::dispatch()
                          << "batt " << info.battery_level << "\n"
                          << "num_photos " << info.num_photos << "\n";
             }
+            // Mark the end of the buffer for strlen().
+            _message << '\0';
+            // Rewind.
+            _message.seekp(0, std::ios::beg);
 
             // Emit telemetry packet.
-            _message.seekp(0, std::ios::beg);
             ABORT_ON_FAILURE(
                 _socket.send(_message.str()),
                 "UdpSocket::send() failed",

@@ -55,24 +55,23 @@ init(const std::string & ipv4, const std::uint64_t & port)
 
 result
 UdpSocket::
-send(const std::string & msg)
+send(const std::string & msg, const std::uint16_t nbytes)
 {
-    ABORT_IF(msg.size() <= 0, "send() message is 0 length", result::failure);
+    std::uint16_t num_bytes = nbytes;
+    if (num_bytes == 0)
+    {
+        num_bytes = strlen(msg.c_str());
+    }
+    ABORT_IF(num_bytes == 0, "send(), refusing to send 0 bytes", result::failure);
 
     auto res = sendto(
         _socket_fd,
         msg.c_str(),
-        msg.size(),
+        num_bytes,
         0 /* flags */,
         reinterpret_cast<sockaddr *>(_sockaddr.get()),
         sizeof(sockaddr_in)
     );
-
-    INFO_LOG << "\nsocket_fd: " << _socket_fd << "\n"
-             << "msg.size:  " << msg.size() << "\n"
-             << "strlen(msg):  " << strlen(msg.c_str()) << "\n"
-             << "sizeof(sockaddr_in): " << sizeof(sockaddr_in) << "\n"
-             << "msg:\n" << msg;
 
     ABORT_IF(
         res < 0,

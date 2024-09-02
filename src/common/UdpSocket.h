@@ -37,7 +37,7 @@ public:
         const std::string & ipv4,
         const std::uint64_t & port);
 
-    result send(const std::string & msg);
+    result send(const std::string & msg, const std::uint16_t nbytes=0);
 
 private:
 

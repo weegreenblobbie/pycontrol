@@ -34,7 +34,11 @@ namespace gphoto2cpp
     port_info_list_ptr       make_port_info_list();
     widget_ptr               make_widget(GP2::CameraWidget * ptr);
     camera_ptr               open_camera(const std::string & port);
-    std::string              read_property(const camera_ptr & camera, const std::string & property);
+    std::string              read_property(
+                                 const camera_ptr & camera,
+                                 const std::string & property,
+                                 const std::string & default_="__ERROR__"
+                             );
 }
 
 
@@ -189,7 +193,7 @@ open_camera(const std::string & port)
 
 inline
 std::string
-read_property(const camera_ptr & camera, const std::string & property)
+read_property(const camera_ptr & camera, const std::string & property, const std::string & default_)
 {
     GP2::CameraWidget * raw_widget {nullptr};
 //~    GP2::CameraWidget * raw_child {nullptr};
@@ -243,7 +247,7 @@ read_property(const camera_ptr & camera, const std::string & property)
     GP2::CameraWidgetType widget_type;
     GPHOTO2CPP_SAFE_CALL(
         gp_widget_get_type(child.get(), &widget_type),
-        "__ERROR__"
+        default_
     );
 
     switch(widget_type)
@@ -255,19 +259,19 @@ read_property(const camera_ptr & camera, const std::string & property)
         default:
         {
             GPHOTO2CPP_ERROR_LOG << "widget has bad type " << widget_type << "\n";
-            return "__ERROR__";
+            return default_;
         }
     }
 
     const char * value {nullptr};
     GPHOTO2CPP_SAFE_CALL(
         GP2::gp_widget_get_value(child.get(), &value),
-        "__ERROR__"
+        default_
     );
 
     if (value == nullptr or strlen(value) <= 0)
     {
-        return "__ERROR__";
+        return default_;
     }
 
     if (property == "serialnumber")
@@ -278,7 +282,6 @@ read_property(const camera_ptr & camera, const std::string & property)
 
     return std::string(value);
 }
-
 
 
 }
