@@ -53,7 +53,7 @@
       tags:
         - install
 
-    - name: Configure u-blox 7 GPS receiver with gpsd
+    - name: Configure u-blox 7 GPS receiver device with gpsd
       become: true
       lineinfile:
         path: /etc/default/gpsd
@@ -62,6 +62,42 @@
         state: present
       notify:
         - restart gpsd
+      tags:
+        - install
+
+    - name: Configure gpsd no wait
+      become: true
+      lineinfile:
+        path: /etc/default/gpsd
+        regexp: ^GPSD_OPTIONS=
+        line: GPSD_OPTIONS="-n"
+        state: present
+      notify:
+        - restart gpsd
+      tags:
+        - install
+
+    - name: Chrony - disable network time sync (NTP)
+      become: true
+      lineinfile:
+        path: /etc/chrony/chrony.conf
+        regexp: ^pool .+ iburst
+        line: "# anbisle commented out: pool 2.debian.pool.ntp.org iburst"
+        state: present
+      notify:
+        - restart chronyd
+      tags:
+        - install
+
+    - name: Chrony - synchronizes the system clock to gps time via gpsd
+      become: true
+      lineinfile:
+        path: /etc/chrony/chrony.conf
+        regexp: ^refclock
+        line: refclock SHM 0 offset 0.5 delay 0.1 refid GPS
+        state: present
+      notify:
+        - restart chronyd
       tags:
         - install
 
@@ -97,4 +133,9 @@
     - name: restart gpsd
       ansible.builtin.service:
         name: gpsd
+        state: restarted
+
+    - name: restart chronyd
+      ansible.builtin.service:
+        name: chronyd
         state: restarted
