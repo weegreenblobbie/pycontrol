@@ -53,8 +53,8 @@
             <tr>
                 <th>Connected</th>
                 <th>Serial</th>
-                <th>Description</th>
-                <th>Batter Level</th>
+                <th>Name</th>
+                <th>Battery Level</th>
                 <th>Port</th>
                 <th>Available Shots</th>
                 <th>Quality</th>
@@ -70,232 +70,19 @@
 
     </table>
 
+    <div id="rename_modal" class="modal">
+        <div class="modal_content">
+            <span class="close_button">&times;</span>
+            <h2>Rename Camera</h2>
+            <input type="text" id="rename_input">
+            <div class="modal_buttons">
+                <button id="cancel_rename">Cancel</button>
+                <button id="save_rename">OK</button>
+            </div>
+        </div>
+    </div>
 
     <!--~ Scripts ~-->
-    <script>
-
-        // Library stuff.
-        function sprintf()
-        {
-            // https://stackoverflow.com/a/4795914/562106
-            var args = arguments,
-            string = args[0],
-            i = 1;
-            return string.replace(/%((%)|s|d)/g, function (m) {
-                // m is the matched format, e.g. %s, %d
-                var val = null;
-                if (m[2]) {
-                    val = m[2];
-                } else {
-                    val = args[i];
-                    // A switch statement so that the formatter can be extended. Default is %s
-                    switch (m) {
-                        case '%d':
-                            val = parseFloat(val);
-                            if (isNaN(val)) {
-                                val = 0;
-                            }
-                            break;
-                    }
-                    i++;
-                }
-                return val;
-            });
-        }
-
-        // GPS.
-        let gps_connection = document.getElementById("gps-connection");
-        let gps_mode = document.getElementById("gps-mode");
-        let gps_mode_time = document.getElementById("gps-mode-time");
-        let gps_sats = document.getElementById("gps-sats");
-        let gps_time = document.getElementById("gps-time");
-        let gps_latitude = document.getElementById("gps-latitude");
-        let gps_longitude = document.getElementById("gps-longitude");
-        let gps_altitude = document.getElementById("gps-altitude");
-
-        function fetch_gps()
-        {
-            fetch('/api/gps')
-                .then(response => response.json())
-                .then(data => {
-                    console.log(data);
-
-                    if (!data.connected)
-                    {
-                        gps_connection.src = "/static/gps-disconnected.svg";
-                        gps_mode.textContent = data.mode;
-                        gps_mode_time.textContent = data.mode_time;
-
-                        gps_sats.textContent = "N/A";
-                        gps_time.textContent = "N/A";
-                        gps_latitude.textContent = "N/A";
-                        gps_longitude.textContent = "N/A";
-                        gps_altitude.textContent = "N/A";
-                        return;
-                    }
-
-                    if (data.mode == "2D FIX")
-                    {
-                        gps_connection.src = "/static/gps-degraded.svg";
-                    }
-                    else if (data.mode == "3D FIX")
-                    {
-                        gps_connection.src = "/static/gps-connected.svg";
-                    }
-
-                    gps_mode.textContent = data.mode;
-                    gps_mode_time.textContent = data.mode_time;
-                    gps_sats.textContent = sprintf("%d/%d", data.sats_used, data.sats_seen);
-                    gps_time.textContent = data.time;
-                    // Using 4 decimal places for about 10 meteters of precision.
-                    //     https://gis.stackexchange.com/a/8674
-                    gps_latitude.textContent = data.lat.toFixed(4);
-                    gps_longitude.textContent = data.long.toFixed(4);
-                    gps_altitude.textContent = data.altitude.toFixed(1);
-                })
-                .catch(error => {
-                  console.error('Error fetching data:', error);
-                });
-        }
-
-        // Cameras.
-        const cameras = document.getElementById("cameras").tBodies[0];
-
-        function fetch_cameras()
-        {
-            fetch('/api/cameras')
-                .then(response => response.json())
-                .then(data => {
-                    console.log(data);
-
-                    // Erase.
-                    cameras.innerHTML = "";
-
-                    if (data.num_cameras == 0)
-                    {
-                        const row = document.createElement('tr');
-                        const cell_connected       = document.createElement('td');
-                        const cell_serial          = document.createElement('td');
-                        const cell_desc            = document.createElement('td');
-                        const cell_battery         = document.createElement('td');
-                        const cell_port            = document.createElement('td');
-                        const cell_available_shots = document.createElement('td');
-                        const cell_quality         = document.createElement('td');
-                        const cell_mode            = document.createElement('td');
-                        const cell_iso             = document.createElement('td');
-                        const cell_fstop           = document.createElement('td');
-                        const cell_shutter         = document.createElement('td');
-
-                        cell_connected       .textContent = "N/A";
-                        cell_serial          .textContent = "N/A";
-                        cell_desc            .textContent = "N/A";
-                        cell_battery         .textContent = "N/A";
-                        cell_port            .textContent = "N/A";
-                        cell_available_shots .textContent = "N/A";
-                        cell_quality         .textContent = "N/A";
-                        cell_mode            .textContent = "N/A";
-                        cell_iso             .textContent = "N/A";
-                        cell_fstop           .textContent = "N/A";
-                        cell_shutter         .textContent = "N/A";
-
-                        row.appendChild(cell_connected       );
-                        row.appendChild(cell_serial          );
-                        row.appendChild(cell_desc            );
-                        row.appendChild(cell_battery         );
-                        row.appendChild(cell_port            );
-                        row.appendChild(cell_available_shots );
-                        row.appendChild(cell_quality         );
-                        row.appendChild(cell_mode            );
-                        row.appendChild(cell_iso             );
-                        row.appendChild(cell_fstop           );
-                        row.appendChild(cell_shutter         );
-
-                        cameras.appendChild(row);
-                        return;
-                    }
-
-                    for (let info of data.detected)
-                    {
-                        const row = document.createElement('tr');
-                        const cell_connected       = document.createElement('td');
-                        const cell_serial          = document.createElement('td');
-                        const cell_desc            = document.createElement('td');
-                        const cell_battery         = document.createElement('td');
-                        const cell_port            = document.createElement('td');
-                        const cell_available_shots = document.createElement('td');
-                        const cell_quality         = document.createElement('td');
-                        const cell_mode            = document.createElement('td');
-                        const cell_iso             = document.createElement('td');
-                        const cell_fstop           = document.createElement('td');
-                        const cell_shutter         = document.createElement('td');
-
-                        cell_serial          .textContent = info.serial;
-                        cell_desc            .textContent = info.desc;
-                        cell_battery         .textContent = "N/A";
-                        cell_port            .textContent = info.port;
-                        cell_available_shots .textContent = "N/A";
-                        cell_quality         .textContent = "N/A";
-                        cell_mode            .textContent = "N/A";
-                        cell_iso             .textContent = "N/A";
-                        cell_fstop           .textContent = "N/A";
-                        cell_shutter         .textContent = "N/A";
-
-                        /*
-                         * Image object for visual status of camera connection.
-                         */
-                        const svg_connected = document.createElement('img');
-                        svg_connected.width = "70";
-                        svg_connected.height = "50";
-
-                        if (info.connected == "0")
-                        {
-                            svg_connected.src = "{{url_for('static', filename='cam-disconnected.svg')}}";
-                        }
-                        else
-                        {
-                            svg_connected.src = "{{url_for('static', filename='cam-connected.svg')}}";
-                            cell_battery         .textContent = info.batt;
-                            cell_port            .textContent = info.port;
-                            cell_available_shots .textContent = info.num_photos;
-                            cell_quality         .textContent = info.quality;
-                            cell_mode            .textContent = info.mode;
-                            cell_iso             .textContent = info.iso;
-                            cell_fstop           .textContent = info.fstop;
-                            cell_shutter         .textContent = info.shutter;
-                        }
-
-                        cell_connected.appendChild(svg_connected);
-
-                        row.appendChild(cell_connected       );
-                        row.appendChild(cell_serial          );
-                        row.appendChild(cell_desc            );
-                        row.appendChild(cell_battery         );
-                        row.appendChild(cell_port            );
-                        row.appendChild(cell_available_shots );
-                        row.appendChild(cell_quality         );
-                        row.appendChild(cell_mode            );
-                        row.appendChild(cell_iso             );
-                        row.appendChild(cell_fstop           );
-                        row.appendChild(cell_shutter         );
-
-                        cameras.appendChild(row);
-                    }
-                })
-                .catch(error => {
-                  console.error('Error fetching data:', error);
-                });
-        }
-
-
-        // Run once and schedule every 3 secons.
-        let interval = 1000;
-
-        fetch_gps();
-        setInterval(fetch_gps, interval);
-
-        fetch_cameras();
-        setInterval(fetch_cameras, interval);
-    </script>
-
+    <script src="{{ url_for('static', filename='webapp.js') }}"></script>
 </body>
 </html>

@@ -19,4 +19,8 @@ rsync -avrt --delete \
     --exclude={".git","venv","*.o","*_bin","lib*.a","cactus-rt","*img.bz2","__pycache__"} \
     . $RAPI_IP:pycontrol
 
-ssh -t $RAPI_IP "cd pycontrol && make $1"
+if [ "$1" = "build" ]; then
+    ssh -t $RAPI_IP "cd pycontrol && make $1"
+else
+    echo "rsync only, to build pass 'build' on the command line."
+fi

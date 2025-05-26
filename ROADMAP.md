@@ -4,8 +4,9 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Add a yaml config file for mapping camera serial numbers to short names
-- Add flask UI to edit mapping.
+- Update camera_contro_bin to handle mapping serial number to alias.
+-- webapp/cam_info_reader.py to command serial:alias updates until camera_control_bin
+   responds with the update.
 - Define event file format
 - Add event selection UI to select 1 of these:
  -- 2026-03 linar eclipse
@@ -24,6 +25,8 @@ Make it work
 
 - Add a timeout to camera_info_reader.py so if the camera_montitor_bin stops emitting
   telemetry, we assume no cameras are detected.
+
+- Detect if camera is in Movie Mode and make camera status work while in that mode
 
 - Raspberry PI Health, like /api/gps, add a /api/pi-health for memory, cpu, and temp stats
 
@@ -67,6 +70,9 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Add a yaml config file for mapping camera serial numbers to short names
+* Add flask UI to edit mapping.
 
 * Configure the RAPI to use gpsd as it's time source and configure timezone to be UTC.
   Update ansible/playbook with gpsd and chrony config settings.

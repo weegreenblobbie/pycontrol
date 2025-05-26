@@ -4,11 +4,15 @@ A client that reads camera_monitor_bin UDP packets.
 """
 import copy
 import datetime
+import os.path
 import socket
 import threading
 import time
 
+import yaml
+
 now = datetime.datetime.now
+
 
 # TODO: Read settings from config file.
 UDP_IP = "239.192.168.1"
@@ -17,11 +21,31 @@ UDP_PORT = 10_018
 
 class CameraInfoReader:
 
-    def __init__(self):
+    FILENAME_YMAL = "../data/camera_description.yaml"
+
+    def __init__(self, filename_yaml=None):
         self._session = None
         self._lock = threading.Lock()
         self._thread = None
         self._detected = []
+        self._descriptions = dict()
+        self._filename_yaml = filename_yaml if filename_yaml else self.FILENAME_YMAL
+        if os.path.isfile(self._filename_yaml):
+            with open(self._filename_yaml, "r") as fin:
+                self._descriptions = yaml.safe_load(fin)
+        else:
+            with open(self._filename_yaml, "w") as fout:
+                yaml.dump(self._descriptions, fout)
+
+    def update_description(self, serial, desciption):
+        with self._lock:
+            self._descriptions[serial] = desciption
+
+        with open(self._filename_yaml, "w") as fout:
+            yaml.dump(self._descriptions, fout)
+
+        # TODO: broadcast message about rename so the C++ camera_control_bin
+        # knows the new name.
 
     def start(self):
         self._thread = threading.Thread(target=self._run_in_thread)
@@ -127,6 +151,8 @@ class CameraInfoReader:
                         value = " ".join(tokens[1:])
                         if value != "__ERROR__":
                             cam[key] = value
+
+                    cam["desc"] = self._descriptions.get(cam["serial"], cam["desc"])
 
                     detected.append(cam)
 
