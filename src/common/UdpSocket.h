@@ -35,15 +35,23 @@ public:
 
     result init(
         const std::string & ipv4,
-        const std::uint64_t & port);
+        const std::uint16_t & port);
 
-    result send(const std::string & msg, const std::uint16_t nbytes=0);
+    result send(const std::string & msg);
+    result read(std::string & msg);
+    result bind();
+
+    UdpSocket() {}
 
 private:
 
-//~    AutoFd         _socket_fd {-1};
+    explicit UdpSocket(const UdpSocket & copy) = delete;
+    UdpSocket & operator=(const UdpSocket & rhs) = delete;
+
+    // TODO: use AutoFd instead of int?
     int _socket_fd { -1 };
     socketaddr_ptr _sockaddr {nullptr};
+    bool _bound {false};
 };
 
 

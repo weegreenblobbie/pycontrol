@@ -11,6 +11,7 @@
     do { \
         if ((expr)) { \
             ERROR_LOG << "ABORT_IF: " << #expr << ": " << message << std::endl; \
+            return return_val; \
         } \
     } while (0)
 
@@ -19,6 +20,7 @@
     do { \
         if (not (expr)) { \
             ERROR_LOG << "ABORT_IF_NOT: " << #expr << ": " << message << std::endl; \
+            return return_val; \
         } \
     } while (0)
 
@@ -26,5 +28,6 @@
     do { \
         if (pycontrol::result::failure == (expr)) { \
             ERROR_LOG << "ABORT_ON_FILURE: " << #expr << ": " << message << std::endl; \
+            return return_val; \
         } \
     } while (0)

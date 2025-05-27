@@ -1,3 +1,2 @@
 rs-gps>=3.25.1.dev0
 Flask>=3
-pyyaml>=6

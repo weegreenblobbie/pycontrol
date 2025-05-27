@@ -4,7 +4,7 @@ from gps_reader import GpsReader
 from cam_info_reader import CameraInfoReader
 
 app = flask.Flask(__name__)
-
+app.config['DEBUG'] = True
 
 @app.route('/')
 def hello():
@@ -41,23 +41,15 @@ def camera_update_description():
             400
         )
 
-    try:
-        _cam_reader.update_description(serial, new_description)
-        print(f"Updated camera {serial} description to: {new_description}")
-        return (
-            '{"status":"success","message":"Description updated"}',
-            200
-        )
-    except Exception as err:
-        return (
-            f'{{"stdatus":"error","message":"{str(err)}"}}',
-            400
-        )
-
+    _cam_reader.update_description(serial, new_description)
+    return (
+        '{"status":"success","message":"Description updated"}',
+        200
+    )
 
 if __name__ == '__main__':
     _gps_reader = GpsReader()
     _gps_reader.start()
     _cam_reader = CameraInfoReader("../data/camera_descriptions.yaml")
     _cam_reader.start()
-    app.run(debug=True, host="0.0.0.0")
+    app.run(host="0.0.0.0")

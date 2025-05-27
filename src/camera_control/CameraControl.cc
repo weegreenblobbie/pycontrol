@@ -12,9 +12,10 @@ namespace pycontrol
 // are key value pair strings.  Here's a complete example with default values:
 //
 //     # comments start with '#' and the rest of the line is ignored.
-//     udp_ip     239.192.168.1  # The UDP IP address the telemetry is sent to.
-//     udp_port   10018          # UDP port telemetry is sent to.
-//     period     50             # 20 Hz or 50 ms dispatch period.
+//     udp_ip            239.192.168.1  # The UDP IP address the telemetry is sent to.
+//     cam_info_port     10018          # UDP port telemetry is sent to.
+//     cam_rename_port   10019          # UDP port camera rename packets arrive on.
+//     period            50             # 20 Hz or 50 ms dispatch period.
 //
 //-----------------------------------------------------------------------------
 result
@@ -34,10 +35,16 @@ CameraControl::init(const std::string & config_file)
             ABORT_IF_NOT(_ip.starts_with("239."), "Please use a local multicast IP address", result::failure);
         }
         else
-        if (pair.key == "udp_port")
+        if (pair.key == "cam_info_port")
         {
-            _port = as_type<std::uint16_t>(pair.value);
-            ABORT_IF(_port < 1024, "port too low, pick a higher port", result::failure);
+            _cam_info_port = as_type<std::uint16_t>(pair.value);
+            ABORT_IF(_cam_info_port < 1024, "port too low, pick a higher port", result::failure);
+        }
+        else
+        if (pair.key == "cam_rename_port")
+        {
+            _cam_rename_port = as_type<std::uint16_t>(pair.value);
+            ABORT_IF(_cam_rename_port < 1024, "port too low, pick a higher port", result::failure);
         }
         else
         if (pair.key == "period")
@@ -45,17 +52,30 @@ CameraControl::init(const std::string & config_file)
             _control_period = as_type<std::uint64_t>(pair.value);
             ABORT_IF(_control_period < 10, "100+ Hz is probably too fast", result::failure);
         }
+        else
+        if (pair.key == "camera_aliases")
+        {
+            kv_pair_vec data;
+            ABORT_IF(read_config(pair.value, data), "Failed to read camera_aliases", result::failure);
+            for (const auto & pair : data)
+            {
+                _camera_aliases[pair.key] = pair.value;
+                INFO_LOG << "init(): mapping camera alias: " << pair.key << " to " << pair.value << "\n";
+            }
+        }
     }
 
-    INFO_LOG << "init():         udp_ip: " << _ip << "\n";
-    INFO_LOG << "init():       udp_port: " << _port << "\n";
-    INFO_LOG << "init(): control_period: " << _control_period << " ms\n";
+    INFO_LOG << "init():          udp_ip: " << _ip << "\n";
+    INFO_LOG << "init():   cam_info_port: " << _cam_info_port << "\n";
+    INFO_LOG << "init(): cam_rename_port: " << _cam_rename_port << "\n";
+    INFO_LOG << "init():  control_period: " << _control_period << " ms\n";
 
-    ABORT_ON_FAILURE(_socket.init(_ip, _port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_cam_info_socket.init(_ip, _cam_info_port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_cam_rename_socket.init(_ip, _cam_rename_port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_cam_rename_socket.bind(), "UdpSocket::bind() failed", result::failure);
 
     return result::success;
 }
-
 
 void
 CameraControl::_camera_scan()
@@ -79,8 +99,6 @@ CameraControl::_camera_scan()
 
                 const auto serial = gphoto2cpp::read_property(camera, "serialnumber");
 
-                DEBUG_LOG << "adding " << port << "\n";
-
                 // Add new camera.
                 if (not _cameras.contains(serial))
                 {
@@ -88,9 +106,10 @@ CameraControl::_camera_scan()
                         camera,
                         port,
                         serial,
-                        "config_camera"
+                        "camera.config"
                     );
                     _cameras[serial] = cam;
+                    _camera_aliases[serial] = cam->read_settings().desc;
                 }
 
                 // Update existing camera.
@@ -98,6 +117,11 @@ CameraControl::_camera_scan()
                 {
                     _cameras[serial]->reconnect(camera, port);
                 }
+
+                DEBUG_LOG << "adding " << port << " "
+                          << serial << " = "
+                          << _camera_aliases[serial]
+                          << "\n";
 
                 _current_ports.insert(port);
             }
@@ -107,10 +131,14 @@ CameraControl::_camera_scan()
         for (auto & pair : _cameras)
         {
             auto & cam = pair.second;
-            const auto & port = cam->read_settings().port;
+            const auto & info = cam->read_settings();
+            const auto & port = info.port;
             if (not detections.contains(port))
             {
-                DEBUG_LOG << "removing " << port << "\n";
+                DEBUG_LOG << "removing " << port << " "
+                          << info.serial << " = "
+                          << _camera_aliases[info.serial]
+                          << "\n";
                 cam->disconnect();
                 _current_ports.erase(port);
             }
@@ -152,22 +180,16 @@ CameraControl::dispatch()
         {
             _camera_scan();
             send_telemetry = true;
-            // TODO: transition to execute_ready if we have a schedule.
+            // TODO: transition to execute_ready if we have a valid camera
+            // schedule.
             next_state = CameraControl::State::monitor;
             break;
         }
 
         case CameraControl::State::execute_ready:
         {
-            // TODO: check for any usb events.
-
-            // TODO: handle unplug events, moving cameras to an unplugged set.
-
-            // TODO: handle plug events, connect to camera and get port, read
-            //       serial, command unplugged camera to reconnect on new port,
-            //       if known.
-
-            // TODO: Read all camera settings and store.
+            _camera_scan();
+            send_telemetry = true;
 
             // TODO: transition to executing when a scheduled camera event is
             //       "soon", say <= 60s away.
@@ -182,7 +204,6 @@ CameraControl::dispatch()
             //
             // This means control_time probably must equal nanos since gps
             // epoch.
-            //
             //
             next_state = CameraControl::State::executing;
 
@@ -211,7 +232,7 @@ CameraControl::dispatch()
     // Send out 1 Hz telemetry.
     if (_send_time <= _control_time)
     {
-        _send_time = (_send_time + 1000);
+        _send_time += 1000;
         if (send_telemetry)
         {
             _message.seekp(0, std::ios::beg);
@@ -222,10 +243,17 @@ CameraControl::dispatch()
             {
                 const auto & cam = pair.second;
                 const auto & info = cam->read_settings();
+
+                const auto & entry = _camera_aliases.find(info.serial);
+
+                const auto desc = entry != _camera_aliases.end() ?
+                                  entry->second :
+                                  info.desc;
+
                 _message << "connected " << info.connected << "\n"
                          << "serial " << info.serial << "\n"
                          << "port " << info.port << "\n"
-                         << "desc " << info.desc << "\n"
+                         << "desc " << desc << "\n"
                          << "mode " << info.mode << "\n"
                          << "shutter " << info.shutter << "\n"
                          << "fstop " << info.fstop << "\n"
@@ -241,10 +269,37 @@ CameraControl::dispatch()
 
             // Emit telemetry packet.
             ABORT_ON_FAILURE(
-                _socket.send(_message.str()),
+                _cam_info_socket.send(_message.str()),
                 "UdpSocket::send() failed",
                 result::failure
             );
+        }
+    }
+
+    // Read any commands.
+    if (_read_time <= _control_time)
+    {
+        _read_time += 1000;
+        std::string msg = "";
+        ABORT_ON_FAILURE(
+            _cam_rename_socket.read(msg),
+            "UdpSocket::read() failed",
+            result::failure
+        );
+
+        if (not msg.empty())
+        {
+            auto tokens = split(msg);
+            if (tokens.size() == 2)
+            {
+                INFO_LOG << "mapping serial " << tokens[0] << " to " << tokens[1] << "\n";
+                _camera_aliases[tokens[0]] = tokens[1];
+            }
+            else
+            {
+                ERROR_LOG << "Got bad camera rename message: '" << msg << "'" << std::endl;
+                return result::failure;
+            }
         }
     }
 

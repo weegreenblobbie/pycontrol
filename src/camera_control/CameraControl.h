@@ -21,6 +21,7 @@ using port_set = std::set<std::string>;
 
 class Camera;
 using camera_map = std::map<std::string, std::shared_ptr<Camera>>;
+using camera_alias = std::map<std::string, std::string>;
 
 class CameraControl
 {
@@ -38,22 +39,34 @@ public:
     result init(const std::string & config_file);
     result dispatch();
 
+    CameraControl() {}
+
+    const std::uint64_t & control_time() const { return _control_time; }
+    const std::uint64_t & control_period() const { return _control_period; }
+
 private:
+
+    CameraControl(const CameraControl & copy) = delete;
+    CameraControl & operator=(const CameraControl & rhs) = delete;
 
     void _camera_scan();
 
     State             _state   {State::init};
     camera_map        _cameras {};
+    camera_alias      _camera_aliases {};
     port_set          _current_ports {};
     std::stringstream _message {};
 
-    std::string    _ip    {"239.192.168.1"};
-    std::uint16_t  _port  {10018};
+    std::string    _ip {};
+    std::uint16_t  _cam_info_port {};
+    std::uint16_t  _cam_rename_port {};
     std::uint64_t  _control_time {0};
-    std::uint64_t  _control_period {100}; // 10 Hz.
+    std::uint64_t  _control_period {};
     std::uint64_t  _send_time {0};
+    std::uint64_t  _read_time {500};  // Keep out of phase with _send_time.
 
-    UdpSocket      _socket;
+    UdpSocket      _cam_info_socket {};
+    UdpSocket      _cam_rename_socket {};
 };
 
 

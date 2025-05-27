@@ -2,14 +2,15 @@ LIB := libcommon.a
 
 AR = ar
 CC = g++
-CXXFLAGS = -Wall -O2 -g -I..
+CXXFLAGS = -std=c++2a -Wall -O2 -g -I..
 
 SOURCES = $(wildcard *.cc)
+HEADERS = $(wildcard *.h)
 OBJECTS = $(SOURCES:.cc=.o)
 
 all: $(LIB)
 
-%.o: %.cc
+%.o: %.cc $(HEADERS)
 	$(CC) $(CXXFLAGS) -c $< -o $@
 
 $(LIB): $(OBJECTS)

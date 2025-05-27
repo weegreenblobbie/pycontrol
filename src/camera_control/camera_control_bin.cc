@@ -1,3 +1,5 @@
+#include <cactus_rt/rt.h>
+
 #include <chrono>
 #include <thread>
 
@@ -5,76 +7,76 @@
 #include <camera_control/Camera.h>
 #include <camera_control/CameraControl.h>
 
-
-struct Timer
+namespace pycontrol
 {
-    // #include <chrono>
-    Timer(const std::string & message):
-        _msg(message),
-        _start(std::chrono::system_clock::now())
+
+class Thread : public cactus_rt::CyclicThread
+{
+public:
+
+    using Config = cactus_rt::CyclicThreadConfig;
+
+    Thread(
+        const std::string & name,
+        const cactus_rt::CyclicThreadConfig & config)
+    :
+        CyclicThread(name.c_str(), config)
     {}
 
-    ~Timer()
+    void init(std::shared_ptr<CameraControl> & cc)
     {
-        if (_dump_on_destruct)
-        {
-            _dump();
-        }
+        _cam_control = cc;
     }
 
-    void _dump() const
+protected:
+
+    std::shared_ptr<CameraControl> _cam_control {nullptr};
+
+    // Main working loop that's dispatched every config.period_ns.
+    LoopControl Loop(int64_t /*now*/) noexcept final
     {
-        auto duration = std::chrono::duration<double>(std::chrono::system_clock::now() - _start);
-        std::cout << _msg << " took " << duration.count() << " seconds\n";
+        ABORT_IF_NOT(
+            _cam_control,
+            "_cam_control is null!",
+            LoopControl::Stop
+        );
+        ABORT_IF(
+            _cam_control->dispatch(),
+            "CameraControl.dispatch() failed",
+            LoopControl::Stop
+        );
+        return LoopControl::Continue;
     }
-
-    operator double() const
-    {
-        _dump_on_destruct = false;
-        auto duration = std::chrono::duration<double>(std::chrono::system_clock::now() - _start);
-        return duration.count();
-    }
-
-private:
-
-    std::string _msg;
-    std::chrono::time_point<std::chrono::system_clock> _start;
-    mutable bool _dump_on_destruct{true};
 };
+}
+
 
 
 int main(int argc, char ** argv)
 {
-    auto cc = pycontrol::CameraControl();
-    ABORT_IF(cc.init("config_camera_control"), "init() failed", 1);
+    // Construct CameraControl.
+    auto cc = std::make_shared<pycontrol::CameraControl>();
+    ABORT_IF(cc->init("camera_control.config"), "CameraControl.init() failed", 1);
 
-    while(true)
-    {
-        ABORT_IF(cc.dispatch(), "failed", 1);
-        using namespace std::chrono_literals;
-        std::this_thread::sleep_for(100ms);
-    }
+    // Construct the Runtime config.
+    pycontrol::Thread::Config config;
 
-//~    auto timer = Timer("detecting cameras");
+    config.period_ns = cc->control_period() * 1'000'000;
+//~    config.cpu_affinity = std::vector<std::size_t>{2};
+//~    config.SetFifoScheduler(80);
 
-//~    for (int i = 0; i < 30; ++i)
-//~    {
-//~        auto detected = gphoto2cpp::auto_detect();
-//~        for (const auto & port : detected)
-//~        {
-//~            auto camera = gphoto2cpp::open_camera(port);
-//~            if (camera)
-//~            {
-//~                std::cout << "detected camera with serial number: "
-//~                          << gphoto2cpp::read_property(camera, "serialnumber")
-//~                          << "\n";
-//~            }
-//~        }
-//~    }
+    auto thread = std::make_shared<pycontrol::Thread>("camera_control_bin", config);
+    thread->init(cc);
 
-//~    double total_seconds = timer;
+    cactus_rt::App app;
+    app.RegisterThread(thread);
+    app.Start();
 
-//~    std::cout << "detecting cameras took " << total_seconds/ 30.0 << " per call\n";
+    // This function blocks until SIGINT or SIGTERM are received.
+    cactus_rt::WaitForAndHandleTerminationSignal();
+
+    app.RequestStop();
+    app.Join();
 
     return 0;
 }
