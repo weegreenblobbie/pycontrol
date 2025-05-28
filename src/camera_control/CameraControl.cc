@@ -109,7 +109,10 @@ CameraControl::_camera_scan()
                         "camera.config"
                     );
                     _cameras[serial] = cam;
-                    _camera_aliases[serial] = cam->read_settings().desc;
+                    if (_camera_aliases.count(serial) == 0)
+                    {
+                        _camera_aliases[serial] = cam->read_settings().desc;
+                    }
                 }
 
                 // Update existing camera.
@@ -118,9 +121,10 @@ CameraControl::_camera_scan()
                     _cameras[serial]->reconnect(camera, port);
                 }
 
-                DEBUG_LOG << "adding " << port << " "
-                          << serial << " = "
-                          << _camera_aliases[serial]
+                DEBUG_LOG << "adding "
+                          << "serial=" << serial << " "
+                          << "desc=" << _camera_aliases[serial] << " "
+                          << "port=" << port
                           << "\n";
 
                 _current_ports.insert(port);
@@ -135,9 +139,10 @@ CameraControl::_camera_scan()
             const auto & port = info.port;
             if (not detections.contains(port))
             {
-                DEBUG_LOG << "removing " << port << " "
-                          << info.serial << " = "
-                          << _camera_aliases[info.serial]
+                DEBUG_LOG << "removing "
+                          << "serial=" << info.serial << " "
+                          << "desc=" << _camera_aliases[info.serial] << " "
+                          << "port=" << port
                           << "\n";
                 cam->disconnect();
                 _current_ports.erase(port);
@@ -159,6 +164,7 @@ CameraControl::dispatch()
 {
     auto next_state = CameraControl::State::init;
     bool send_telemetry = false;
+    bool scan_cameras = false;
 
     switch(_state)
     {
@@ -170,7 +176,7 @@ CameraControl::dispatch()
         }
         case CameraControl::State::scan:
         {
-            _camera_scan();
+            scan_cameras = true;
             send_telemetry = true;
             next_state = CameraControl::State::monitor;
             break;
@@ -178,7 +184,7 @@ CameraControl::dispatch()
 
         case CameraControl::State::monitor:
         {
-            _camera_scan();
+            scan_cameras = true;
             send_telemetry = true;
             // TODO: transition to execute_ready if we have a valid camera
             // schedule.
@@ -188,7 +194,7 @@ CameraControl::dispatch()
 
         case CameraControl::State::execute_ready:
         {
-            _camera_scan();
+            scan_cameras = true;
             send_telemetry = true;
 
             // TODO: transition to executing when a scheduled camera event is
@@ -229,10 +235,20 @@ CameraControl::dispatch()
         _state = next_state;
     }
 
+    // Scan for camera changes.
+    if (_scan_time <= _control_time)
+    {
+        _scan_time += 2000;  // 0.5 Hz.
+        if (scan_cameras)
+        {
+            _camera_scan();
+        }
+    }
+
     // Send out 1 Hz telemetry.
     if (_send_time <= _control_time)
     {
-        _send_time += 1000;
+        _send_time += 1000;  // 1 Hz.
         if (send_telemetry)
         {
             _message.seekp(0, std::ios::beg);
@@ -279,7 +295,7 @@ CameraControl::dispatch()
     // Read any commands.
     if (_read_time <= _control_time)
     {
-        _read_time += 1000;
+        _read_time += 1000; // 1 Hz.
         std::string msg = "";
         ABORT_ON_FAILURE(
             _cam_rename_socket.read(msg),

@@ -62,6 +62,7 @@ private:
     std::uint16_t  _cam_rename_port {};
     std::uint64_t  _control_time {0};
     std::uint64_t  _control_period {};
+    std::uint64_t  _scan_time {0};
     std::uint64_t  _send_time {0};
     std::uint64_t  _read_time {500};  // Keep out of phase with _send_time.
 

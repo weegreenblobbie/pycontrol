@@ -4,9 +4,6 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Update camera_contro_bin to handle mapping serial number to alias.
--- webapp/cam_info_reader.py to command serial:alias updates until camera_control_bin
-   responds with the update.
 - Define event file format
 - Add event selection UI to select 1 of these:
  -- 2026-03 linar eclipse
@@ -70,6 +67,9 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Update camera_contro_bin to handle mapping serial number to alias.
+** webapp/cam_info_reader.py to command serial:alias updates
 
 * Add a yaml config file for mapping camera serial numbers to short names
 * Add flask UI to edit mapping.

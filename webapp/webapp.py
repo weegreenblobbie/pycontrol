@@ -50,6 +50,6 @@ def camera_update_description():
 if __name__ == '__main__':
     _gps_reader = GpsReader()
     _gps_reader.start()
-    _cam_reader = CameraInfoReader("../data/camera_descriptions.yaml")
+    _cam_reader = CameraInfoReader("../config/camera_descriptions.config")
     _cam_reader.start()
     app.run(host="0.0.0.0")

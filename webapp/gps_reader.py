@@ -210,6 +210,12 @@ class GpsReader:
                 else:
                     self._altitude = None
 
+                # if lat long or alt is None, reset mode.
+                if any([self._lat is None, self._long is None, self._altitude is None]):
+                    self._mode = "INVALID"
+                    self._mode_time = now()
+
+
         print("thread exited")
 
 

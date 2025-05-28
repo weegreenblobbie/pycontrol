@@ -56,14 +56,18 @@ int main(int argc, char ** argv)
 {
     // Construct CameraControl.
     auto cc = std::make_shared<pycontrol::CameraControl>();
-    ABORT_IF(cc->init("camera_control.config"), "CameraControl.init() failed", 1);
+    ABORT_IF(cc->init("config/camera_control.config"), "CameraControl.init() failed", 1);
 
     // Construct the Runtime config.
     pycontrol::Thread::Config config;
 
     config.period_ns = cc->control_period() * 1'000'000;
-//~    config.cpu_affinity = std::vector<std::size_t>{2};
-//~    config.SetFifoScheduler(80);
+    config.cpu_affinity = std::vector<std::size_t>{2};
+    config.SetFifoScheduler(80);
+    config.tracer_config.trace_overrun = false;
+
+    cactus_rt::ThreadTracerConfig tconfig;
+    tconfig.trace_overrun = false;
 
     auto thread = std::make_shared<pycontrol::Thread>("camera_control_bin", config);
     thread->init(cc);

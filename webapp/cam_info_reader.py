@@ -16,7 +16,7 @@ now = datetime.datetime.now
 UDP_IP = "239.192.168.1"
 CAM_INFO_PORT = 10_018
 CAM_RENAME_PORT = 10_019
-FILENAME = "../data/camera_descriptions.config"
+FILENAME = "../config/camera_descriptions.config"
 
 
 def send_udp_message(message, target_port, target_ip):
@@ -57,7 +57,6 @@ def send_udp_message(message, target_port, target_ip):
     finally:
         # Close the socket
         sock.close()
-        print("Socket closed.")
 
 
 class CameraInfoReader:
@@ -85,14 +84,14 @@ class CameraInfoReader:
 
         with open(self._filename, "w") as fout:
             for serial, description in self._descriptions.items():
-                fout.write(f"{serial} {description}\n")
+                fout.write(f"{serial} {description}")
 
         # Send camera renaming messages so CameraControl.cc will update the
         # mapping.
         #
         # message_size serial_number ' ' short_description '\n'
-        msg = f"{serial} {desciption}\n"
-        for _ in range(10):
+        msg = f"{serial} {desciption}"
+        for _ in range(3):
             send_udp_message(msg, CAM_RENAME_PORT, UDP_IP)
             time.sleep(0.5)
 
