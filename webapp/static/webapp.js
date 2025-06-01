@@ -315,9 +315,13 @@ function handle_window_click(event)
     { // Check for event modal as well
         event_selection_modal.style.display = 'none';
     }
-    else if (event.target === run_sim_modal) // New: check for run sim modal
+    else if (event.target === run_sim_modal)
     {
         run_sim_modal.style.display = 'none';
+    }
+    else if (event.target === calculating_modal) // NEW: check for calculating modal
+    {
+        // Do nothing, calculating modal should not close on outside click
     }
 }
 
@@ -588,6 +592,10 @@ const sim_time_offset_input = document.getElementById('sim_time_offset_input');
 const sim_okay_button = document.getElementById('sim_okay_button');
 const sim_cancel_button = document.getElementById('sim_cancel_button');
 
+// NEW: Calculating modal element
+const calculating_modal = document.getElementById('calculating_modal');
+
+
 // State variable for the simulation
 let is_sim_running = false;
 
@@ -618,6 +626,9 @@ async function handle_run_sim_button_click()
         // If sim is running, this click means "Stop Sim"
         try
         {
+            // Show calculating modal briefly during stop
+            calculating_modal.style.display = 'flex';
+
             const response = await fetch('/api/run_sim/stop');
             if (!response.ok)
             {
@@ -640,6 +651,10 @@ async function handle_run_sim_button_click()
         {
             console.error('Error stopping simulation:', error);
             alert('Error stopping simulation. Check console for details.');
+        }
+        finally
+        {
+            calculating_modal.style.display = 'none'; // Always hide calculating modal
         }
     }
     else
@@ -691,17 +706,14 @@ async function handle_sim_okay_click()
         return;
     }
 
+    run_sim_modal.style.display = 'none'; // Hide the run sim modal
+    calculating_modal.style.display = 'flex'; // Show the calculating modal
+
     try
     {
         // Construct the URL with parameters
         const query_params = new URLSearchParams(params).toString();
-        const response = await fetch(`/api/run_sim?${query_params}`); // Using query params for GET
-        // Alternatively, if you want POST and send JSON:
-        // const response = await fetch('/api/run_sim', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(params)
-        // });
+        const response = await fetch(`/api/run_sim?${query_params}`);
 
         if (!response.ok)
         {
@@ -712,7 +724,6 @@ async function handle_sim_okay_click()
         {
             is_sim_running = true;
             update_run_sim_button_state();
-            run_sim_modal.style.display = 'none'; // Hide modal
             console.log('Simulation started successfully with params:', params);
         }
         else
@@ -725,6 +736,10 @@ async function handle_sim_okay_click()
     {
         console.error('Error starting simulation:', error);
         alert('Error starting simulation. Check console for details.');
+    }
+    finally
+    {
+        calculating_modal.style.display = 'none'; // Always hide calculating modal
     }
 }
 

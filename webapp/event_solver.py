@@ -30,7 +30,7 @@ class EventSolver:
             # Wait for either a trigger (event.set()) or 60 seconds (timeout).
             # If event.set() is called, event.wait() returns immediately.
             # Otherwise, event.wait() returns after 60 seconds.
-            self._event.wait(timeout=60.0)
+            self._event.wait(timeout=10.0)
 
             # Clear the event immediately after waking up, whether by trigger or timeout
             # This prepares it for the next trigger or timeout cycle.
@@ -51,7 +51,6 @@ class EventSolver:
             return
 
         solution = self._solve(params)
-        print(f"solution:\n    {solution}")
 
         with self._lock:
             self._solution = solution

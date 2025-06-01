@@ -100,7 +100,7 @@ td pre {
 }
 
 
-/* --- MODAL STYLES (Consolidated for both rename and event modals) --- */
+/* --- MODAL STYLES (Consolidated for all modals) --- */
 .modal {
     display: none; /* Hidden by default. JS will set to 'flex' to show. */
     position: fixed;
@@ -110,17 +110,17 @@ td pre {
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0,0,0,0.4);
+    background-color: rgba(0,0,0,0.4); /* Transparent black overlay */
     justify-content: center; /* Center horizontally with flex */
     align-items: center; /* Center vertically with flex */
 }
 
-.modal_content {
-    background-color: #fefefe;
+.modal-content { /* Renamed from .modal_content for consistency with common naming */
+    background-color: #fefefe; /* White background */
     padding: 20px;
     border: 1px solid #888;
     width: 90%; /* Responsive width */
-    max-width: 500px; /* Maximum width */
+    max-width: 500px; /* Maximum width for general modals */
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     position: relative; /* For positioning the close button */
@@ -153,12 +153,12 @@ td pre {
     font-size: 16px;
 }
 
-.modal_buttons {
+.modal-buttons { /* Renamed from .modal_buttons for consistency */
     text-align: right;
     margin-top: 20px;
 }
 
-.modal_buttons button {
+.modal-buttons button {
     padding: 10px 15px;
     margin-left: 10px;
     border: none;
@@ -248,9 +248,10 @@ td pre {
     opacity: 0.9;
 }
 
-/* Styles for the new Run Simulation Modal */
+/* Styles for the Run Simulation Modal - specific overrides for size */
 #run_sim_modal .modal-content {
     width: 400px; /* Adjust as needed */
+    max-width: 90%; /* Ensure it's responsive */
 }
 
 #sim_params_form .form-group {
@@ -295,4 +296,44 @@ td pre {
 #sim_params_form #sim_cancel_button {
     background-color: #f44336; /* Red */
     color: white;
+}
+
+/* NEW: Styles for the Calculating Modal */
+#calculating_modal .modal-content {
+    background-color: #fefefe; /* White background */
+    padding: 30px;
+    border: 1px solid #888;
+    width: 250px; /* Smaller width for a simple message */
+    max-width: 90%;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #555;
+    display: flex; /* Use flex to center content vertically */
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#calculating_modal .modal-content h2 {
+    margin: 0;
+    color: #0056b3;
+}
+
+/* Optional: Add a simple spinner (CSS animation) */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #0056b3;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    margin-top: 15px;
 }

@@ -306,7 +306,7 @@ def api_run_sim():
     #
     # sim_time_offset = current_time - event_time - event_time_offset
     #
-    sim_time_offset = du.now() - event_time - event_time_offset - 10.0
+    sim_time_offset = du.now() - event_time - event_time_offset
 
     # Grab current gps position for computing gps residual deltas.
     snapshot = _gps_reader.read()
@@ -337,6 +337,20 @@ def api_run_sim():
     params = _event_solver.params()
 
     update_and_trigger(params["type"], params["datetime"], params["event_ids"], params["event"])
+
+    with open("../config/run_sim.config", "w") as fout:
+        """
+        gps_latitude            40.918959
+        gps_longitude           -1.289364
+        gps_altitude           950.0
+        event_id                C2
+        event_time_offset      -68.0
+        """
+        fout.write(f"gps_latitude {gps_latitude}\n")
+        fout.write(f"gps_longitude {gps_longitude}\n")
+        fout.write(f"gps_altitude {gps_altitude}\n")
+        fout.write(f"event_id {event_id}\n")
+        fout.write(f"event_time_offset {flask.request.args.get('event_time_offset', type=float)}\n")
 
     return (
         flask.jsonify({"status": "success", "message": "Simulation started."}),
