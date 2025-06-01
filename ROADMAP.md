@@ -12,6 +12,12 @@ Make it work
 
 - Plumb computed contact times into UI, camera control
 
+- Use pvlib to lookup altitude from gps lat, long
+
+- Cache computed contact times
+
+- See if I can speed up scan_cameras().
+
 - Define camera schedule format
 
 - Use pydandic to validate all yaml config files

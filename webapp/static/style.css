@@ -1,49 +1,126 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+h1 {
+    color: #0056b3;
+    border-bottom: 2px solid #0056b3;
+    padding-bottom: 5px;
+    margin-top: 40px;
+}
+
 table {
-  border-collapse: collapse;
+    border-collapse: collapse;
+    width: 80%; /* Adjusted for better layout */
+    margin: 20px auto; /* Center the table */
+    background-color: #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden; /* Ensures rounded corners apply to content */
+}
+
+th, td {
+    padding: 10px;
+    vertical-align: top;
+    border: 1px solid #ddd;
+    text-align: left; /* Default text alignment */
 }
 
 th {
     background-color: black;
     color: white;
+    text-align: center; /* Center header text */
 }
 
-td {
-  padding: 10px;
-  vertical-align: top;
+/* Specific styling for table cells containing <pre> tags */
+td pre {
+    white-space: pre-wrap; /* Allows text to wrap */
+    word-wrap: break-word; /* Ensures long words break */
+    margin: 0; /* Remove default margin from pre */
+    padding: 2px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    color: #555;
+    background-color: #f9f9f9;
+    border-radius: 3px;
 }
 
+/* GPS table specific adjustments */
+#gps-connection {
+    display: block; /* Ensures image respects width/height */
+    margin: 0 auto; /* Center GPS image */
+}
+
+/* Camera table specific adjustments */
+#cameras img {
+    display: block;
+    margin: 0 auto;
+}
 
 .editable_td {
-    cursor: pointer; /* Indicates it's clickable */
-    user-select: none; /* Prevent text selection on click */
+    cursor: pointer;
+    user-select: none;
 }
 
 .editable_td:hover {
     background-color: #e6e6e6;
 }
 
-/* Modal Styling */
-.modal {
-    display: none; /* Hidden by default */
-    position: fixed; /* Stay in place */
-    z-index: 1; /* Sit on top */
+/* Event table specific styling */
+#event_table {
+    /* Uses general table styles */
+}
+
+#event_table thead th {
+    background-color: #d0e0f0; /* Light blueish header for event table */
+    color: #333;
+    font-weight: bold;
+}
+
+#event_table th.column_1_header {
+    text-align: left; /* Keep 'Label' header left-aligned */
+}
+
+#event_table td.column_1 {
+    background-color: #f0f8ff; /* Light blueish background for label column */
+    font-weight: bold;
+    text-align: left;
+}
+
+#event_table td.event_filename_cell {
+    cursor: pointer;
+    background-color: #e6f7ff; /* Lighter blue for clickable cell */
+}
+
+#event_table td.event_filename_cell:hover {
+    background-color: #cceeff; /* Slightly darker blue on hover */
+}
+
+
+/* --- MODAL STYLES (Consolidated for both rename and event modals) --- */
+.modal_overlay {
+    display: none; /* Hidden by default. JS will set to 'flex' to show. */
+    position: fixed;
+    z-index: 1000; /* High z-index to ensure it's on top */
     left: 0;
     top: 0;
-    width: 100%; /* Full width */
-    height: 100%; /* Full height */
-    overflow: auto; /* Enable scroll if needed */
-    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-
-    justify-content: center; /* Center horizontally */
-    align-items: center; /* Center vertically */
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+    justify-content: center; /* Center horizontally with flex */
+    align-items: center; /* Center vertically with flex */
 }
 
 .modal_content {
     background-color: #fefefe;
     padding: 20px;
     border: 1px solid #888;
-    width: 80%; /* Could be more specific, e.g., 500px */
-    max-width: 500px; /* Max width for larger screens */
+    width: 90%; /* Responsive width */
+    max-width: 500px; /* Maximum width */
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     position: relative; /* For positioning the close button */
@@ -51,32 +128,34 @@ td {
 
 .close_button {
     color: #aaa;
-    float: right;
     font-size: 28px;
     font-weight: bold;
-    position: absolute;
+    position: absolute; /* Position relative to .modal_content */
     top: 10px;
     right: 15px;
+    cursor: pointer;
+    line-height: 1; /* Adjust line height for better vertical alignment */
 }
 
 .close_button:hover,
 .close_button:focus {
     color: black;
     text-decoration: none;
-    cursor: pointer;
 }
 
 #rename_input {
-    width: calc(100% - 20px); /* Account for padding */
+    width: calc(100% - 20px);
     padding: 10px;
-    margin-bottom: 20px;
+    margin: 15px 0; /* Add some vertical margin */
     border: 1px solid #ddd;
     border-radius: 4px;
-    box-sizing: border-box; /* Include padding in width */
+    box-sizing: border-box;
+    font-size: 16px;
 }
 
 .modal_buttons {
     text-align: right;
+    margin-top: 20px;
 }
 
 .modal_buttons button {
@@ -86,10 +165,11 @@ td {
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
+    min-width: 80px; /* Ensure buttons have a minimum width */
 }
 
 #cancel_rename {
-    background-color: #f44336; /* Red */
+    background-color: #f44336;
     color: white;
 }
 
@@ -98,10 +178,37 @@ td {
 }
 
 #save_rename {
-    background-color: #4CAF50; /* Green */
+    background-color: #4CAF50;
     color: white;
 }
 
 #save_rename:hover {
     background-color: #45a049;
+}
+
+/* Styles for the file list within the event selection modal */
+#file_list {
+    list-style-type: none; /* Remove bullet points */
+    padding: 0;
+    margin-top: 15px;
+    max-height: 300px; /* Limit height and enable scrolling */
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    background-color: #fff;
+}
+
+#file_list li {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease; /* Smooth hover effect */
+}
+
+#file_list li:last-child {
+    border-bottom: none; /* No border for the last item */
+}
+
+#file_list li:hover {
+    background-color: #f0f0f0;
 }

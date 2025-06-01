@@ -1,3 +1,3 @@
-CONFIGS = $(wildcard *.txt)
+CONFIGS = $(wildcard *.config)
 
 all: $(CONFIGS)

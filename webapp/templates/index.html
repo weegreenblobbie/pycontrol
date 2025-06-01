@@ -7,10 +7,8 @@
 </head>
 <body>
 
-    <!--~ GPS ~-->
     <h1>GPS Status</h1>
     <table>
-        <!--~ Header ~-->
         <tr>
             <th>Connection</th>
             <th>Mode</th>
@@ -22,7 +20,6 @@
             <th>Altitude (m)</th>
         </tr>
 
-        <!--~ ROW 1 ~-->
         <tr>
             <td>
                 <img
@@ -43,12 +40,10 @@
         </tr>
     </table>
 
-    <!--~ Cameras ~-->
     <h1>Cameras</h1>
 
     <table id="cameras">
 
-        <!--~ Header ~-->
         <thead>
             <tr>
                 <th>Connected</th>
@@ -65,13 +60,11 @@
             </tr>
         </thead>
 
-        <!--~ Rows ~-->
         <tbody></tbody>
 
     </table>
 
-    <div id="rename_modal" class="modal">
-        <div class="modal_content">
+    <div id="rename_modal" class="modal_overlay"> <div class="modal_content">
             <span class="close_button">&times;</span>
             <h2>Rename Camera</h2>
             <input type="text" id="rename_input">
@@ -82,7 +75,23 @@
         </div>
     </div>
 
-    <!--~ Scripts ~-->
+    <h1>Event</h1> <div class="event-table-container">
+        <table id="event_table"> <thead>
+                <tr>
+<!--~                     <th class="column_1_header">Label</th> <th>Value 1</th> <th>Value 2</th>  ~-->
+                </tr>
+            </thead>
+
+            <tbody></tbody>
+
+        </table>
+    </div>
+
+    <div id="event_selection_modal" class="modal_overlay"> <div class="modal_content"> <span class="close_button">&times;</span>
+            <h2>Select Event File</h2>
+            <ul id="file_list"></ul> </div>
+    </div>
+
     <script src="{{ url_for('static', filename='webapp.js') }}"></script>
 </body>
 </html>
