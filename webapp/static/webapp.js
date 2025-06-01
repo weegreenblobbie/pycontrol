@@ -12,7 +12,8 @@ function sprintf()
         if (m[2])
         {
             val = m[2];
-        } else
+        }
+        else
         {
             val = args[i];
             // A switch statement so that the formatter can be extended. Default is %s
@@ -24,7 +25,7 @@ function sprintf()
                     {
                         val = 0;
                     }
-                        break;
+                    break;
             }
             i++;
         }
@@ -65,7 +66,8 @@ function fetch_gps()
             if (data.mode == "2D FIX")
             {
                 gps_connection.src = "/static/gps-degraded.svg";
-            } else if (data.mode == "3D FIX")
+            }
+            else if (data.mode == "3D FIX")
             {
                 gps_connection.src = "/static/gps-connected.svg";
             }
@@ -175,7 +177,8 @@ function fetch_cameras()
                 if (info.connected == "0")
                 {
                     svg_connected.src = "/static/cam-disconnected.svg";
-                } else
+                }
+                else
                 {
                     svg_connected.src = "/static/cam-connected.svg";
                     cell_battery.textContent = info.batt;
@@ -215,35 +218,35 @@ function fetch_cameras()
  * Camera Renaming Modal.
  */
 // === Global Modal Variables (Accessible by all functions) ===
-const RENAME_MODAL = document.getElementById('rename_modal');
-const RENAME_INPUT = document.getElementById('rename_input');
-const SAVE_RENAME_BUTTON = document.getElementById('save_rename');
-const CANCEL_RENAME_BUTTON = document.getElementById('cancel_rename');
-// RENAME_MODAL_CLOSE_BUTTON will be initialized inside DOMContentLoaded
+const rename_modal = document.getElementById('rename_modal');
+const rename_input = document.getElementById('rename_input');
+const save_rename_button = document.getElementById('save_rename');
+const cancel_rename_button = document.getElementById('cancel_rename');
+// rename_modal_close_button will be initialized inside DOMContentLoaded
 
-let CURRENT_EDITABLE_TD = null; // To keep track of which td is being edited
+let current_editable_td = null; // To keep track of which td is being edited
 
 // === Modal Event Handler Functions ===
 
 // Handler for opening the modal when an editable TD is clicked
 function handle_editable_td_click()
 {
-    CURRENT_EDITABLE_TD = this; // 'this' refers to the clicked td
-    RENAME_INPUT.value = CURRENT_EDITABLE_TD.textContent.trim(); // Populate input with current text
-    RENAME_MODAL.style.display = 'flex'; // Show the modal
-    RENAME_INPUT.focus(); // Focus on the input field
+    current_editable_td = this; // 'this' refers to the clicked td
+    rename_input.value = current_editable_td.textContent.trim(); // Populate input with current text
+    rename_modal.style.display = 'flex'; // Show the modal
+    rename_input.focus(); // Focus on the input field
 }
 
 // Handler for closing the modal via the 'X' button
 function handle_rename_modal_close_button_click()
 {
-    RENAME_MODAL.style.display = 'none';
+    rename_modal.style.display = 'none';
 }
 
 // Handler for canceling the rename operation
 function handle_cancel_rename_click()
 {
-    RENAME_MODAL.style.display = 'none';
+    rename_modal.style.display = 'none';
 }
 
 function send_camera_description_to_backend(serial, description)
@@ -272,7 +275,8 @@ function send_camera_description_to_backend(serial, description)
             if (data.status === 'success')
             {
                 console.log('Camera description updated successfully!');
-            } else
+            }
+            else
             {
                 console.error('Backend reported an error:', data.message);
             }
@@ -287,26 +291,27 @@ function send_camera_description_to_backend(serial, description)
 // Handler for saving the new name
 function handle_save_rename_click()
 {
-    if (CURRENT_EDITABLE_TD)
+    if (current_editable_td)
     {
-        const new_description = RENAME_INPUT.value.trim();
-        CURRENT_EDITABLE_TD.textContent = new_description;
+        const new_description = rename_input.value.trim();
+        current_editable_td.textContent = new_description;
         console.log("new name: " + new_description);
         send_camera_description_to_backend(
-            CURRENT_EDITABLE_TD.dataset.serial,
+            current_editable_td.dataset.serial,
             new_description
         );
     }
-    RENAME_MODAL.style.display = 'none';
+    rename_modal.style.display = 'none';
 }
 
 // Handler for clicking outside the modal
 function handle_window_click(event)
 {
-    if (event.target === RENAME_MODAL)
+    if (event.target === rename_modal)
     {
-        RENAME_MODAL.style.display = 'none';
-    } else if (event.target === event_selection_modal)
+        rename_modal.style.display = 'none';
+    }
+    else if (event.target === event_selection_modal)
     { // Check for event modal as well
         event_selection_modal.style.display = 'none';
     }
@@ -317,7 +322,7 @@ function handle_rename_input_keypress(event)
 {
     if (event.key === 'Enter')
     {
-        SAVE_RENAME_BUTTON.click(); // Simulate a click on the save button
+        save_rename_button.click(); // Simulate a click on the save button
     }
 }
 
@@ -336,11 +341,13 @@ let event_file_name_pre_element = null; // To store the <pre> element for the ev
 const event_row_map = new Map(); // Maps event_id -> row_element
 
 // Helper function to get or create a <pre> element within a cell
-function get_or_create_pre_element(cell, className) {
-    let pre_element = cell.querySelector(`pre.${className}`);
-    if (!pre_element) {
+function get_or_create_pre_element(cell, class_name)
+{
+    let pre_element = cell.querySelector(`pre.${class_name}`);
+    if (!pre_element)
+    {
         pre_element = document.createElement('pre');
-        pre_element.className = className;
+        pre_element.className = class_name;
         // Clear any existing text content directly on the cell before appending <pre>
         cell.innerHTML = '';
         cell.appendChild(pre_element);
@@ -350,15 +357,17 @@ function get_or_create_pre_element(cell, className) {
 
 
 // --- Function to create or update a row in the event table ---
-function update_event_table_row(event_id, event_time, eta = 'N/A') {
+function update_event_table_row(event_id, event_time, eta = 'N/A')
+{
     let row = event_row_map.get(event_id);
-    let isNewRow = false;
+    let is_new_row = false;
 
-    if (!row) {
+    if (!row)
+    {
         row = event_table_body.insertRow();
         row.id = `event_row_${event_id.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}`; // Sanitize ID for DOM
         event_row_map.set(event_id, row);
-        isNewRow = true;
+        is_new_row = true;
 
         // Ensure all cells are created when the row is new
         row.insertCell(0); // Event ID cell
@@ -379,16 +388,19 @@ function update_event_table_row(event_id, event_time, eta = 'N/A') {
 }
 
 // --- Function to clear all event data rows (leaving the file selection row) ---
-function clear_event_data_rows() {
+function clear_event_data_rows()
+{
     // Keep the first row (the "Event File:" row)
-    while (event_table_body.rows.length > 1) {
+    while (event_table_body.rows.length > 1)
+    {
         event_table_body.deleteRow(1); // Always delete the second row until only one remains
     }
     event_row_map.clear(); // Clear the map too
 }
 
 // --- Function to populate event table with static details from a loaded file ---
-async function populate_static_event_details(filename) {
+async function populate_static_event_details(filename)
+{
     clear_event_data_rows(); // Clear previous event data
 
     // Add a temporary loading row
@@ -398,10 +410,12 @@ async function populate_static_event_details(filename) {
     loading_cell.textContent = `Loading details for ${filename}...`;
     loading_row.id = 'loading_data_row';
 
-    try {
+    try
+    {
         const response = await fetch(`/api/event_load/${filename}`);
 
-        if (!response.ok) {
+        if (!response.ok)
+        {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -409,7 +423,8 @@ async function populate_static_event_details(filename) {
 
         // Remove the loading row
         const existing_loading_row = document.getElementById('loading_data_row');
-        if (existing_loading_row) {
+        if (existing_loading_row)
+        {
             existing_loading_row.remove();
         }
 
@@ -417,12 +432,16 @@ async function populate_static_event_details(filename) {
         update_event_table_row('Type', event_data.type || 'N/A', ''); // ETA column will be empty for Type
 
         // Populate table with initial event IDs, times and ETAs will be filled by update_dynamic_events
-        if (event_data.events && Array.isArray(event_data.events)) {
-            event_data.events.forEach(event_id => {
+        if (event_data.events && Array.isArray(event_data.events))
+        {
+            event_data.events.forEach(event_id =>
+            {
                 // Initialize with 'N/A' as time and ETA will come from /api/events
                 update_event_table_row(event_id, 'N/A', 'Loading...');
             });
-        } else {
+        }
+        else
+        {
             console.warn("Event data missing 'events' list or malformed:", event_data);
             update_event_table_row('Events', 'No events defined or format error', '');
         }
@@ -430,11 +449,14 @@ async function populate_static_event_details(filename) {
         // Trigger an immediate dynamic update to get initial ETAs
         update_dynamic_events();
 
-    } catch (error) {
+    }
+    catch (error)
+    {
         console.error(`Error fetching data for ${filename}:`, error);
         // Remove loading row and display error
         const existing_loading_row = document.getElementById('loading_data_row');
-        if (existing_loading_row) {
+        if (existing_loading_row)
+        {
             existing_loading_row.remove();
         }
         // Display an error row at the bottom
@@ -443,13 +465,16 @@ async function populate_static_event_details(filename) {
 }
 
 // --- Function to fetch files from API and populate the list for the modal ---
-async function fetch_files_for_modal() {
+async function fetch_files_for_modal()
+{
     file_list_element.innerHTML = '<li>Loading files...</li>';
 
-    try {
+    try
+    {
         const response = await fetch("/api/event_list");
 
-        if (!response.ok) {
+        if (!response.ok)
+        {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -457,16 +482,20 @@ async function fetch_files_for_modal() {
 
         file_list_element.innerHTML = '';
 
-        if (files.length === 0) {
+        if (files.length === 0)
+        {
             file_list_element.innerHTML = '<li>No files found.</li>';
             return;
         }
 
-        files.forEach(filename => {
+        files.forEach(filename =>
+        {
             const li = document.createElement('li');
             li.textContent = filename;
-            li.addEventListener('click', () => {
-                if (event_file_name_pre_element) {
+            li.addEventListener('click', () =>
+            {
+                if (event_file_name_pre_element)
+                {
                     event_file_name_pre_element.textContent = filename;
                 }
                 event_selection_modal.style.display = 'none';
@@ -475,7 +504,9 @@ async function fetch_files_for_modal() {
             file_list_element.appendChild(li);
         });
 
-    } catch (error) {
+    }
+    catch (error)
+    {
         console.error("Error fetching files for modal:", error);
         file_list_element.innerHTML = `<li>Error loading files: ${error.message}</li>`;
     }
@@ -541,15 +572,15 @@ async function update_dynamic_events()
 // === All Initial Setup on DOMContentLoaded ===
 document.addEventListener('DOMContentLoaded', function()
 {
-    // Correctly initialize RENAME_MODAL_CLOSE_BUTTON here, after DOM is loaded.
-    const RENAME_MODAL_CLOSE_BUTTON = RENAME_MODAL.querySelector('.close_button');
+    // Correctly initialize rename_modal_close_button here, after DOM is loaded.
+    const rename_modal_close_button = rename_modal.querySelector('.close_button');
     const event_modal_close_button = event_selection_modal.querySelector('.close_button');
 
     // === Camera Renaming Modal Event Listeners ===
-    RENAME_MODAL_CLOSE_BUTTON.addEventListener('click', handle_rename_modal_close_button_click);
-    CANCEL_RENAME_BUTTON.addEventListener('click', handle_cancel_rename_click);
-    SAVE_RENAME_BUTTON.addEventListener('click', handle_save_rename_click);
-    RENAME_INPUT.addEventListener('keypress', handle_rename_input_keypress);
+    rename_modal_close_button.addEventListener('click', handle_rename_modal_close_button_click);
+    cancel_rename_button.addEventListener('click', handle_cancel_rename_click);
+    save_rename_button.addEventListener('click', handle_save_rename_click);
+    rename_input.addEventListener('keypress', handle_rename_input_keypress);
 
     // === Event Table Initial Setup ===
     // Create the first row for file selection
@@ -571,7 +602,8 @@ document.addEventListener('DOMContentLoaded', function()
     file_selection_row.insertCell(2); // Empty third cell for alignment
 
     // Add click listener to the filename cell to open the modal
-    filename_cell.addEventListener('click', () => {
+    filename_cell.addEventListener('click', () =>
+    {
         fetch_files_for_modal();
         event_selection_modal.style.display = 'flex';
     });
