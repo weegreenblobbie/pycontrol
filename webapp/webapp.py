@@ -112,6 +112,16 @@ def get_event(filename):
     # Trigger the event solver.
     gps = _gps_reader.read()
 
+    # HACK
+    """
+    >>> import pvlib
+    >>> pvlib.location.lookup_altitude(40.918959, -1.289364)
+    950.0
+    """
+    gps["lat"] = 40.918959
+    gps["long"] = -1.289364
+    gps["altitude"] = 950.0
+
     _event_solver.update_and_trigger(
         type=type_,
         datetime=date_,

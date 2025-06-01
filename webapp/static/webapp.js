@@ -24,7 +24,7 @@ function sprintf()
                     {
                         val = 0;
                     }
-                    break;
+                        break;
             }
             i++;
         }
@@ -333,8 +333,21 @@ const file_list_element = document.getElementById('file_list');
 let event_file_name_pre_element = null; // To store the <pre> element for the event filename
 
 // Map to keep track of event rows by their event_id
-// This is crucial for updating existing rows from the /api/events feed
 const event_row_map = new Map(); // Maps event_id -> row_element
+
+// Helper function to get or create a <pre> element within a cell
+function get_or_create_pre_element(cell, className) {
+    let pre_element = cell.querySelector(`pre.${className}`);
+    if (!pre_element) {
+        pre_element = document.createElement('pre');
+        pre_element.className = className;
+        // Clear any existing text content directly on the cell before appending <pre>
+        cell.innerHTML = '';
+        cell.appendChild(pre_element);
+    }
+    return pre_element;
+}
+
 
 // --- Function to create or update a row in the event table ---
 function update_event_table_row(event_id, event_time, eta = 'N/A') {
@@ -346,19 +359,23 @@ function update_event_table_row(event_id, event_time, eta = 'N/A') {
         row.id = `event_row_${event_id.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}`; // Sanitize ID for DOM
         event_row_map.set(event_id, row);
         isNewRow = true;
+
+        // Ensure all cells are created when the row is new
+        row.insertCell(0); // Event ID cell
+        row.insertCell(1); // Time cell
+        row.insertCell(2); // ETA cell
     }
 
-    // Ensure cells exist. If new row, create them. If existing, update content.
-    if (isNewRow) {
-        row.insertCell(0); // Event ID
-        row.insertCell(1); // Time
-        row.insertCell(2); // ETA
-    }
+    // Always ensure the content is updated, and <pre> tags are managed
+    row.cells[0].textContent = event_id; // Event ID remains regular text
 
-    // Set text content for each cell
-    row.cells[0].textContent = event_id;
-    row.cells[1].textContent = event_time;
-    row.cells[2].textContent = eta;
+    // Get or create <pre> elements for Time and ETA cells
+    const time_pre = get_or_create_pre_element(row.cells[1], 'event-time-pre');
+    const eta_pre = get_or_create_pre_element(row.cells[2], 'event-eta-pre');
+
+    // Set text content for the <pre> elements
+    time_pre.textContent = event_time;
+    eta_pre.textContent = eta;
 }
 
 // --- Function to clear all event data rows (leaving the file selection row) ---
@@ -486,15 +503,11 @@ async function update_dynamic_events() {
                     if (Array.isArray(event_info) && event_info.length === 2) {
                         const [event_time, eta] = event_info;
 
-                        // Only update if the row for this event_id already exists in our table.
-                        // We rely on /api/event_load to pre-populate the rows based on 'events' list.
-                        if (event_row_map.has(event_id)) {
-                            const row = event_row_map.get(event_id);
-                            row.cells[1].textContent = event_time; // Update event time
-                            row.cells[2].textContent = eta;       // Update ETA
-                        } else {
-                            console.warn(`Ignoring unknown event_id: ${event_id}`);
-                        }
+                        // Call update_event_table_row, which now handles the <pre> tags correctly
+                        // This will either create the row if it's new (though it shouldn't be if event_load was successful),
+                        // or update the existing row's <pre> content.
+                        update_event_table_row(event_id, event_time, eta);
+
                     } else {
                         console.warn(`Malformed event info for ${event_id} from /api/events/. Expected [time, eta]. Received:`, event_info);
                     }

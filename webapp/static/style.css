@@ -212,3 +212,14 @@ td pre {
 #file_list li:hover {
     background-color: #f0f0f0;
 }
+
+.event-time-pre,
+.event-eta-pre {
+    margin: 0; /* Remove default margins from pre */
+    padding: 2px;
+    background-color: #f0f0f0; /* Light background to visually distinguish */
+    border-radius: 3px;
+    font-size: 0.9em; /* Slightly smaller font if desired */
+    color: #333;
+    white-space: pre-wrap; /* Allows long lines to wrap while preserving whitespace */
+}

@@ -65,7 +65,7 @@ class EventSolver:
         else:
             raise ValueError(f"Unknown type: {type_}")
 
-        print(f"solution = {solution}")
+        print(f"solution =\n    {solution}")
 
         with self._lock:
             self._solution = solution
@@ -135,7 +135,15 @@ class EventSolver:
             alt = params["altitude"],
         )
         solution.pop("type")
+        for key, value in solution.items():
+            if isinstance(value, astropy.time.Time):
+                solution[key] = value.to_datetime().astimezone(datetime.timezone.utc)
         return solution
 
+    def _solve_lunar(self, params):
+        """
+        TODO: implement.
+        """
+        return dict(P1=None, U1=None, U2=None, MID=None, U3=None, U4=None, P4=None)
 
 
