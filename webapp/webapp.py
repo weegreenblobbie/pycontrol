@@ -6,16 +6,12 @@ import glob
 import logging
 import os.path
 import threading
+import time
 
 import date_utils as du
 from cam_info_reader import CameraInfoReader
 from event_solver import EventSolver
 from gps_reader import GpsReader
-
-app = flask.Flask(__name__)
-app.config['DEBUG'] = True
-logging.getLogger('werkzeug').setLevel(logging.ERROR)
-
 
 @dataclasses.dataclass(kw_only=True)
 class GpsPos:
@@ -32,6 +28,20 @@ class RunSim:
     event_id: str = ""
     event_time_offset: float = 0.0
     sim_time_offset: datetime.timedelta = datetime.timedelta(seconds=0.0)
+
+
+app = flask.Flask(__name__)
+app.config['DEBUG'] = True
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+_gps_reader = GpsReader()
+_gps_reader.start()
+_cam_reader = CameraInfoReader("../config/camera_descriptions.config")
+_cam_reader.start()
+_event_solver = EventSolver()
+_event_solver.start()
+_run_sim = RunSim()
+_run_sim_lock = threading.Lock()
 
 
 @app.route('/')
@@ -90,6 +100,47 @@ def api_event_list():
     )
 
 
+def update_and_trigger(type_, date_, event_ids, event_map):
+
+    global _gps_reader
+    global _run_sim_lock
+    global _run_sim
+    global _event_solver
+
+    # Read the current GPS location.
+    gps = _gps_reader.read()
+    latitude = gps["lat"]
+    longitude = gps["long"]
+    altitude = gps["altitude"]
+
+    # Check if a simulation is running and replace the GPS location with the
+    # simulated location.
+    with _run_sim_lock:
+        sim_is_running = _run_sim.is_running
+        sim_pos = copy.deepcopy(_run_sim.gps_pos)
+        sim_offset = copy.deepcopy(_run_sim.gps_offset)
+
+    if sim_is_running:
+        """
+        Compute the GPS delta since the simulation started and add it to the
+        simulated GPS location for realistc behavior in the field where the GPS
+        receiver continutally updates its position.
+        """
+        latitude = sim_pos.latitude + (sim_offset.latitude - latitude)
+        longitude = sim_pos.longitude + (sim_offset.longitude - longitude)
+        altitude = sim_pos.altitude + (sim_offset.altitude - altitude)
+
+    _event_solver.update_and_trigger(
+        type=type_,
+        datetime=date_,
+        lat=latitude,
+        long=longitude,
+        altitude=altitude,
+        event_ids=event_ids,
+        event=event_map,
+    )
+
+
 @app.route('/api/event_load/<filename>')
 def api_event_load(filename):
     """
@@ -127,28 +178,7 @@ def api_event_load(filename):
                 data["event"] = dict()
             data["event"][key] = du.make_datetime(values[0])
 
-    # Trigger the event solver.
-    gps = _gps_reader.read()
-
-    # HACK
-    """
-    >>> import pvlib
-    >>> pvlib.location.lookup_altitude(40.918959, -1.289364)
-    950.0
-    """
-    gps["lat"] = 40.918959
-    gps["long"] = -1.289364
-    gps["altitude"] = 950.0
-
-    _event_solver.update_and_trigger(
-        type=type_,
-        datetime=date_,
-        lat=gps["lat"],
-        long=gps["long"],
-        altitude=gps["altitude"],
-        events=data["events"],
-        event=data["event"],
-    )
+    update_and_trigger(data["type"], date_, data["events"], data.get("event", dict()))
 
     data.pop("event")
     return (
@@ -164,20 +194,25 @@ def api_events():
 
     event_id: (abs time, relative time)
     """
+    global _event_solver
+    global _run_sim_lock
+    global _run_sim
+
     events = _event_solver.read()
+    all_events = _event_solver.event_ids()
 
     with _run_sim_lock:
         sim_time_offset = copy.deepcopy(_run_sim.sim_time_offset)
 
     out = dict()
-    for event_id in events:
-        event_time = events[event_id]
+    for event_id in all_events:
+        event_time = events.get(event_id, EventSolver.COMPUTING)
 
-        if event_time is None:
-            out[event_id] = ("Event not visible!", "N/A")
-
-        elif event_time == EventSolver.COMPUTING:
+        if event_time == EventSolver.COMPUTING:
             out[event_id] = (event_time, "")
+
+        elif event_time is None:
+            out[event_id] = ("Event not visible!", "N/A")
 
         elif isinstance(event_time, datetime.datetime):
             event_time += sim_time_offset
@@ -226,7 +261,10 @@ def api_run_sim():
             400
         )
 
+    global _event_solver
+    global _gps_reader
     global _run_sim
+    global _run_sim_lock
 
     with _run_sim_lock:
         is_running = _run_sim.is_running
@@ -237,16 +275,21 @@ def api_run_sim():
             409
         )
 
-    all_events = _event_solver.read()
-
-    if event_id not in all_events:
+    all_event_ids = _event_solver.event_ids()
+    if event_id not in all_event_ids:
         return (
             flask.jsonify({"status": "error", "message": f"Bad event_id {event_id}"}),
             400
         )
 
-    event_time = all_events[event_id]
+    # We have a bit of a checking and egg problem here.  Most likly, you are not
+    # currently in the path of totality, so there will not be any contact times
+    # avialable to know how to shift the clock, so we reset the event solver
+    # with the simulated gps position to compute conact times if avialable.
+    solution = _event_solver.simulate_trigger(gps_latitude, gps_longitude, gps_altitude)
+    app.logger.info(f"run_sim: solution = {solution}")
 
+    event_time = solution.get(event_id)
     if event_time is None:
         return (
             flask.jsonify({"status": "error", "message": f"No event time for {event_id}"}),
@@ -263,7 +306,7 @@ def api_run_sim():
     #
     # sim_time_offset = current_time - event_time - event_time_offset
     #
-    sim_time_offset = du.now() - event_time - event_time_offset
+    sim_time_offset = du.now() - event_time - event_time_offset - 10.0
 
     # Grab current gps position for computing gps residual deltas.
     snapshot = _gps_reader.read()
@@ -291,6 +334,10 @@ def api_run_sim():
             sim_time_offset = sim_time_offset,
         )
 
+    params = _event_solver.params()
+
+    update_and_trigger(params["type"], params["datetime"], params["event_ids"], params["event"])
+
     return (
         flask.jsonify({"status": "success", "message": "Simulation started."}),
         200
@@ -310,12 +357,4 @@ def api_run_sim_stop():
 
 
 if __name__ == '__main__':
-    _gps_reader = GpsReader()
-    _gps_reader.start()
-    _cam_reader = CameraInfoReader("../config/camera_descriptions.config")
-    _cam_reader.start()
-    _event_solver = EventSolver()
-    _event_solver.start()
-    _run_sim = RunSim()
-    _run_sim_lock = threading.Lock()
     app.run(host="0.0.0.0")

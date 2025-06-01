@@ -12,7 +12,7 @@ class EventSolver:
     COMPUTING = "Computing ..."
 
     def __init__(self):
-        self._params = None
+        self._params = dict()
         self._solution = dict()
         self._lock = threading.Lock()
         self._event = threading.Event()
@@ -50,22 +50,8 @@ class EventSolver:
         if not params:
             return
 
-        type_ = params["type"]
-        assert type_ in {"solar", "lunar", "custom"}
-
-        if type_ == "custom":
-            solution = self._solve_custom(params)
-
-        elif type_ == "solar":
-            solution = self._solve_solar(params)
-
-        elif type_ == "lunar":
-            solution = self._solve_lunar(params)
-
-        else:
-            raise ValueError(f"Unknown type: {type_}")
-
-        print(f"solution =\n    {solution}")
+        solution = self._solve(params)
+        print(f"solution:\n    {solution}")
 
         with self._lock:
             self._solution = solution
@@ -79,6 +65,30 @@ class EventSolver:
             out = copy.deepcopy(self._solution)
         return out
 
+    def event_ids(self):
+        return self.params().get("event_ids", [])
+
+    def params(self):
+        """
+        Returns the configured event ids.
+        """
+        out = None
+        with self._lock:
+            out = copy.deepcopy(self._params)
+        return out
+
+    def simulate_trigger(self, lat, long, alt):
+        """
+        When we kick off a simulation, need to reset the solution for the
+        specifc gps location in order to compute the sim_time_offset based on an
+        event_id, for example, C2 - 60.0.
+        """
+        with self._lock:
+            params = copy.deepcopy(self._params)
+        params["lat"] = lat
+        params["long"] = long
+        params["altitude"] = alt
+        return self._solve(params)
 
     def update_and_trigger(self, **new_params):
         """
@@ -90,20 +100,38 @@ class EventSolver:
         assert "long" in new_params
         assert "altitude" in new_params
         assert "datetime" in new_params
-        assert "events" in new_params
+        assert "event_ids" in new_params
         assert "event" in new_params
 
         new_params = copy.deepcopy(new_params)
-        solution = dict()
 
         with self._lock:
             self._params = new_params
-            self._solution = solution
-            for event_id in new_params["events"]:
-                self._solution[event_id] = self.COMPUTING
-
+            self._solution = dict()
             # Immediately wake up the worker thread.
             self._event.set()
+
+    def _solve(self, params):
+        """
+        Solves contact times.
+        """
+
+        type_ = params["type"]
+        assert type_ in {"solar", "lunar", "custom"}
+
+        solution = dict()
+
+        if type_ == "custom":
+            solution = self._solve_custom(params)
+
+        elif type_ == "solar":
+            solution = self._solve_solar(params)
+
+        elif type_ == "lunar":
+            solution = self._solve_lunar(params)
+
+        return solution
+
 
     def _solve_custom(self, params):
         """
@@ -116,7 +144,7 @@ class EventSolver:
 
         """
         solution = dict()
-        for event_id in params["events"]:
+        for event_id in params["event_ids"]:
             solution[event_id] = params["event"][event_id]
 
         return solution
