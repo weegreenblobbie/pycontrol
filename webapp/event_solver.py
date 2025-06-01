@@ -1,11 +1,60 @@
 import copy
 import datetime
+import functools
 import threading
 
 import astropy.time
 
 import date_utils as du
 from solar_eclipse_contact_times import find_contact_times as solar_contact_times
+
+
+def rounded_args_cache(num_decimal_places=4, maxsize=128):
+    """
+    A decorator that caches a function's results, rounding float arguments
+    to a specified number of decimal places for cache key generation.
+
+    Args:
+        num_decimal_places (int): The number of decimal places to round floats to.
+        maxsize (int): The maximum size of the cache.
+                       Set to None for an unbounded cache.
+    """
+    def decorator(func):
+        # Create a proxy function that rounds floats before calling the original
+        # This proxy is what lru_cache will actually wrap
+        @functools.lru_cache(maxsize=maxsize)
+        def cached_func(*args, **kwargs):
+            # The actual logic of the original function goes here
+            return func(*args, **kwargs)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Pre-process arguments for hashing: round floats
+            processed_args = []
+            for arg in args:
+                if isinstance(arg, float):
+                    processed_args.append(round(arg, num_decimal_places))
+                else:
+                    processed_args.append(arg)
+
+            processed_kwargs = {}
+            for k, v in kwargs.items():
+                if isinstance(v, float):
+                    processed_kwargs[k] = round(v, num_decimal_places)
+                else:
+                    processed_kwargs[k] = v
+
+            # Call the inner cached function with the processed arguments
+            return cached_func(*processed_args, **processed_kwargs)
+
+        # Expose cache control methods (optional but good practice)
+        wrapper.cache_info = cached_func.cache_info
+        wrapper.cache_clear = cached_func.cache_clear
+        wrapper.cache_parameters = cached_func.cache_parameters
+
+        return wrapper
+    return decorator
+
 
 class EventSolver:
 
@@ -124,7 +173,12 @@ class EventSolver:
             solution = self._solve_custom(params)
 
         elif type_ == "solar":
-            solution = self._solve_solar(params)
+            solution = self._solve_solar(
+                params["datetime"],
+                params["lat"],
+                params["long"],
+                params["altitude"],
+            )
 
         elif type_ == "lunar":
             solution = self._solve_lunar(params)
@@ -149,17 +203,18 @@ class EventSolver:
         return solution
 
 
-    def _solve_solar(self, params):
+    @rounded_args_cache(num_decimal_places=4, maxsize=16)
+    def _solve_solar(self, date_, latitude, longitude, altitude):
         """
         Computes the contact time for a total solar eclipse.
 
         C1, C2, MID, C3, C4.
         """
         solution = solar_contact_times(
-            start = astropy.time.Time(params["datetime"], scale="utc"),
-            lat = params["lat"],
-            lon = params["long"],
-            alt = params["altitude"],
+            astropy.time.Time(date_, scale="utc"),
+            latitude,
+            longitude,
+            altitude,
         )
         solution.pop("type")
         for key, value in solution.items():

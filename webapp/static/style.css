@@ -30,8 +30,8 @@ th, td {
 }
 
 th {
-    background-color: black;
-    color: white;
+    background-color: black; /* This applies to all table headers by default */
+    color: white; /* This applies to all table headers by default */
     text-align: center; /* Center header text */
 }
 
@@ -74,11 +74,12 @@ td pre {
     /* Uses general table styles */
 }
 
-#event_table thead th {
-    background-color: #d0e0f0; /* Light blueish header for event table */
+/* REMOVED: Specific background and color for event table header, now uses general 'th' style */
+/* #event_table thead th {
+    background-color: #d0e0f0;
     color: #333;
     font-weight: bold;
-}
+} */
 
 #event_table th.column_1_header {
     text-align: left; /* Keep 'Label' header left-aligned */

@@ -44,6 +44,14 @@ _run_sim = RunSim()
 _run_sim_lock = threading.Lock()
 
 
+def make_response(status, message, return_code=200):
+    app.logger.info(f"status: {status}, message: {message}, code: {return_code}")
+    return (
+        flask.jsonify(status=status, message=message),
+        return_code,
+    )
+
+
 @app.route('/')
 def hello():
     return flask.render_template(
@@ -66,7 +74,7 @@ def api_cameras():
 @app.route('/api/camera/update_description', methods=['POST'])
 def api_camera_update_description():
     if not flask.request.is_json:
-        return ('{"status":"error","message":"Request must be JSON"}', 400)
+        return make_response("error", "REquest must be JSON", 400)
 
     data = flask.request.get_json()
 
@@ -74,16 +82,10 @@ def api_camera_update_description():
     new_description = data.get('description')
 
     if not serial or not new_description:
-        return (
-            '{"status":"error","message":"Missing serial or description"}',
-            400
-        )
+        return make_response("error", "Missing serial or description", 400)
 
     _cam_reader.update_description(serial, new_description)
-    return (
-        '{"status":"success","message":"Description updated"}',
-        200
-    )
+    return make_response("success", "Description updated")
 
 @app.route('/api/event_list')
 def api_event_list():
@@ -180,6 +182,8 @@ def api_event_load(filename):
 
     update_and_trigger(data["type"], date_, data["events"], data.get("event", dict()))
 
+    app.logger.info(f"loaded event {filename}")
+
     data.pop("event")
     return (
         flask.jsonify(data),
@@ -256,10 +260,7 @@ def api_run_sim():
 
     # Basic validation.
     if any(p is None for p in [gps_latitude, gps_longitude, gps_altitude, event_id, event_time_offset]):
-        return (
-            flask.jsonify({"status": "error", "message": "Missing or invalid simulation parameters."}),
-            400
-        )
+        return make_response("error", "Missing or invalid simulation parameters.", 400)
 
     global _event_solver
     global _gps_reader
@@ -270,31 +271,21 @@ def api_run_sim():
         is_running = _run_sim.is_running
 
     if is_running:
-        return (
-            flask.jsonify({"status": "error", "message": "Simulation is already running."}),
-            409
-        )
+        return make_response("error", "Simulation is already running.", 400)
 
     all_event_ids = _event_solver.event_ids()
     if event_id not in all_event_ids:
-        return (
-            flask.jsonify({"status": "error", "message": f"Bad event_id {event_id}"}),
-            400
-        )
+        return make_response("error", f"Bad event_id {event_id}", 400)
 
     # We have a bit of a checking and egg problem here.  Most likly, you are not
     # currently in the path of totality, so there will not be any contact times
     # avialable to know how to shift the clock, so we reset the event solver
     # with the simulated gps position to compute conact times if avialable.
     solution = _event_solver.simulate_trigger(gps_latitude, gps_longitude, gps_altitude)
-    app.logger.info(f"run_sim: solution = {solution}")
 
     event_time = solution.get(event_id)
     if event_time is None:
-        return (
-            flask.jsonify({"status": "error", "message": f"No event time for {event_id}"}),
-            409
-        )
+        return make_response("error", f"No event time for {event_id}", 400)
 
     # Compute the sim time offset, when applied, all the computed event times
     # shift to the current system time, which in turn, makes the camera control
@@ -352,10 +343,7 @@ def api_run_sim():
         fout.write(f"event_id {event_id}\n")
         fout.write(f"event_time_offset {flask.request.args.get('event_time_offset', type=float)}\n")
 
-    return (
-        flask.jsonify({"status": "success", "message": "Simulation started."}),
-        200
-    )
+    return make_response("success", "Simulation started.", 200)
 
 
 @app.route('/api/run_sim/stop')
@@ -364,10 +352,7 @@ def api_run_sim_stop():
     with _run_sim_lock:
         _run_sim = RunSim()
 
-    return (
-        flask.jsonify({"status": "success", "message": "Simulation stopped."}),
-        200
-    )
+    return make_response("success", "Simulation stopped.", 200)
 
 
 if __name__ == '__main__':

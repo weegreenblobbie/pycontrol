@@ -43,10 +43,41 @@ let gps_latitude = document.getElementById("gps-latitude");
 let gps_longitude = document.getElementById("gps-longitude");
 let gps_altitude = document.getElementById("gps-altitude");
 
+// --- Helper function for robust fetch and error handling ---
+// This function will attempt to parse JSON for an error message if the response is not OK.
+async function fetchData(url, options = {}) {
+    try {
+        const response = await fetch(url, options);
+
+        if (!response.ok) {
+            let error_message = `HTTP error! Status: ${response.status}`;
+            try {
+                const error_data = await response.json();
+                if (error_data && error_data.message) {
+                    error_message = error_data.message;
+                }
+            } catch (json_error) {
+                // If parsing JSON fails, it's probably not a JSON response (e.g., HTML error page)
+                console.warn(`Could not parse error response as JSON for ${url}:`, json_error);
+                const text_response = await response.text();
+                if (text_response.length > 0) {
+                    error_message += ` - Response: ${text_response.substring(0, 100)}...`; // Show a snippet
+                }
+            }
+            throw new Error(error_message);
+        }
+        return response.json();
+    } catch (error) {
+        console.error(`Fetch operation failed for ${url}:`, error);
+        alert(`Error: ${error.message}`); // Display the collected error message to the user
+        throw error; // Re-throw to propagate the error down the chain if needed
+    }
+}
+
+
 function fetch_gps()
 {
-    fetch('/api/gps')
-        .then(response => response.json())
+    fetchData('/api/gps') // Use our new helper function
         .then(data =>
         {
             if (!data.connected)
@@ -80,10 +111,10 @@ function fetch_gps()
             gps_longitude.textContent = data.long.toFixed(4);
             gps_altitude.textContent = data.altitude.toFixed(1);
         })
-        .catch(error =>
-        {
-            console.error('Error fetching GPS data:', error);
-        });
+        // .catch block is now handled by fetchData, so we can remove it here
+        // .catch(error => {
+        //     console.error('Error fetching GPS data:', error);
+        // });
 }
 
 // === Global Cameras Variables ===
@@ -91,8 +122,7 @@ const cameras = document.getElementById("cameras").tBodies[0];
 
 function fetch_cameras()
 {
-    fetch('/api/cameras')
-        .then(response => response.json())
+    fetchData('/api/cameras') // Use our new helper function
         .then(data =>
         {
             cameras.innerHTML = ""; // Erase existing rows
@@ -208,10 +238,10 @@ function fetch_cameras()
                 cameras.appendChild(row);
             }
         })
-        .catch(error =>
-        {
-            console.error('Error fetching camera data:', error);
-        });
+        // .catch block is now handled by fetchData
+        // .catch(error => {
+        //     console.error('Error fetching camera data:', error);
+        // });
 }
 
 /*
@@ -249,43 +279,34 @@ function handle_cancel_rename_click()
     rename_modal.style.display = 'none';
 }
 
-function send_camera_description_to_backend(serial, description)
+async function send_camera_description_to_backend(serial, description)
 {
-    fetch('/api/camera/update_description', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    serial: serial,
-                    description: description
-                })
-            })
-        .then(response =>
-        {
-            if (!response.ok)
-            {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json(); // Parse the JSON response from Flask
+    // Use our new helper function
+    await fetchData('/api/camera/update_description', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            serial: serial,
+            description: description
         })
-        .then(data =>
-        {
-            console.log('Backend response:', data);
-            if (data.status === 'success')
-            {
-                console.log('Camera description updated successfully!');
-            }
-            else
-            {
-                console.error('Backend reported an error:', data.message);
-            }
-        })
-        .catch(error =>
-        {
-            console.error('Error sending data to backend:', error);
-            alert('Failed to save description. Please check your connection and try again.');
-        });
+    })
+    .then(data => {
+        console.log('Backend response:', data);
+        if (data.status === 'success') {
+            console.log('Camera description updated successfully!');
+        } else {
+            // This case should ideally be caught by fetchData's error handling for !response.ok,
+            // but including it for explicit status messages from the backend for successful 200 responses.
+            console.error('Backend reported an error (200 OK but status not success):', data.message);
+            alert('Failed to save description: ' + data.message);
+        }
+    })
+    .catch(error => {
+        // Error already handled and alerted by fetchData
+        console.error('Error sending data to backend (caught by caller):', error);
+    });
 }
 
 // Handler for saving the new name
@@ -420,14 +441,7 @@ async function populate_static_event_details(filename)
 
     try
     {
-        const response = await fetch(`/api/event_load/${filename}`);
-
-        if (!response.ok)
-        {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const event_data = await response.json();
+        const event_data = await fetchData(`/api/event_load/${filename}`); // Use our new helper function
 
         // Remove the loading row
         const existing_loading_row = document.getElementById('loading_data_row');
@@ -461,13 +475,14 @@ async function populate_static_event_details(filename)
     catch (error)
     {
         console.error(`Error fetching data for ${filename}:`, error);
-        // Remove loading row and display error
+        // Error already handled and alerted by fetchData, so no need for additional alert here.
+        // Remove loading row and display error message in table if it still exists.
         const existing_loading_row = document.getElementById('loading_data_row');
         if (existing_loading_row)
         {
             existing_loading_row.remove();
         }
-        // Display an error row at the bottom
+        // Display an error row at the bottom with the error message
         update_event_table_row('Error', `Failed to load ${filename}`, error.message);
     }
 }
@@ -479,14 +494,7 @@ async function fetch_files_for_modal()
 
     try
     {
-        const response = await fetch("/api/event_list");
-
-        if (!response.ok)
-        {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const files = await response.json();
+        const files = await fetchData("/api/event_list"); // Use our new helper function
 
         file_list_element.innerHTML = '';
 
@@ -516,6 +524,7 @@ async function fetch_files_for_modal()
     catch (error)
     {
         console.error("Error fetching files for modal:", error);
+        // Error already handled and alerted by fetchData
         file_list_element.innerHTML = `<li>Error loading files: ${error.message}</li>`;
     }
 }
@@ -527,12 +536,7 @@ async function update_dynamic_events()
 {
     try
     {
-        const response = await fetch('/api/events');
-        if (!response.ok)
-        {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const dynamic_events_map = await response.json(); // Expected: map from event_id to [event_time, eta]
+        const dynamic_events_map = await fetchData('/api/events'); // Use our new helper function
 
         // Check if the received data is an object (map)
         if (typeof dynamic_events_map === 'object' && dynamic_events_map !== null)
@@ -570,9 +574,8 @@ async function update_dynamic_events()
     }
     catch (error)
     {
-        console.error('Error fetching dynamic events:', error);
-        // Optionally, you could set ETAs to 'Error' for all currently displayed events
-        // that failed to update due to this error, if desired.
+        console.error('Error fetching dynamic events (caught by caller):', error);
+        // Error already handled and alerted by fetchData
     }
 }
 
@@ -629,12 +632,7 @@ async function handle_run_sim_button_click()
             // Show calculating modal briefly during stop
             calculating_modal.style.display = 'flex';
 
-            const response = await fetch('/api/run_sim/stop');
-            if (!response.ok)
-            {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const result = await response.json();
+            const result = await fetchData('/api/run_sim/stop'); // Use our new helper function
             if (result.status === 'success')
             {
                 is_sim_running = false;
@@ -643,14 +641,16 @@ async function handle_run_sim_button_click()
             }
             else
             {
-                console.error('Failed to stop simulation:', result.message);
+                // This case should ideally be caught by fetchData's error handling for !response.ok,
+                // but including it for explicit status messages from the backend for successful 200 responses.
+                console.error('Failed to stop simulation (200 OK but status not success):', result.message);
                 alert('Failed to stop simulation: ' + result.message);
             }
         }
         catch (error)
         {
-            console.error('Error stopping simulation:', error);
-            alert('Error stopping simulation. Check console for details.');
+            // Error already handled and alerted by fetchData
+            console.error('Error stopping simulation (caught by caller):', error);
         }
         finally
         {
@@ -663,12 +663,7 @@ async function handle_run_sim_button_click()
         // Fetch default values and open the modal
         try
         {
-            const response = await fetch('/api/run_sim/defaults');
-            if (!response.ok)
-            {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const defaults = await response.json();
+            const defaults = await fetchData('/api/run_sim/defaults'); // Use our new helper function
 
             // Populate the modal inputs with default values
             sim_latitude_input.value = defaults.gps_latitude || '';
@@ -682,8 +677,8 @@ async function handle_run_sim_button_click()
         }
         catch (error)
         {
-            console.error('Error fetching simulation defaults:', error);
-            alert('Failed to fetch simulation defaults. Check console for details.');
+            // Error already handled and alerted by fetchData
+            console.error('Error fetching simulation defaults (caught by caller):', error);
         }
     }
 }
@@ -713,13 +708,8 @@ async function handle_sim_okay_click()
     {
         // Construct the URL with parameters
         const query_params = new URLSearchParams(params).toString();
-        const response = await fetch(`/api/run_sim?${query_params}`);
+        const result = await fetchData(`/api/run_sim?${query_params}`); // Use our new helper function
 
-        if (!response.ok)
-        {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const result = await response.json();
         if (result.status === 'success')
         {
             is_sim_running = true;
@@ -728,14 +718,16 @@ async function handle_sim_okay_click()
         }
         else
         {
-            console.error('Failed to start simulation:', result.message);
+            // This case should ideally be caught by fetchData's error handling for !response.ok,
+            // but including it for explicit status messages from the backend for successful 200 responses.
+            console.error('Failed to start simulation (200 OK but status not success):', result.message);
             alert('Failed to start simulation: ' + result.message);
         }
     }
     catch (error)
     {
-        console.error('Error starting simulation:', error);
-        alert('Error starting simulation. Check console for details.');
+        // Error already handled and alerted by fetchData
+        console.error('Error starting simulation (caught by caller):', error);
     }
     finally
     {
