@@ -2,7 +2,10 @@ import copy
 import datetime
 import threading
 
+import astropy.time
+
 import date_utils as du
+from solar_eclipse_contact_times import find_contact_times as solar_contact_times
 
 class EventSolver:
 
@@ -50,14 +53,17 @@ class EventSolver:
         type_ = params["type"]
         assert type_ in {"solar", "lunar", "custom"}
 
-        if type_ == "solar":
+        if type_ == "custom":
+            solution = self._solve_custom(params)
+
+        elif type_ == "solar":
             solution = self._solve_solar(params)
 
         elif type_ == "lunar":
             solution = self._solve_lunar(params)
 
-        elif type_ == "custom":
-            solution = self._solve_custom(params)
+        else:
+            raise ValueError(f"Unknown type: {type_}")
 
         print(f"solution = {solution}")
 
@@ -114,4 +120,22 @@ class EventSolver:
             solution[event_id] = params["event"][event_id]
 
         return solution
+
+
+    def _solve_solar(self, params):
+        """
+        Computes the contact time for a total solar eclipse.
+
+        C1, C2, MID, C3, C4.
+        """
+        solution = solar_contact_times(
+            start = astropy.time.Time(params["datetime"], scale="utc"),
+            lat = params["lat"],
+            lon = params["long"],
+            alt = params["altitude"],
+        )
+        solution.pop("type")
+        return solution
+
+
 

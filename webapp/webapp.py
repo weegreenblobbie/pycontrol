@@ -81,7 +81,7 @@ def get_event(filename):
         all_lines = fin.readlines()
 
     date_ = None
-    data = dict()
+    data = dict(event=dict())
     event_ids = None
     for line in all_lines:
         line = line.strip()
@@ -141,12 +141,19 @@ def get_events():
     for event_id in events:
         event_time = events[event_id]
 
-        if event_time == EventSolver.COMPUTING:
+        if event_time is None:
+            out[event_id] = ("Event not visible!", "N/A")
+
+        elif event_time == EventSolver.COMPUTING:
             out[event_id] = (event_time, "")
 
-        else:
+        elif isinstance(event_time, datetime.datetime):
             eta = du.eta(du.now(), event_time)
             out[event_id] = (du.normalize(event_time), eta)
+
+        else:
+            print(f"event_time: {event_time}")
+            raise ValueError(f"event_time: {event_time}")
 
     return (
         flask.jsonify(out),

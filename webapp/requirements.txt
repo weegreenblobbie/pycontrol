@@ -1,4 +1,7 @@
-rs-gps>=3.25.1.dev0
 Flask>=3
+astropy>=5.2.2
+jplephem>=2.22
+numpy
 python-dateutil
 pytz
+rs-gps>=3.25.1.dev0
