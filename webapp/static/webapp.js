@@ -484,23 +484,30 @@ async function fetch_files_for_modal() {
 
 // --- Function to periodically update event ETAs from /api/events/ ---
 // This function is now updated to expect a map (object) from event_id to [event_time, eta]
-async function update_dynamic_events() {
-    try {
+async function update_dynamic_events()
+{
+    try
+    {
         const response = await fetch('/api/events');
-        if (!response.ok) {
+        if (!response.ok)
+        {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const dynamic_events_map = await response.json(); // Expected: map from event_id to [event_time, eta]
 
         // Check if the received data is an object (map)
-        if (typeof dynamic_events_map === 'object' && dynamic_events_map !== null) {
+        if (typeof dynamic_events_map === 'object' && dynamic_events_map !== null)
+        {
             // Iterate over the keys (event_ids) in the received map
-            for (const event_id in dynamic_events_map) {
-                if (dynamic_events_map.hasOwnProperty(event_id)) {
+            for (const event_id in dynamic_events_map)
+            {
+                if (dynamic_events_map.hasOwnProperty(event_id))
+                {
                     const event_info = dynamic_events_map[event_id];
 
                     // Ensure event_info is an array/list of length 2
-                    if (Array.isArray(event_info) && event_info.length === 2) {
+                    if (Array.isArray(event_info) && event_info.length === 2)
+                    {
                         const [event_time, eta] = event_info;
 
                         // Call update_event_table_row, which now handles the <pre> tags correctly
@@ -508,16 +515,22 @@ async function update_dynamic_events() {
                         // or update the existing row's <pre> content.
                         update_event_table_row(event_id, event_time, eta);
 
-                    } else {
+                    }
+                    else
+                    {
                         console.warn(`Malformed event info for ${event_id} from /api/events/. Expected [time, eta]. Received:`, event_info);
                     }
                 }
             }
-        } else {
+        }
+        else
+        {
             console.warn("Unexpected data format from /api/events/. Expected an object (map). Received:", dynamic_events_map);
         }
 
-    } catch (error) {
+    }
+    catch (error)
+    {
         console.error('Error fetching dynamic events:', error);
         // Optionally, you could set ETAs to 'Error' for all currently displayed events
         // that failed to update due to this error, if desired.

@@ -4,13 +4,18 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Define event file format
-- Add event selection UI to select 1 of these:
- -- 2026-03 linar eclipse
- -- 2026-08 total solar eclipse
- -- Custom
+- Persist the event selection in a config file, so reloading the app auto loads the
+  last selected event file.
 
-- Plumb computed contact times into UI, camera control
+- Add simulation buttons below the event table, start and abort
+  - simulate: location: (lat, log, alt), time: -60.0 C2, persist these in a local file.
+  - takes a snapshot of the current gps data, so residuals can be added for
+  realistic changes over time
+  - camera_control will continue to use system time, so in simulation mode, we
+  apply a time offset to the calculated event times so camera control believe the events are
+  about to fire.
+
+- Plumb computed contact times into camera control
 
 - Use pvlib to lookup altitude from gps lat, long
 
@@ -19,8 +24,6 @@ Make it work
 - See if I can speed up scan_cameras().
 
 - Define camera schedule format
-
-- Use pydandic to validate all yaml config files
 
 - Implement and test these workflows:
     - pick event, clear any camera schedule
@@ -73,6 +76,14 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Define event file format
+* Add event selection UI to select 1 of these:
+ -- 2026-03 linar eclipse
+ -- 2026-08 total solar eclipse
+ -- Custom
+
+* Plumb computed contact times into UI
 
 * Update camera_contro_bin to handle mapping serial number to alias.
 ** webapp/cam_info_reader.py to command serial:alias updates
