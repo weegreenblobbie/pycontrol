@@ -33,6 +33,8 @@ def eta(source, destination):
     """
     seconds = (destination - source).total_seconds()
 
+    is_negative = seconds < 0.0
+
     num_days = int(seconds / 86400.0)
     seconds -= num_days * 86400.0
     num_hours = int(seconds / 3600.0)
@@ -41,11 +43,11 @@ def eta(source, destination):
     seconds -= num_minutes * 60.0
     seconds = int(seconds)
 
-    out = ""
+    out = "- " if is_negative else "  "
     if num_days != 0:
-        out += f"{num_days} days "
+        out += f"{abs(num_days)} days "
 
-    out += f"{num_hours:2d}:{num_minutes:02d}:{seconds:02d}"
+    out += f"{abs(num_hours):02d}:{abs(num_minutes):02d}:{abs(seconds):02d}"
 
     return out
 

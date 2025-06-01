@@ -2,96 +2,143 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>PyControl</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webapp Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    <div class="container">
+        <h1>Dashboard</h1>
 
-    <h1>GPS Status</h1>
-    <table>
-        <tr>
-            <th>Connection</th>
-            <th>Mode</th>
-            <th>Mode Time</th>
-            <th>Sats</th>
-            <th>Time UCT</th>
-            <th>Latitude</th>
-            <th>Longitude</th>
-            <th>Altitude (m)</th>
-        </tr>
+        <div class="section">
+            <h2>GPS Data</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Connection</th>
+                        <th>Mode</th>
+                        <th>Mode Time</th>
+                        <th>Satellites (Used/Seen)</th>
+                        <th>Time</th>
+                        <th>Latitude</th>
+                        <th>Longitude</th>
+                        <th>Altitude (m)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><img id="gps-connection" src="/static/gps-disconnected.svg" width="70" height="50" alt="GPS Connection Status"></td>
+                        <td id="gps-mode">N/A</td>
+                        <td id="gps-mode-time">N/A</td>
+                        <td id="gps-sats">N/A</td>
+                        <td id="gps-time">N/A</td>
+                        <td id="gps-latitude">N/A</td>
+                        <td id="gps-longitude">N/A</td>
+                        <td id="gps-altitude">N/A</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
-        <tr>
-            <td>
-                <img
-                    id="gps-connection"
-                    src="{{url_for('static', filename='gps-disconnected.svg')}}"
-                    alt="GPS"
-                    width="64"
-                    height="64"
-                >
-            </td>
-            <td id="gps-mode">N/A</td>
-            <td id="gps-mode-time">N/A</td>
-            <td id="gps-sats">N/A</td>
-            <td id="gps-time">N/A</td>
-            <td id="gps-latitude">N/A</td>
-            <td id="gps-longitude">N/A</td>
-            <td id="gps-altitude">N/A</td>
-        </tr>
-    </table>
+        <div class="section">
+            <h2>Cameras</h2>
+            <table id="cameras">
+                <thead>
+                    <tr>
+                        <th>Connected</th>
+                        <th>Serial</th>
+                        <th>Description</th>
+                        <th>Battery (%)</th>
+                        <th>Port</th>
+                        <th>Available Shots</th>
+                        <th>Quality</th>
+                        <th>Mode</th>
+                        <th>ISO</th>
+                        <th>F-Stop</th>
+                        <th>Shutter</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
 
-    <h1>Cameras</h1>
+        <div class="section">
+            <h2>Events</h2>
+            <table id="event_table">
+                <thead>
+                    <tr>
+                        <th>Event ID</th>
+                        <th>Event Time (UTC)</th>
+                        <th>ETA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+            <div class="button-container">
+                <button id="run_sim_button" class="action-button stopped">Run Sim</button>
+            </div>
+        </div>
 
-    <table id="cameras">
+    </div>
 
-        <thead>
-            <tr>
-                <th>Connected</th>
-                <th>Serial</th>
-                <th>Name</th>
-                <th>Battery Level</th>
-                <th>Port</th>
-                <th>Available Shots</th>
-                <th>Quality</th>
-                <th>Mode</th>
-                <th>ISO</th>
-                <th>F-Stop</th>
-                <th>Shutter</th>
-            </tr>
-        </thead>
-
-        <tbody></tbody>
-
-    </table>
-
-    <div id="rename_modal" class="modal_overlay"> <div class="modal_content">
+    <div id="rename_modal" class="modal">
+        <div class="modal-content">
             <span class="close_button">&times;</span>
             <h2>Rename Camera</h2>
-            <input type="text" id="rename_input">
-            <div class="modal_buttons">
+            <input type="text" id="rename_input" placeholder="Enter new description">
+            <div class="modal-buttons">
+                <button id="save_rename">Save</button>
                 <button id="cancel_rename">Cancel</button>
-                <button id="save_rename">OK</button>
             </div>
         </div>
     </div>
 
-    <h1>Event</h1> <div class="event-table-container">
-        <table id="event_table"> <thead>
-                <tr>
-<!--~                     <th class="column_1_header">Label</th> <th>Value 1</th> <th>Value 2</th>  ~-->
-                </tr>
-            </thead>
-
-            <tbody></tbody>
-
-        </table>
-    </div>
-
-    <div id="event_selection_modal" class="modal_overlay"> <div class="modal_content"> <span class="close_button">&times;</span>
+    <div id="event_selection_modal" class="modal">
+        <div class="modal-content">
+            <span class="close_button">&times;</span>
             <h2>Select Event File</h2>
-            <ul id="file_list"></ul> </div>
+            <ul id="file_list">
+                <li>Loading files...</li>
+            </ul>
+        </div>
     </div>
 
-    <script src="{{ url_for('static', filename='webapp.js') }}"></script>
+    <div id="run_sim_modal" class="modal">
+        <div class="modal-content">
+            <span class="close_button" id="run_sim_modal_close_button">&times;</span>
+            <h2>Run Simulation Parameters</h2>
+            <form id="sim_params_form">
+                <div class="form-group">
+                    <label for="sim_latitude_input">GPS Latitude:</label>
+                    <input type="number" id="sim_latitude_input" step="any">
+                </div>
+                <div class="form-group">
+                    <label for="sim_longitude_input">GPS Longitude:</label>
+                    <input type="number" id="sim_longitude_input" step="any">
+                </div>
+                <div class="form-group">
+                    <label for="sim_altitude_input">GPS Altitude (m):</label>
+                    <input type="number" id="sim_altitude_input" step="any">
+                </div>
+                <div class="form-group">
+                    <label for="sim_event_id_input">Event ID:</label>
+                    <input type="text" id="sim_event_id_input">
+                </div>
+                <div class="form-group">
+                    <label for="sim_time_offset_input">Event Time Offset (seconds):</label>
+                    <input type="number" id="sim_time_offset_input" step="any">
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" id="sim_okay_button">Okay</button>
+                    <button type="button" id="sim_cancel_button">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <script src="/static/webapp.js"></script>
 </body>
 </html>

@@ -315,6 +315,10 @@ function handle_window_click(event)
     { // Check for event modal as well
         event_selection_modal.style.display = 'none';
     }
+    else if (event.target === run_sim_modal) // New: check for run sim modal
+    {
+        run_sim_modal.style.display = 'none';
+    }
 }
 
 // Handler for 'Enter' key press in the input field
@@ -569,6 +573,177 @@ async function update_dynamic_events()
 }
 
 
+/*
+ * Run Simulation Functionality.
+ */
+// DOM elements for the run sim button and its modal
+const run_sim_button = document.getElementById('run_sim_button');
+const run_sim_modal = document.getElementById('run_sim_modal');
+const run_sim_modal_close_button = document.getElementById('run_sim_modal_close_button');
+const sim_latitude_input = document.getElementById('sim_latitude_input');
+const sim_longitude_input = document.getElementById('sim_longitude_input');
+const sim_altitude_input = document.getElementById('sim_altitude_input');
+const sim_event_id_input = document.getElementById('sim_event_id_input');
+const sim_time_offset_input = document.getElementById('sim_time_offset_input');
+const sim_okay_button = document.getElementById('sim_okay_button');
+const sim_cancel_button = document.getElementById('sim_cancel_button');
+
+// State variable for the simulation
+let is_sim_running = false;
+
+// Function to update the run sim button's appearance and action
+function update_run_sim_button_state()
+{
+    if (is_sim_running)
+    {
+        run_sim_button.textContent = "Stop Sim";
+        run_sim_button.style.backgroundColor = "red";
+        run_sim_button.classList.add('running');
+        run_sim_button.classList.remove('stopped');
+    }
+    else
+    {
+        run_sim_button.textContent = "Run Sim";
+        run_sim_button.style.backgroundColor = "green";
+        run_sim_button.classList.add('stopped');
+        run_sim_button.classList.remove('running');
+    }
+}
+
+// Handler for the "Run Sim" button click
+async function handle_run_sim_button_click()
+{
+    if (is_sim_running)
+    {
+        // If sim is running, this click means "Stop Sim"
+        try
+        {
+            const response = await fetch('/api/run_sim/stop');
+            if (!response.ok)
+            {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const result = await response.json();
+            if (result.status === 'success')
+            {
+                is_sim_running = false;
+                update_run_sim_button_state();
+                console.log('Simulation stopped successfully.');
+            }
+            else
+            {
+                console.error('Failed to stop simulation:', result.message);
+                alert('Failed to stop simulation: ' + result.message);
+            }
+        }
+        catch (error)
+        {
+            console.error('Error stopping simulation:', error);
+            alert('Error stopping simulation. Check console for details.');
+        }
+    }
+    else
+    {
+        // If sim is not running, this click means "Run Sim"
+        // Fetch default values and open the modal
+        try
+        {
+            const response = await fetch('/api/run_sim/defaults');
+            if (!response.ok)
+            {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const defaults = await response.json();
+
+            // Populate the modal inputs with default values
+            sim_latitude_input.value = defaults.gps_latitude || '';
+            sim_longitude_input.value = defaults.gps_longitude || '';
+            sim_altitude_input.value = defaults.gps_altitude || '';
+            sim_event_id_input.value = defaults.event_id || '';
+            sim_time_offset_input.value = defaults.event_time_offset || '0'; // Default to 0 if not provided
+
+            run_sim_modal.style.display = 'flex'; // Show the modal
+            sim_latitude_input.focus(); // Focus on the first input
+        }
+        catch (error)
+        {
+            console.error('Error fetching simulation defaults:', error);
+            alert('Failed to fetch simulation defaults. Check console for details.');
+        }
+    }
+}
+
+// Handler for 'OK' button in run sim modal
+async function handle_sim_okay_click()
+{
+    const params = {
+        gps_latitude: parseFloat(sim_latitude_input.value),
+        gps_longitude: parseFloat(sim_longitude_input.value),
+        gps_altitude: parseFloat(sim_altitude_input.value),
+        event_id: sim_event_id_input.value,
+        event_time_offset: parseFloat(sim_time_offset_input.value)
+    };
+
+    // Basic validation
+    if (isNaN(params.gps_latitude) || isNaN(params.gps_longitude) || isNaN(params.gps_altitude) || isNaN(params.event_time_offset) || !params.event_id)
+    {
+        alert("Please enter valid numbers for GPS coordinates/offset and a valid Event ID.");
+        return;
+    }
+
+    try
+    {
+        // Construct the URL with parameters
+        const query_params = new URLSearchParams(params).toString();
+        const response = await fetch(`/api/run_sim?${query_params}`); // Using query params for GET
+        // Alternatively, if you want POST and send JSON:
+        // const response = await fetch('/api/run_sim', {
+        //     method: 'POST',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify(params)
+        // });
+
+        if (!response.ok)
+        {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        if (result.status === 'success')
+        {
+            is_sim_running = true;
+            update_run_sim_button_state();
+            run_sim_modal.style.display = 'none'; // Hide modal
+            console.log('Simulation started successfully with params:', params);
+        }
+        else
+        {
+            console.error('Failed to start simulation:', result.message);
+            alert('Failed to start simulation: ' + result.message);
+        }
+    }
+    catch (error)
+    {
+        console.error('Error starting simulation:', error);
+        alert('Error starting simulation. Check console for details.');
+    }
+}
+
+// Handler for 'Cancel' button in run sim modal
+function handle_sim_cancel_click()
+{
+    run_sim_modal.style.display = 'none';
+}
+
+// Handler for 'Enter' key press in run sim modal inputs
+function handle_sim_input_keypress(event)
+{
+    if (event.key === 'Enter')
+    {
+        sim_okay_button.click(); // Simulate a click on the OK button
+    }
+}
+
+
 // === All Initial Setup on DOMContentLoaded ===
 document.addEventListener('DOMContentLoaded', function()
 {
@@ -614,8 +789,24 @@ document.addEventListener('DOMContentLoaded', function()
         event_selection_modal.style.display = 'none';
     });
 
+    // === Run Sim Button and Modal Event Listeners ===
+    run_sim_button.addEventListener('click', handle_run_sim_button_click);
+    run_sim_modal_close_button.addEventListener('click', handle_sim_cancel_click); // Close button acts like cancel
+    sim_okay_button.addEventListener('click', handle_sim_okay_click);
+    sim_cancel_button.addEventListener('click', handle_sim_cancel_click);
+
+    // Add keypress listener to all sim modal input fields
+    sim_latitude_input.addEventListener('keypress', handle_sim_input_keypress);
+    sim_longitude_input.addEventListener('keypress', handle_sim_input_keypress);
+    sim_altitude_input.addEventListener('keypress', handle_sim_input_keypress);
+    sim_event_id_input.addEventListener('keypress', handle_sim_input_keypress);
+    sim_time_offset_input.addEventListener('keypress', handle_sim_input_keypress);
+
     // Close any modal if user clicks outside of it (unified handler)
     window.addEventListener('click', handle_window_click);
+
+    // Set initial state of the run sim button
+    update_run_sim_button_state();
 
     // === Initial Data Fetches and Intervals ===
     let interval = 1000; // 1 second
