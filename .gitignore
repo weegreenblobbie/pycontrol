@@ -1,4 +1,5 @@
 external/cactus-rt
+external/Catch2
 webapp/venv
 webapp/__pycache__
 rasberry-pi-4/ansible/venv
