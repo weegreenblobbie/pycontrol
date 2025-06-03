@@ -57,8 +57,8 @@ UNIT_TEST_BIN_OBJS := $(UNIT_TEST_BIN_SRC:.cc=.o)
 $(CAMERA_CONTROL_BIN): $(CAMERA_CONTROL_BIN_OBJS) ../common/libcommon.a
 	g++ -o $(CAMERA_CONTROL_BIN) $(CAMERA_CONTROL_BIN_OBJS) $(LINKFLAGS) $(LIBS)
 
-$(UNIT_TEST_BIN): $(UNIT_TEST_BIN_OBJS) $(ALL_SOURCE) ../common/libcommon.a
-	g++ -o $(UNIT_TEST_BIN) $(UNIT_TEST_BIN_OBJS) CameraSequence.o $(LINKFLAGS) $(LIBS)
+$(UNIT_TEST_BIN): $(ALL_SOURCE) $(UNIT_TEST_BIN_OBJS) CameraSequenceFileReader.o ../common/libcommon.a
+	g++ -o $(UNIT_TEST_BIN) $(UNIT_TEST_BIN_OBJS) CameraSequenceFileReader.o $(LINKFLAGS) $(LIBS)
 
 test: $(UNIT_TEST_BIN)
 	./$(UNIT_TEST_BIN)

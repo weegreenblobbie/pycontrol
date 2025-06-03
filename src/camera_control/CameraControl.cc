@@ -37,19 +37,31 @@ CameraControl::init(const std::string & config_file)
         else
         if (pair.key == "cam_info_port")
         {
-            _cam_info_port = as_type<std::uint16_t>(pair.value);
+            ABORT_IF_NOT(
+                as_type<std::uint16_t>(pair.value, _cam_info_port),
+                "as_type<std::uint16_t>(" << pair.value <<") failed",
+                result::failure
+            );
             ABORT_IF(_cam_info_port < 1024, "port too low, pick a higher port", result::failure);
         }
         else
         if (pair.key == "cam_rename_port")
         {
-            _cam_rename_port = as_type<std::uint16_t>(pair.value);
+            ABORT_IF_NOT(
+                as_type<std::uint16_t>(pair.value, _cam_rename_port),
+                "as_type<std::uint16_t>(" << pair.value <<") failed",
+                result::failure
+            );
             ABORT_IF(_cam_rename_port < 1024, "port too low, pick a higher port", result::failure);
         }
         else
         if (pair.key == "period")
         {
-            _control_period = as_type<std::uint64_t>(pair.value);
+            ABORT_IF_NOT(
+                as_type<std::uint64_t>(pair.value, _control_period),
+                "as_type<std::uint64_t>(" << pair.value <<") failed",
+                result::failure
+            );
             ABORT_IF(_control_period < 10, "100+ Hz is probably too fast", result::failure);
         }
         else

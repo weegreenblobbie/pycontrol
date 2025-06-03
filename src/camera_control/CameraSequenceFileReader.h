@@ -4,16 +4,18 @@
 #include <vector>
 #include <set>
 
+#include <common/types.h>
+
 namespace pycontrol
 {
 
 // Forward.
 struct CameraSequenceEntry;
 
-class CameraSequence
+class CameraSequenceFileReader
 {
 public:
-    bool load_from_file(const std::string & file_path);
+    result read_file(const std::string & file_path);
     const std::vector<CameraSequenceEntry> & get_entries() const;
     void clear();
 
@@ -22,12 +24,10 @@ private:
     std::string _strip(const std::string& str) const;
 
     bool _is_ignorable_line(const std::string& line) const;
-
     bool _is_valid_shutter_speed(const std::string& value) const;
-
     bool _is_valid_fstop(const std::string& value) const;
-
     bool _is_valid_fps_value(const std::string& value) const;
+    bool _is_valid_trigger_value(const std::string& value) const;
 
     std::vector<CameraSequenceEntry> _sequence_entries {};
 };

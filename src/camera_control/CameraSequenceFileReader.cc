@@ -6,11 +6,12 @@
 #include <iterator>
 
 #include <common/io.h>
-#include <camera_control/CameraSequence.h>
+#include <common/str_utils.h>
+#include <camera_control/CameraSequenceFileReader.h>
 
 namespace {
 
-std::set<std::string> _valid_shutter_speeds = {
+const std::set<std::string> _valid_shutter_speeds = {
     "1/8000",
     "1/6400",
     "1/5000",
@@ -101,7 +102,7 @@ std::set<std::string> _valid_shutter_speeds = {
     "900.0",
 };
 
-std::set<std::string> _valid_fstops = {
+const std::set<std::string> _valid_fstops = {
     "1.2",
     "1.4",
     "2.0",
@@ -148,6 +149,10 @@ std::set<std::string> _valid_fstops = {
     "36.0",
 };
 
+const std::set<std::string> _valid_triggers = {
+    "1",
+};
+
 } /* namespace */
 
 
@@ -156,7 +161,7 @@ namespace pycontrol
 
 
 std::string
-CameraSequence::
+CameraSequenceFileReader::
 _strip(const std::string& str) const
 {
     size_t first = str.find_first_not_of(" \t\n\r\f\v");
@@ -169,7 +174,7 @@ _strip(const std::string& str) const
 }
 
 bool
-CameraSequence::
+CameraSequenceFileReader::
 _is_ignorable_line(const std::string& line) const
 {
     std::string trimmed_line = _strip(line);
@@ -177,21 +182,21 @@ _is_ignorable_line(const std::string& line) const
 }
 
 bool
-CameraSequence::
+CameraSequenceFileReader::
 _is_valid_shutter_speed(const std::string& value) const
 {
     return _valid_shutter_speeds.contains(value);
 }
 
 bool
-CameraSequence::
+CameraSequenceFileReader::
 _is_valid_fstop(const std::string& value) const
 {
     return _valid_fstops.contains(value);
 }
 
 bool
-CameraSequence::
+CameraSequenceFileReader::
 _is_valid_fps_value(const std::string& value) const
 {
     if (value == "start" || value == "stop")
@@ -202,21 +207,25 @@ _is_valid_fps_value(const std::string& value) const
     std::istringstream iss(value);
     float f;
     iss >> std::noskipws >> f;
-    return iss.eof() && !iss.fail();
+    return iss.eof() && !iss.fail() && f >= 0.0f;
 }
 
 bool
-CameraSequence::
-load_from_file(const std::string & file_path)
+CameraSequenceFileReader::
+_is_valid_trigger_value(const std::string& value) const
+{
+    return _valid_triggers.contains(value);
+}
+
+result
+CameraSequenceFileReader::
+read_file(const std::string & file_path)
 {
     clear();
 
     std::ifstream file(file_path);
-    if (!file.is_open())
-    {
-        ERROR_LOG << "Could not open file " << file_path << std::endl;
-        return false;
-    }
+
+    ABORT_IF_NOT(file.is_open(), "Could not open file " << file_path, result::failure);
 
     std::string line;
     int line_number = 0;
@@ -229,20 +238,19 @@ load_from_file(const std::string & file_path)
         }
 
         std::istringstream iss(line);
-        std::string event_id_str, camera_channel_str, channel_value_str;
-        float event_time_offset;
+        std::string event_id_str, event_time_offset_str, camera_channel_str, channel_value_str;
+        float event_time_offset = 0.0f;
 
         if (!(iss >> event_id_str
-                  >> event_time_offset
+                  >> event_time_offset_str
                   >> camera_channel_str
                   >> channel_value_str))
         {
             ERROR_LOG << file_path << "(" << line_number << "): "
-                      << "Parse Error: Incorrect number or format of columns. "
-                      << "Line: '" << line << "'"
+                      << "Parse Error: Incorrect number or format of columns."
                       << std::endl;
             clear();
-            return false;
+            return result::failure;
         }
 
         std::string end_of_line_content;
@@ -252,18 +260,48 @@ load_from_file(const std::string & file_path)
             if (_strip(end_of_line_content)[0] != '#')
             {
                 ERROR_LOG << file_path << "(" << line_number << "): "
-                      << "Parse Error: More than 4 columns detected! "
-                      << "Line: '" << line << "'"
+                      << "Parse Error: More than 4 columns detected!"
                       << std::endl;
                 clear();
-                return false;
-            }
-            else
-            {
-                ERROR_LOG << "nick: '" << _strip(end_of_line_content) << "'\n";
+                return result::failure;
             }
         }
 
+        // Parse event_time_offset_str, valid formats:
+        //    floats => 1.0  -10.0  1e2
+        //    hour:minute:seconds =>   1:15.2   1:23:43.123    -1:15.5
+
+        // If no ':' present, assume it's just a float.
+        if (event_time_offset_str.find(':') == std::string::npos)
+        {
+            if (as_type<float>(event_time_offset_str, event_time_offset))
+            {
+                ERROR_LOG << file_path << "(" << line_number << "): "
+                          << "Parser Error: failed to parse event_time_offset "
+                          << "'" << event_time_offset_str << "' !"
+                          << std::endl;
+                clear();
+                return result::failure;
+            }
+        }
+        // hour:minute:seconds format.
+        else
+        {
+            if (convert_hms_to_seconds(event_time_offset_str, event_time_offset))
+            {
+                ERROR_LOG << file_path << "(" << line_number << "): "
+                          << "Parser Error: failed to parse event_time_offset '"
+                          << event_time_offset_str << "'!"
+                          << std::endl;
+               clear();
+               return result::failure;
+            }
+        }
+
+        // Parse channel.
+        //
+        // camera_id '.' channel_name
+        //
         size_t dot_pos = camera_channel_str.find('.');
         if (dot_pos == std::string::npos ||
             dot_pos == 0 ||
@@ -275,7 +313,7 @@ load_from_file(const std::string & file_path)
                       << "') must be in 'camera_id.channel_name' format."
                       << std::endl;
             clear();
-            return false;
+            return result::failure;
         }
         std::string camera_id = camera_channel_str.substr(0, dot_pos);
         std::string channel_name = camera_channel_str.substr(dot_pos + 1);
@@ -301,15 +339,19 @@ load_from_file(const std::string & file_path)
         {
             validation_ok = _is_valid_fps_value(channel_value_str);
         }
+        else if (channel_name == "trigger")
+        {
+            validation_ok = _is_valid_trigger_value(channel_value_str);
+        }
         else
         {
             ERROR_LOG << file_path << "(" << line_number << "): Parse Error: "
                       << ": Invalid channel name '"
                       << channel_name
-                      << "'. Allowed: shutter_speed, fstop, iso, quality, fps."
+                      << "'. Allowed: shutter_speed, fstop, iso, quality, fps, trigger."
                       << std::endl;
             clear();
-            return false;
+            return result::failure;
         }
 
         if (!validation_ok)
@@ -322,7 +364,7 @@ load_from_file(const std::string & file_path)
                       << "'."
                       << std::endl;
             clear();
-            return false;
+            return result::failure;
         }
 
         _sequence_entries.emplace_back(
@@ -334,18 +376,18 @@ load_from_file(const std::string & file_path)
         );
     }
 
-    return true;
+    return result::success;
 }
 
 const std::vector<CameraSequenceEntry> &
-CameraSequence::
+CameraSequenceFileReader::
 get_entries() const
 {
     return _sequence_entries;
 }
 
 void
-CameraSequence::
+CameraSequenceFileReader::
 clear()
 {
     _sequence_entries.clear();

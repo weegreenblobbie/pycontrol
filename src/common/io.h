@@ -7,6 +7,7 @@
 #define DEBUG_LOG std::cout << __FILE__ << "(" << __LINE__ << "): DEBUG: "
 #define ERROR_LOG std::cerr << __FILE__ << "(" << __LINE__ << "): ERROR: "
 
+
 #define ABORT_IF(expr, message, return_val) \
     do { \
         if ((expr)) { \
