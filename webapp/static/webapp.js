@@ -1,28 +1,21 @@
 // Library stuff.
-function sprintf()
-{
+function sprintf() {
     // https://stackoverflow.com/a/4795914/562106
     var args = arguments,
         string = args[0],
         i = 1;
-    return string.replace(/%((%)|s|d)/g, function (m)
-    {
+    return string.replace(/%((%)|s|d)/g, function (m) {
         // m is the matched format, e.g. %s, %d
         var val = null;
-        if (m[2])
-        {
+        if (m[2]) {
             val = m[2];
-        }
-        else
-        {
+        } else {
             val = args[i];
             // A switch statement so that the formatter can be extended. Default is %s
-            switch (m)
-            {
+            switch (m) {
                 case '%d':
                     val = parseFloat(val);
-                    if (isNaN(val))
-                    {
+                    if (isNaN(val)) {
                         val = 0;
                     }
                     break;
@@ -44,7 +37,6 @@ let gps_longitude = document.getElementById("gps-longitude");
 let gps_altitude = document.getElementById("gps-altitude");
 
 // --- Helper function for robust fetch and error handling ---
-// This function will attempt to parse JSON for an error message if the response is not OK.
 async function fetchData(url, options = {}) {
     try {
         const response = await fetch(url, options);
@@ -57,34 +49,41 @@ async function fetchData(url, options = {}) {
                     error_message = error_data.message;
                 }
             } catch (json_error) {
-                // If parsing JSON fails, it's probably not a JSON response (e.g., HTML error page)
                 console.warn(`Could not parse error response as JSON for ${url}:`, json_error);
-                const text_response = await response.text();
-                if (text_response.length > 0) {
-                    error_message += ` - Response: ${text_response.substring(0, 100)}...`; // Show a snippet
+                try { // Try to get text response if JSON parsing fails
+                    const text_response = await response.text(); // This consumes the body
+                    if (text_response && text_response.length > 0) {
+                        error_message += ` - Response: ${text_response.substring(0, 100)}...`;
+                    }
+                } catch (text_error) {
+                    // If reading text also fails, log that error too
+                    console.warn(`Could not read error response as text for ${url}:`, text_error);
                 }
             }
             throw new Error(error_message);
         }
-        return response.json();
+        // Check for empty response body before trying to parse as JSON
+        const content_type = response.headers.get("content-type");
+        if (content_type && content_type.indexOf("application/json") !== -1) {
+            const text = await response.text(); // Get text first to check if empty
+            return text ? JSON.parse(text) : {}; // Parse if not empty, else return empty object
+        }
+        return {}; // Return empty object if not JSON or no content
     } catch (error) {
         console.error(`Fetch operation failed for ${url}:`, error);
-        alert(`Error: ${error.message}`); // Display the collected error message to the user
-        throw error; // Re-throw to propagate the error down the chain if needed
+        alert(`Error: ${error.message}`);
+        throw error;
     }
 }
 
 
-function fetch_gps()
-{
-    fetchData('/api/gps') // Use our new helper function
-        .then(data =>
-        {
-            if (!data.connected)
-            {
+function fetch_gps() {
+    fetchData('/api/gps')
+        .then(data => {
+            if (!data.connected) {
                 gps_connection.src = "/static/gps-disconnected.svg";
-                gps_mode.textContent = data.mode;
-                gps_mode_time.textContent = data.mode_time;
+                gps_mode.textContent = data.mode || "N/A"; // Add default for safety
+                gps_mode_time.textContent = data.mode_time || "N/A";
 
                 gps_sats.textContent = "N/A";
                 gps_time.textContent = "N/A";
@@ -94,84 +93,48 @@ function fetch_gps()
                 return;
             }
 
-            if (data.mode == "2D FIX")
-            {
+            if (data.mode == "2D FIX") {
                 gps_connection.src = "/static/gps-degraded.svg";
-            }
-            else if (data.mode == "3D FIX")
-            {
+            } else if (data.mode == "3D FIX") {
                 gps_connection.src = "/static/gps-connected.svg";
+            } else {
+                gps_connection.src = "/static/gps-disconnected.svg"; // Default if mode is unexpected
             }
 
             gps_mode.textContent = data.mode;
             gps_mode_time.textContent = data.mode_time;
             gps_sats.textContent = sprintf("%d/%d", data.sats_used, data.sats_seen);
             gps_time.textContent = data.time;
-            gps_latitude.textContent = data.lat.toFixed(4);
-            gps_longitude.textContent = data.long.toFixed(4);
-            gps_altitude.textContent = data.altitude.toFixed(1);
+            gps_latitude.textContent = data.lat !== undefined ? data.lat.toFixed(4) : "N/A";
+            gps_longitude.textContent = data.long !== undefined ? data.long.toFixed(4) : "N/A";
+            gps_altitude.textContent = data.altitude !== undefined ? data.altitude.toFixed(1) : "N/A";
         })
-        // .catch block is now handled by fetchData, so we can remove it here
-        // .catch(error => {
-        //     console.error('Error fetching GPS data:', error);
-        // });
+        .catch(error => {
+             console.error('Error processing GPS data after fetch:', error);
+             // Optionally reset GPS fields to N/A if critical fields are missing
+        });
 }
 
 // === Global Cameras Variables ===
-const cameras = document.getElementById("cameras").tBodies[0];
+const cameras_table_body = document.getElementById("cameras").tBodies[0]; // Renamed for clarity
 
-function fetch_cameras()
-{
-    fetchData('/api/cameras') // Use our new helper function
-        .then(data =>
-        {
-            cameras.innerHTML = ""; // Erase existing rows
+function fetch_cameras() {
+    fetchData('/api/cameras')
+        .then(data => {
+            cameras_table_body.innerHTML = ""; // Erase existing rows
 
-            if (data.num_cameras == 0)
-            {
+            if (!data || data.num_cameras == 0 || !data.detected) { // Added check for data and data.detected
                 const row = document.createElement('tr');
-                const cell_connected = document.createElement('td');
-                const cell_serial = document.createElement('td');
-                const cell_desc = document.createElement('td');
-                const cell_battery = document.createElement('td');
-                const cell_port = document.createElement('td');
-                const cell_available_shots = document.createElement('td');
-                const cell_quality = document.createElement('td');
-                const cell_mode = document.createElement('td');
-                const cell_iso = document.createElement('td');
-                const cell_fstop = document.createElement('td');
-                const cell_shutter = document.createElement('td');
-
-                cell_connected.textContent = "N/A";
-                cell_serial.textContent = "N/A";
-                cell_desc.textContent = "N/A";
-                cell_battery.textContent = "N/A";
-                cell_port.textContent = "N/A";
-                cell_available_shots.textContent = "N/A";
-                cell_quality.textContent = "N/A";
-                cell_mode.textContent = "N/A";
-                cell_iso.textContent = "N/A";
-                cell_fstop.textContent = "N/A";
-                cell_shutter.textContent = "N/A";
-
-                row.appendChild(cell_connected);
-                row.appendChild(cell_serial);
-                row.appendChild(cell_desc);
-                row.appendChild(cell_battery);
-                row.appendChild(cell_port);
-                row.appendChild(cell_available_shots);
-                row.appendChild(cell_quality);
-                row.appendChild(cell_mode);
-                row.appendChild(cell_iso);
-                row.appendChild(cell_fstop);
-                row.appendChild(cell_shutter);
-
-                cameras.appendChild(row);
+                const cell = document.createElement('td');
+                cell.colSpan = 11; // Number of columns in camera table
+                cell.textContent = "No cameras detected or data unavailable.";
+                cell.style.textAlign = "center";
+                row.appendChild(cell);
+                cameras_table_body.appendChild(row);
                 return;
             }
 
-            for (let info of data.detected)
-            {
+            for (let info of data.detected) {
                 const row = document.createElement('tr');
                 const cell_connected = document.createElement('td');
                 const cell_serial = document.createElement('td');
@@ -185,8 +148,8 @@ function fetch_cameras()
                 const cell_fstop = document.createElement('td');
                 const cell_shutter = document.createElement('td');
 
-                cell_serial.textContent = info.serial;
-                cell_desc.textContent = info.desc;
+                cell_serial.textContent = info.serial || "N/A";
+                cell_desc.textContent = info.desc || "N/A";
                 cell_battery.textContent = "N/A";
                 cell_port.textContent = "N/A";
                 cell_available_shots.textContent = "N/A";
@@ -204,21 +167,20 @@ function fetch_cameras()
                 svg_connected.width = "70";
                 svg_connected.height = "50";
 
-                if (info.connected == "0")
-                {
+                if (info.connected == "0" || !info.connected) { // Treat undefined as not connected
                     svg_connected.src = "/static/cam-disconnected.svg";
-                }
-                else
-                {
+                    svg_connected.alt = "Camera Disconnected";
+                } else {
                     svg_connected.src = "/static/cam-connected.svg";
-                    cell_battery.textContent = info.batt;
-                    cell_port.textContent = info.port;
-                    cell_available_shots.textContent = info.num_photos;
-                    cell_quality.textContent = info.quality;
-                    cell_mode.textContent = info.mode;
-                    cell_iso.textContent = info.iso;
-                    cell_fstop.textContent = info.fstop;
-                    cell_shutter.textContent = info.shutter;
+                    svg_connected.alt = "Camera Connected";
+                    cell_battery.textContent = info.batt || "N/A";
+                    cell_port.textContent = info.port || "N/A";
+                    cell_available_shots.textContent = info.num_photos || "N/A";
+                    cell_quality.textContent = info.quality || "N/A";
+                    cell_mode.textContent = info.mode || "N/A";
+                    cell_iso.textContent = info.iso || "N/A";
+                    cell_fstop.textContent = info.fstop || "N/A";
+                    cell_shutter.textContent = info.shutter || "N/A";
                 }
 
                 cell_connected.appendChild(svg_connected);
@@ -235,88 +197,74 @@ function fetch_cameras()
                 row.appendChild(cell_fstop);
                 row.appendChild(cell_shutter);
 
-                cameras.appendChild(row);
+                cameras_table_body.appendChild(row);
             }
         })
-        // .catch block is now handled by fetchData
-        // .catch(error => {
-        //     console.error('Error fetching camera data:', error);
-        // });
+        .catch(error => {
+            console.error('Error processing camera data after fetch:', error);
+            cameras_table_body.innerHTML = ""; // Clear potentially partial data
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 11;
+            cell.textContent = "Error loading camera data.";
+            cell.style.textAlign = "center";
+            cell.style.color = "red";
+            row.appendChild(cell);
+            cameras_table_body.appendChild(row);
+        });
 }
 
 /*
  * Camera Renaming Modal.
  */
-// === Global Modal Variables (Accessible by all functions) ===
 const rename_modal = document.getElementById('rename_modal');
 const rename_input = document.getElementById('rename_input');
 const save_rename_button = document.getElementById('save_rename');
 const cancel_rename_button = document.getElementById('cancel_rename');
-// rename_modal_close_button will be initialized inside DOMContentLoaded
+let current_editable_td = null;
 
-let current_editable_td = null; // To keep track of which td is being edited
-
-// === Modal Event Handler Functions ===
-
-// Handler for opening the modal when an editable TD is clicked
-function handle_editable_td_click()
-{
-    current_editable_td = this; // 'this' refers to the clicked td
-    rename_input.value = current_editable_td.textContent.trim(); // Populate input with current text
-    rename_modal.style.display = 'flex'; // Show the modal
-    rename_input.focus(); // Focus on the input field
+function handle_editable_td_click() {
+    current_editable_td = this;
+    rename_input.value = current_editable_td.textContent.trim();
+    rename_modal.style.display = 'flex';
+    rename_input.focus();
 }
 
-// Handler for closing the modal via the 'X' button
-function handle_rename_modal_close_button_click()
-{
+function handle_rename_modal_close_button_click() {
     rename_modal.style.display = 'none';
 }
 
-// Handler for canceling the rename operation
-function handle_cancel_rename_click()
-{
+function handle_cancel_rename_click() {
     rename_modal.style.display = 'none';
 }
 
-async function send_camera_description_to_backend(serial, description)
-{
-    // Use our new helper function
-    await fetchData('/api/camera/update_description', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            serial: serial,
-            description: description
-        })
-    })
-    .then(data => {
-        console.log('Backend response:', data);
-        if (data.status === 'success') {
-            console.log('Camera description updated successfully!');
-        } else {
-            // This case should ideally be caught by fetchData's error handling for !response.ok,
-            // but including it for explicit status messages from the backend for successful 200 responses.
-            console.error('Backend reported an error (200 OK but status not success):', data.message);
-            alert('Failed to save description: ' + data.message);
-        }
-    })
-    .catch(error => {
+async function send_camera_description_to_backend(serial, description) {
+    try {
+        const data = await fetchData('/api/camera/update_description', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                serial: serial,
+                description: description
+            })
+        });
+        // Assuming fetchData now returns empty object for non-JSON or empty success responses
+        // And throws error for non-ok responses.
+        console.log('Camera description updated successfully (or backend acknowledged). Backend response:', data);
+
+    } catch (error) {
         // Error already handled and alerted by fetchData
-        console.error('Error sending data to backend (caught by caller):', error);
-    });
+        console.error('Error sending data to backend (caught by caller in send_camera_description_to_backend):', error);
+        // No need to re-alert, fetchData does it.
+    }
 }
 
-// Handler for saving the new name
-function handle_save_rename_click()
-{
-    if (current_editable_td)
-    {
+function handle_save_rename_click() {
+    if (current_editable_td) {
         const new_description = rename_input.value.trim();
         current_editable_td.textContent = new_description;
-        console.log("new name: " + new_description);
         send_camera_description_to_backend(
             current_editable_td.dataset.serial,
             new_description
@@ -325,265 +273,171 @@ function handle_save_rename_click()
     rename_modal.style.display = 'none';
 }
 
-// Handler for clicking outside the modal
-function handle_window_click(event)
-{
-    if (event.target === rename_modal)
-    {
-        rename_modal.style.display = 'none';
-    }
-    else if (event.target === event_selection_modal)
-    { // Check for event modal as well
-        event_selection_modal.style.display = 'none';
-    }
-    else if (event.target === run_sim_modal)
-    {
-        run_sim_modal.style.display = 'none';
-    }
-    else if (event.target === calculating_modal) // NEW: check for calculating modal
-    {
-        // Do nothing, calculating modal should not close on outside click
+
+function handle_rename_input_keypress(event) {
+    if (event.key === 'Enter') {
+        save_rename_button.click();
     }
 }
-
-// Handler for 'Enter' key press in the input field
-function handle_rename_input_keypress(event)
-{
-    if (event.key === 'Enter')
-    {
-        save_rename_button.click(); // Simulate a click on the save button
-    }
-}
-
 
 /*
  * Event table handling.
  */
-// DOM elements for the event table and its modal
 const event_table_body = document.querySelector('#event_table tbody');
 const event_selection_modal = document.getElementById('event_selection_modal');
 const file_list_element = document.getElementById('file_list');
+let event_file_name_pre_element = null;
+const event_row_map = new Map();
 
-let event_file_name_pre_element = null; // To store the <pre> element for the event filename
-
-// Map to keep track of event rows by their event_id
-const event_row_map = new Map(); // Maps event_id -> row_element
-
-// Helper function to get or create a <pre> element within a cell
-function get_or_create_pre_element(cell, class_name)
-{
+function get_or_create_pre_element(cell, class_name) {
     let pre_element = cell.querySelector(`pre.${class_name}`);
-    if (!pre_element)
-    {
+    if (!pre_element) {
         pre_element = document.createElement('pre');
         pre_element.className = class_name;
-        // Clear any existing text content directly on the cell before appending <pre>
         cell.innerHTML = '';
         cell.appendChild(pre_element);
     }
     return pre_element;
 }
 
-
-// --- Function to create or update a row in the event table ---
-function update_event_table_row(event_id, event_time, eta = 'N/A')
-{
+function update_event_table_row(event_id, event_time, eta = 'N/A') {
     let row = event_row_map.get(event_id);
-    let is_new_row = false;
 
-    if (!row)
-    {
-        row = event_table_body.insertRow();
-        row.id = `event_row_${event_id.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}`; // Sanitize ID for DOM
+    if (!row) {
+        row = event_table_body.insertRow(); // Appends to the end by default if no index
+        row.id = `event_row_${event_id.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}`;
         event_row_map.set(event_id, row);
-        is_new_row = true;
 
-        // Ensure all cells are created when the row is new
-        row.insertCell(0); // Event ID cell
-        row.insertCell(1); // Time cell
-        row.insertCell(2); // ETA cell
+        row.insertCell(0);
+        row.insertCell(1);
+        row.insertCell(2);
     }
 
-    // Always ensure the content is updated, and <pre> tags are managed
-    row.cells[0].textContent = event_id; // Event ID remains regular text
-
-    // Get or create <pre> elements for Time and ETA cells
+    row.cells[0].textContent = event_id;
     const time_pre = get_or_create_pre_element(row.cells[1], 'event-time-pre');
     const eta_pre = get_or_create_pre_element(row.cells[2], 'event-eta-pre');
-
-    // Set text content for the <pre> elements
     time_pre.textContent = event_time;
     eta_pre.textContent = eta;
 }
 
-// --- Function to clear all event data rows (leaving the file selection row) ---
-function clear_event_data_rows()
-{
-    // Keep the first row (the "Event File:" row)
-    while (event_table_body.rows.length > 1)
-    {
-        event_table_body.deleteRow(1); // Always delete the second row until only one remains
+function clear_event_data_rows() {
+    // Start from 1 to keep the "Event File:" selection row if it's always first.
+    // Or, if "Event File:" row is managed outside data rows, iterate carefully.
+    // Assuming all data rows are after the static ones.
+    // This clears ALL rows from the map and visually from the table body except those excluded.
+    const rows_to_delete = [];
+    for (let i = 0; i < event_table_body.rows.length; i++) {
+        if (event_table_body.rows[i].id !== 'event_file_selection_row') { // Keep the selection row
+            rows_to_delete.push(event_table_body.rows[i]);
+        }
     }
-    event_row_map.clear(); // Clear the map too
+    rows_to_delete.forEach(row => row.remove());
+    event_row_map.clear();
 }
 
-// --- Function to populate event table with static details from a loaded file ---
-async function populate_static_event_details(filename)
-{
-    clear_event_data_rows(); // Clear previous event data
 
-    // Add a temporary loading row
-    const loading_row = event_table_body.insertRow();
-    const loading_cell = loading_row.insertCell(0);
-    loading_cell.colSpan = 3;
-    loading_cell.textContent = `Loading details for ${filename}...`;
-    loading_row.id = 'loading_data_row';
+async function populate_static_event_details(filename) {
+    clear_event_data_rows();
 
-    try
-    {
-        const event_data = await fetchData(`/api/event_load/${filename}`); // Use our new helper function
+    const loading_row_id = 'loading_data_row';
+    let loading_row = document.getElementById(loading_row_id);
+    if (!loading_row) { // Only add if not already there (e.g. from previous failed load)
+        loading_row = event_table_body.insertRow(); // Appends to end
+        loading_row.id = loading_row_id;
+        const loading_cell = loading_row.insertCell(0);
+        loading_cell.colSpan = 3;
+        loading_cell.textContent = `Loading details for ${filename}...`;
+    }
 
-        // Remove the loading row
-        const existing_loading_row = document.getElementById('loading_data_row');
-        if (existing_loading_row)
-        {
+
+    try {
+        const event_data = await fetchData(`/api/event_load/${filename}`);
+        const existing_loading_row = document.getElementById(loading_row_id);
+        if (existing_loading_row) {
             existing_loading_row.remove();
         }
 
-        // Display 'type' as a static detail
-        update_event_table_row('Type', event_data.type || 'N/A', ''); // ETA column will be empty for Type
+        update_event_table_row('Type', event_data.type || 'N/A', '');
 
-        // Populate table with initial event IDs, times and ETAs will be filled by update_dynamic_events
-        if (event_data.events && Array.isArray(event_data.events))
-        {
-            event_data.events.forEach(event_id =>
-            {
-                // Initialize with 'N/A' as time and ETA will come from /api/events
+        if (event_data.events && Array.isArray(event_data.events)) {
+            event_data.events.forEach(event_id => {
                 update_event_table_row(event_id, 'N/A', 'Loading...');
             });
-        }
-        else
-        {
+        } else {
             console.warn("Event data missing 'events' list or malformed:", event_data);
             update_event_table_row('Events', 'No events defined or format error', '');
         }
-
-        // Trigger an immediate dynamic update to get initial ETAs
-        update_dynamic_events();
-
-    }
-    catch (error)
-    {
-        console.error(`Error fetching data for ${filename}:`, error);
-        // Error already handled and alerted by fetchData, so no need for additional alert here.
-        // Remove loading row and display error message in table if it still exists.
-        const existing_loading_row = document.getElementById('loading_data_row');
-        if (existing_loading_row)
-        {
+        update_dynamic_events(); // Trigger immediate update
+    } catch (error) {
+        console.error(`Error fetching static event details for ${filename}:`, error);
+        const existing_loading_row = document.getElementById(loading_row_id);
+        if (existing_loading_row) {
             existing_loading_row.remove();
         }
-        // Display an error row at the bottom with the error message
-        update_event_table_row('Error', `Failed to load ${filename}`, error.message);
+        update_event_table_row('Error', `Failed to load ${filename}.`, error.message.substring(0, 100)); // Show snippet
     }
 }
 
-// --- Function to fetch files from API and populate the list for the modal ---
-async function fetch_files_for_modal()
-{
+async function fetch_files_for_modal() {
     file_list_element.innerHTML = '<li>Loading files...</li>';
-
-    try
-    {
-        const files = await fetchData("/api/event_list"); // Use our new helper function
-
+    try {
+        const files = await fetchData("/api/event_list");
         file_list_element.innerHTML = '';
 
-        if (files.length === 0)
-        {
+        if (!files || files.length === 0) {
             file_list_element.innerHTML = '<li>No files found.</li>';
             return;
         }
 
-        files.forEach(filename =>
-        {
+        files.forEach(filename => {
             const li = document.createElement('li');
             li.textContent = filename;
-            li.addEventListener('click', () =>
-            {
-                if (event_file_name_pre_element)
-                {
+            li.addEventListener('click', () => {
+                if (event_file_name_pre_element) {
                     event_file_name_pre_element.textContent = filename;
                 }
                 event_selection_modal.style.display = 'none';
-                populate_static_event_details(filename); // Load static details
+                populate_static_event_details(filename);
             });
             file_list_element.appendChild(li);
         });
-
-    }
-    catch (error)
-    {
-        console.error("Error fetching files for modal:", error);
-        // Error already handled and alerted by fetchData
+    } catch (error) {
+        console.error("Error fetching files for event modal:", error);
         file_list_element.innerHTML = `<li>Error loading files: ${error.message}</li>`;
     }
 }
 
+async function update_dynamic_events() {
+    // Only proceed if there are events loaded (i.e., event_row_map is not empty, or a file is selected)
+    if (!event_file_name_pre_element || event_file_name_pre_element.textContent === 'Click to Select File') {
+        return; // No event file loaded, so no dynamic events to fetch
+    }
 
-// --- Function to periodically update event ETAs from /api/events/ ---
-// This function is now updated to expect a map (object) from event_id to [event_time, eta]
-async function update_dynamic_events()
-{
-    try
-    {
-        const dynamic_events_map = await fetchData('/api/events'); // Use our new helper function
-
-        // Check if the received data is an object (map)
-        if (typeof dynamic_events_map === 'object' && dynamic_events_map !== null)
-        {
-            // Iterate over the keys (event_ids) in the received map
-            for (const event_id in dynamic_events_map)
-            {
-                if (dynamic_events_map.hasOwnProperty(event_id))
-                {
+    try {
+        const dynamic_events_map = await fetchData('/api/events');
+        if (typeof dynamic_events_map === 'object' && dynamic_events_map !== null) {
+            for (const event_id in dynamic_events_map) {
+                if (dynamic_events_map.hasOwnProperty(event_id)) {
                     const event_info = dynamic_events_map[event_id];
-
-                    // Ensure event_info is an array/list of length 2
-                    if (Array.isArray(event_info) && event_info.length === 2)
-                    {
+                    if (Array.isArray(event_info) && event_info.length === 2) {
                         const [event_time, eta] = event_info;
-
-                        // Call update_event_table_row, which now handles the <pre> tags correctly
-                        // This will either create the row if it's new (though it shouldn't be if event_load was successful),
-                        // or update the existing row's <pre> content.
                         update_event_table_row(event_id, event_time, eta);
-
-                    }
-                    else
-                    {
+                    } else {
                         console.warn(`Malformed event info for ${event_id} from /api/events/. Expected [time, eta]. Received:`, event_info);
                     }
                 }
             }
-        }
-        else
-        {
+        } else {
             console.warn("Unexpected data format from /api/events/. Expected an object (map). Received:", dynamic_events_map);
         }
-
-    }
-    catch (error)
-    {
-        console.error('Error fetching dynamic events (caught by caller):', error);
-        // Error already handled and alerted by fetchData
+    } catch (error) {
+        console.error('Error fetching dynamic events:', error);
     }
 }
-
 
 /*
  * Run Simulation Functionality.
  */
-// DOM elements for the run sim button and its modal
 const run_sim_button = document.getElementById('run_sim_button');
 const run_sim_modal = document.getElementById('run_sim_modal');
 const run_sim_modal_close_button = document.getElementById('run_sim_modal_close_button');
@@ -594,98 +448,56 @@ const sim_event_id_input = document.getElementById('sim_event_id_input');
 const sim_time_offset_input = document.getElementById('sim_time_offset_input');
 const sim_okay_button = document.getElementById('sim_okay_button');
 const sim_cancel_button = document.getElementById('sim_cancel_button');
-
-// NEW: Calculating modal element
 const calculating_modal = document.getElementById('calculating_modal');
-
-
-// State variable for the simulation
 let is_sim_running = false;
 
-// Function to update the run sim button's appearance and action
-function update_run_sim_button_state()
-{
-    if (is_sim_running)
-    {
+function update_run_sim_button_state() {
+    if (is_sim_running) {
         run_sim_button.textContent = "Stop Sim";
-        run_sim_button.style.backgroundColor = "red";
         run_sim_button.classList.add('running');
         run_sim_button.classList.remove('stopped');
-    }
-    else
-    {
+    } else {
         run_sim_button.textContent = "Run Sim";
-        run_sim_button.style.backgroundColor = "green";
         run_sim_button.classList.add('stopped');
         run_sim_button.classList.remove('running');
     }
 }
 
-// Handler for the "Run Sim" button click
-async function handle_run_sim_button_click()
-{
-    if (is_sim_running)
-    {
-        // If sim is running, this click means "Stop Sim"
-        try
-        {
-            // Show calculating modal briefly during stop
-            calculating_modal.style.display = 'flex';
-
-            const result = await fetchData('/api/run_sim/stop'); // Use our new helper function
-            if (result.status === 'success')
-            {
-                is_sim_running = false;
-                update_run_sim_button_state();
-                console.log('Simulation stopped successfully.');
-            }
-            else
-            {
-                // This case should ideally be caught by fetchData's error handling for !response.ok,
-                // but including it for explicit status messages from the backend for successful 200 responses.
-                console.error('Failed to stop simulation (200 OK but status not success):', result.message);
-                alert('Failed to stop simulation: ' + result.message);
-            }
+async function handle_run_sim_button_click() {
+    if (is_sim_running) {
+        calculating_modal.style.display = 'flex';
+        try {
+            const result = await fetchData('/api/run_sim/stop');
+            // Assuming result.status or similar indicates success from backend for 200 OK
+            // If fetchData throws for non-ok, this part is only for successful responses
+            // or where backend sends a JSON body with a status field.
+            // For now, if fetchData doesn't throw, we assume it's a success.
+            is_sim_running = false;
+            update_run_sim_button_state();
+            console.log('Simulation stop signal sent. Backend response:', result);
+        } catch (error) {
+            console.error('Error stopping simulation:', error);
+            // Alert already handled by fetchData
+        } finally {
+            calculating_modal.style.display = 'none';
         }
-        catch (error)
-        {
-            // Error already handled and alerted by fetchData
-            console.error('Error stopping simulation (caught by caller):', error);
-        }
-        finally
-        {
-            calculating_modal.style.display = 'none'; // Always hide calculating modal
-        }
-    }
-    else
-    {
-        // If sim is not running, this click means "Run Sim"
-        // Fetch default values and open the modal
-        try
-        {
-            const defaults = await fetchData('/api/run_sim/defaults'); // Use our new helper function
-
-            // Populate the modal inputs with default values
+    } else {
+        try {
+            const defaults = await fetchData('/api/run_sim/defaults');
             sim_latitude_input.value = defaults.gps_latitude || '';
             sim_longitude_input.value = defaults.gps_longitude || '';
             sim_altitude_input.value = defaults.gps_altitude || '';
             sim_event_id_input.value = defaults.event_id || '';
-            sim_time_offset_input.value = defaults.event_time_offset || '0'; // Default to 0 if not provided
-
-            run_sim_modal.style.display = 'flex'; // Show the modal
-            sim_latitude_input.focus(); // Focus on the first input
-        }
-        catch (error)
-        {
-            // Error already handled and alerted by fetchData
-            console.error('Error fetching simulation defaults (caught by caller):', error);
+            sim_time_offset_input.value = defaults.event_time_offset !== undefined ? defaults.event_time_offset : '0';
+            run_sim_modal.style.display = 'flex';
+            sim_latitude_input.focus();
+        } catch (error) {
+            console.error('Error fetching simulation defaults:', error);
         }
     }
 }
 
-// Handler for 'OK' button in run sim modal
-async function handle_sim_okay_click()
-{
+async function handle_sim_okay_click() {
     const params = {
         gps_latitude: parseFloat(sim_latitude_input.value),
         gps_longitude: parseFloat(sim_longitude_input.value),
@@ -694,136 +506,197 @@ async function handle_sim_okay_click()
         event_time_offset: parseFloat(sim_time_offset_input.value)
     };
 
-    // Basic validation
-    if (isNaN(params.gps_latitude) || isNaN(params.gps_longitude) || isNaN(params.gps_altitude) || isNaN(params.event_time_offset) || !params.event_id)
-    {
+    if (isNaN(params.gps_latitude) || isNaN(params.gps_longitude) || isNaN(params.gps_altitude) || isNaN(params.event_time_offset) || !params.event_id) {
         alert("Please enter valid numbers for GPS coordinates/offset and a valid Event ID.");
         return;
     }
 
-    run_sim_modal.style.display = 'none'; // Hide the run sim modal
-    calculating_modal.style.display = 'flex'; // Show the calculating modal
+    run_sim_modal.style.display = 'none';
+    calculating_modal.style.display = 'flex';
 
-    try
-    {
-        // Construct the URL with parameters
+    try {
         const query_params = new URLSearchParams(params).toString();
-        const result = await fetchData(`/api/run_sim?${query_params}`); // Use our new helper function
+        const result = await fetchData(`/api/run_sim?${query_params}`);
+        // Same assumption as stop sim: if fetchData doesn't throw, it's a success from our perspective
+        is_sim_running = true;
+        update_run_sim_button_state();
+        console.log('Simulation start signal sent with params. Backend response:', params, result);
 
-        if (result.status === 'success')
-        {
-            is_sim_running = true;
-            update_run_sim_button_state();
-            console.log('Simulation started successfully with params:', params);
-        }
-        else
-        {
-            // This case should ideally be caught by fetchData's error handling for !response.ok,
-            // but including it for explicit status messages from the backend for successful 200 responses.
-            console.error('Failed to start simulation (200 OK but status not success):', result.message);
-            alert('Failed to start simulation: ' + result.message);
-        }
+    } catch (error) {
+        console.error('Error starting simulation:', error);
+        is_sim_running = false; // Ensure state is correct on failure
+        update_run_sim_button_state();
+    } finally {
+        calculating_modal.style.display = 'none';
     }
-    catch (error)
-    {
-        // Error already handled and alerted by fetchData
-        console.error('Error starting simulation (caught by caller):', error);
+}
+
+function handle_sim_cancel_click() {
+    run_sim_modal.style.display = 'none';
+}
+
+function handle_sim_input_keypress(event) {
+    if (event.key === 'Enter') {
+        sim_okay_button.click();
     }
-    finally
-    {
+}
+
+// === NEW: Camera Sequence Functionality ===
+const load_camera_sequence_button = document.getElementById('load_camera_sequence_button');
+const camera_sequence_modal = document.getElementById('camera_sequence_modal');
+const camera_sequence_modal_close_button = document.getElementById('camera_sequence_modal_close_button');
+const camera_sequence_file_select = document.getElementById('camera_sequence_file_select');
+const confirm_camera_sequence_button = document.getElementById('confirm_camera_sequence_button');
+const cancel_camera_sequence_button = document.getElementById('cancel_camera_sequence_button');
+
+function show_camera_sequence_modal() {
+    camera_sequence_modal.style.display = 'flex';
+}
+
+function hide_camera_sequence_modal() {
+    camera_sequence_modal.style.display = 'none';
+}
+
+function populate_camera_sequence_modal(files_array) {
+    camera_sequence_file_select.innerHTML = ''; // Clear existing options
+    if (files_array && files_array.length > 0) {
+        files_array.forEach(file_name => {
+            const option = document.createElement('option');
+            option.value = file_name;
+            option.textContent = file_name;
+            camera_sequence_file_select.appendChild(option);
+        });
+    } else {
+        const option = document.createElement('option');
+        option.value = "";
+        option.textContent = "No sequence files found.";
+        camera_sequence_file_select.appendChild(option);
+    }
+}
+
+async function handle_load_camera_sequence_click() {
+    try {
+        camera_sequence_file_select.innerHTML = '<option value="">Loading...</option>'; // Show loading message in select
+        show_camera_sequence_modal(); // Show modal immediately
+        const file_list = await fetchData('/api/camera_sequence_list');
+        populate_camera_sequence_modal(file_list);
+    } catch (error) {
+        console.error('Error fetching camera sequence list:', error);
+        populate_camera_sequence_modal([]); // Show "No sequence files found" or error
+        // alert is already handled by fetchData
+    }
+}
+
+function handle_camera_sequence_modal_close_click() {
+    hide_camera_sequence_modal();
+}
+
+async function handle_confirm_camera_sequence_click() {
+    const selected_file_name = camera_sequence_file_select.value;
+
+    if (!selected_file_name) {
+        alert('Please select a camera sequence file.');
+        return;
+    }
+
+    // Show calculating modal while loading
+    calculating_modal.style.display = 'flex';
+    hide_camera_sequence_modal(); // Hide the selection modal
+
+    try {
+        // Assuming the API returns a success status or throws an error via fetchData
+        await fetchData(`/api/camera_sequence_load/${selected_file_name}`);
+        console.log(`Camera sequence file "${selected_file_name}" loaded successfully.`);
+        load_camera_sequence_button.classList.add('loaded');
+        // load_camera_sequence_button.style.backgroundColor = 'green'; // Direct style or class
+    } catch (error) {
+        console.error(`Error loading camera sequence file "${selected_file_name}":`, error);
+        load_camera_sequence_button.classList.remove('loaded'); // Revert button color on failure
+        // load_camera_sequence_button.style.backgroundColor = 'red'; // Revert to red
+        // alert is already handled by fetchData
+    } finally {
         calculating_modal.style.display = 'none'; // Always hide calculating modal
     }
 }
 
-// Handler for 'Cancel' button in run sim modal
-function handle_sim_cancel_click()
-{
-    run_sim_modal.style.display = 'none';
+function handle_cancel_camera_sequence_click() {
+    hide_camera_sequence_modal();
 }
 
-// Handler for 'Enter' key press in run sim modal inputs
-function handle_sim_input_keypress(event)
-{
-    if (event.key === 'Enter')
-    {
-        sim_okay_button.click(); // Simulate a click on the OK button
+// Unified click handler for closing modals
+function handle_window_click(event) {
+    if (event.target === rename_modal) {
+        rename_modal.style.display = 'none';
+    } else if (event.target === event_selection_modal) {
+        event_selection_modal.style.display = 'none';
+    } else if (event.target === run_sim_modal) {
+        run_sim_modal.style.display = 'none';
+    } else if (event.target === camera_sequence_modal) { // NEW: Add camera sequence modal
+        camera_sequence_modal.style.display = 'none';
     }
+    // calculating_modal should not close on outside click
 }
 
 
 // === All Initial Setup on DOMContentLoaded ===
-document.addEventListener('DOMContentLoaded', function()
-{
-    // Correctly initialize rename_modal_close_button here, after DOM is loaded.
-    const rename_modal_close_button = rename_modal.querySelector('.close_button');
-    const event_modal_close_button = event_selection_modal.querySelector('.close_button');
+document.addEventListener('DOMContentLoaded', function() {
+    const rename_modal_close_button_el = rename_modal.querySelector('.close_button'); // Unique var name
+    const event_modal_close_button_el = event_selection_modal.querySelector('.close_button'); // Unique var name
 
-    // === Camera Renaming Modal Event Listeners ===
-    rename_modal_close_button.addEventListener('click', handle_rename_modal_close_button_click);
-    cancel_rename_button.addEventListener('click', handle_cancel_rename_click);
-    save_rename_button.addEventListener('click', handle_save_rename_click);
-    rename_input.addEventListener('keypress', handle_rename_input_keypress);
+    if(rename_modal_close_button_el) rename_modal_close_button_el.addEventListener('click', handle_rename_modal_close_button_click);
+    if(cancel_rename_button) cancel_rename_button.addEventListener('click', handle_cancel_rename_click);
+    if(save_rename_button) save_rename_button.addEventListener('click', handle_save_rename_click);
+    if(rename_input) rename_input.addEventListener('keypress', handle_rename_input_keypress);
 
-    // === Event Table Initial Setup ===
-    // Create the first row for file selection
-    const file_selection_row = event_table_body.insertRow(0); // Insert at the very top
+    const file_selection_row = event_table_body.insertRow(0);
     file_selection_row.id = 'event_file_selection_row';
-
     const label_cell = file_selection_row.insertCell(0);
     label_cell.textContent = 'Event File:';
     label_cell.classList.add('column_1');
-
     const filename_cell = file_selection_row.insertCell(1);
     filename_cell.classList.add('event_filename_cell');
     filename_cell.style.cursor = 'pointer';
     const filename_pre = document.createElement('pre');
     filename_pre.textContent = 'Click to Select File';
     filename_cell.appendChild(filename_pre);
-    event_file_name_pre_element = filename_pre; // Store reference
+    event_file_name_pre_element = filename_pre;
+    file_selection_row.insertCell(2);
 
-    file_selection_row.insertCell(2); // Empty third cell for alignment
-
-    // Add click listener to the filename cell to open the modal
-    filename_cell.addEventListener('click', () =>
-    {
+    filename_cell.addEventListener('click', () => {
         fetch_files_for_modal();
         event_selection_modal.style.display = 'flex';
     });
 
-    // === Event Selection Modal Close Logic ===
-    event_modal_close_button.addEventListener('click', () =>
-    {
+    if(event_modal_close_button_el) event_modal_close_button_el.addEventListener('click', () => {
         event_selection_modal.style.display = 'none';
     });
 
-    // === Run Sim Button and Modal Event Listeners ===
-    run_sim_button.addEventListener('click', handle_run_sim_button_click);
-    run_sim_modal_close_button.addEventListener('click', handle_sim_cancel_click); // Close button acts like cancel
-    sim_okay_button.addEventListener('click', handle_sim_okay_click);
-    sim_cancel_button.addEventListener('click', handle_sim_cancel_click);
+    if(run_sim_button) run_sim_button.addEventListener('click', handle_run_sim_button_click);
+    if(run_sim_modal_close_button) run_sim_modal_close_button.addEventListener('click', handle_sim_cancel_click);
+    if(sim_okay_button) sim_okay_button.addEventListener('click', handle_sim_okay_click);
+    if(sim_cancel_button) sim_cancel_button.addEventListener('click', handle_sim_cancel_click);
 
-    // Add keypress listener to all sim modal input fields
-    sim_latitude_input.addEventListener('keypress', handle_sim_input_keypress);
-    sim_longitude_input.addEventListener('keypress', handle_sim_input_keypress);
-    sim_altitude_input.addEventListener('keypress', handle_sim_input_keypress);
-    sim_event_id_input.addEventListener('keypress', handle_sim_input_keypress);
-    sim_time_offset_input.addEventListener('keypress', handle_sim_input_keypress);
+    if(sim_latitude_input) sim_latitude_input.addEventListener('keypress', handle_sim_input_keypress);
+    if(sim_longitude_input) sim_longitude_input.addEventListener('keypress', handle_sim_input_keypress);
+    if(sim_altitude_input) sim_altitude_input.addEventListener('keypress', handle_sim_input_keypress);
+    if(sim_event_id_input) sim_event_id_input.addEventListener('keypress', handle_sim_input_keypress);
+    if(sim_time_offset_input) sim_time_offset_input.addEventListener('keypress', handle_sim_input_keypress);
 
-    // Close any modal if user clicks outside of it (unified handler)
+    // === NEW: Camera Sequence Event Listeners ===
+    if(load_camera_sequence_button) load_camera_sequence_button.addEventListener('click', handle_load_camera_sequence_click);
+    if(camera_sequence_modal_close_button) camera_sequence_modal_close_button.addEventListener('click', handle_camera_sequence_modal_close_click);
+    if(confirm_camera_sequence_button) confirm_camera_sequence_button.addEventListener('click', handle_confirm_camera_sequence_click);
+    if(cancel_camera_sequence_button) cancel_camera_sequence_button.addEventListener('click', handle_cancel_camera_sequence_click);
+
+
     window.addEventListener('click', handle_window_click);
 
-    // Set initial state of the run sim button
     update_run_sim_button_state();
 
-    // === Initial Data Fetches and Intervals ===
-    let interval = 1000; // 1 second
-
+    let interval = 1000;
     fetch_gps();
     setInterval(fetch_gps, interval);
-
     fetch_cameras();
     setInterval(fetch_cameras, interval);
-
-    // --- NEW: Periodically fetch and update dynamic events ---
-    setInterval(update_dynamic_events, interval); // This will start updating ETAs as soon as the table has rows
+    setInterval(update_dynamic_events, interval);
 });

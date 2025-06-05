@@ -59,7 +59,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    </tbody>
+                </tbody>
             </table>
         </div>
 
@@ -74,10 +74,17 @@
                     </tr>
                 </thead>
                 <tbody>
-                    </tbody>
+                </tbody>
             </table>
             <div class="button-container">
                 <button id="run_sim_button" class="action-button stopped">Run Sim</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Camera Sequence</h2>
+            <div class="button-container">
+                <button id="load_camera_sequence_button" class="action-button">Load Camera Sequence</button>
             </div>
         </div>
 
@@ -145,6 +152,19 @@
         </div>
     </div>
 
+    <div id="camera_sequence_modal" class="modal">
+        <div class="modal-content">
+            <span class="close_button" id="camera_sequence_modal_close_button">&times;</span>
+            <h2>Select Camera Sequence File</h2>
+            <select id="camera_sequence_file_select">
+                <option value="">Loading...</option>
+            </select>
+            <div class="modal-buttons">
+                <button id="confirm_camera_sequence_button">Okay</button>
+                <button id="cancel_camera_sequence_button">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/static/webapp.js"></script>
 </body>

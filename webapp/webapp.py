@@ -355,5 +355,24 @@ def api_run_sim_stop():
     return make_response("success", "Simulation stopped.", 200)
 
 
+@app.route('/api/camera_sequence_list')
+def api_camera_sequence_list():
+    """
+    Returns a filelist of saved camera sequence files in the raspberry pi.
+    """
+    filelist = glob.glob("../sequences/*.seq")
+    filelist = [os.path.basename(x) for x in filelist]
+    return (
+        flask.jsonify(filelist),
+        200
+    )
+
+
+@app.route('/api/camera_sequence_load/<filename>')
+def api_camera_sequence_load(filename):
+    app.logger.info(f"TODO: api_camera_sequence_load({filename})")
+    return make_response("success", f"Camera Secquence loaded successfully: {filename}", 200)
+
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0")

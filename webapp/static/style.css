@@ -12,6 +12,13 @@ h1 {
     margin-top: 40px;
 }
 
+h2 { /* Added to ensure consistent H2 styling if not already present elsewhere */
+    color: #333;
+    margin-top: 30px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #ccc;
+}
+
 table {
     border-collapse: collapse;
     width: 80%; /* Adjusted for better layout */
@@ -74,13 +81,6 @@ td pre {
     /* Uses general table styles */
 }
 
-/* REMOVED: Specific background and color for event table header, now uses general 'th' style */
-/* #event_table thead th {
-    background-color: #d0e0f0;
-    color: #333;
-    font-weight: bold;
-} */
-
 #event_table th.column_1_header {
     text-align: left; /* Keep 'Label' header left-aligned */
 }
@@ -116,7 +116,7 @@ td pre {
     align-items: center; /* Center vertically with flex */
 }
 
-.modal-content { /* Renamed from .modal_content for consistency with common naming */
+.modal-content {
     background-color: #fefefe; /* White background */
     padding: 20px;
     border: 1px solid #888;
@@ -154,7 +154,7 @@ td pre {
     font-size: 16px;
 }
 
-.modal-buttons { /* Renamed from .modal_buttons for consistency */
+.modal-buttons {
     text-align: right;
     margin-top: 20px;
 }
@@ -225,7 +225,13 @@ td pre {
     white-space: pre-wrap; /* Allows long lines to wrap while preserving whitespace */
 }
 
-/* Styles for the new Run Sim Button */
+.button-container { /* NEW: General container for buttons under sections */
+    text-align: left; /* Or 'center' if you prefer */
+    margin-top: 10px; /* Space from the table or section title */
+    margin-bottom: 20px;
+}
+
+/* Styles for the action buttons (Run Sim, Load Camera Sequence) */
 .action-button {
     padding: 10px 20px;
     font-size: 1.1em;
@@ -234,14 +240,14 @@ td pre {
     cursor: pointer;
     color: white;
     transition: background-color 0.2s ease;
-    margin-top: 20px; /* Space from the table */
+    /* margin-top: 20px; /* Space from the table - handled by button-container */
 }
 
-.action-button.stopped {
+.action-button.stopped { /* For Run Sim button */
     background-color: green;
 }
 
-.action-button.running {
+.action-button.running { /* For Run Sim button */
     background-color: red;
 }
 
@@ -299,7 +305,7 @@ td pre {
     color: white;
 }
 
-/* NEW: Styles for the Calculating Modal */
+/* Styles for the Calculating Modal */
 #calculating_modal .modal-content {
     background-color: #fefefe; /* White background */
     padding: 30px;
@@ -323,7 +329,6 @@ td pre {
     color: #0056b3;
 }
 
-/* Optional: Add a simple spinner (CSS animation) */
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -337,4 +342,47 @@ td pre {
     height: 30px;
     animation: spin 1s linear infinite;
     margin-top: 15px;
+}
+
+/* --- NEW Camera Sequence Styles --- */
+#load_camera_sequence_button {
+    background-color: red; /* Initial state: red background */
+    color: white;
+}
+
+#load_camera_sequence_button.loaded {
+    background-color: green; /* Success state: green background */
+    color: white;
+}
+
+#camera_sequence_modal .modal-content {
+    /* Uses general .modal-content styles */
+    /* Can add specific overrides if needed, e.g., width */
+    max-width: 400px;
+}
+
+#camera_sequence_file_select {
+    width: 100%;
+    padding: 10px;
+    margin: 15px 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 1em;
+}
+
+#confirm_camera_sequence_button {
+    background-color: #4CAF50; /* Green */
+    color: white;
+}
+#confirm_camera_sequence_button:hover {
+    background-color: #45a049;
+}
+
+#cancel_camera_sequence_button {
+    background-color: #f44336; /* Red */
+    color: white;
+}
+#cancel_camera_sequence_button:hover {
+    background-color: #da190b;
 }
