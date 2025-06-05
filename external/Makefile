@@ -23,7 +23,7 @@ $(CATCH_REPO):
 
 $(CATCH_LIB): $(CATCH_REPO)
 	cd Catch2; \
-		mkdir build && \
+		mkdir -p build && \
 		cd build && \
 		cmake .. -DCMAKE_INSTALL_PREFIX=./installed -DCATCH_BUILD_TESTING=OFF -DBUILD_SHARED_LIBS=ON && \
 		make install -j 4

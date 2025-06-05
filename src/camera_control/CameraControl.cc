@@ -37,7 +37,7 @@ CameraControl::init(const std::string & config_file)
         else
         if (pair.key == "cam_info_port")
         {
-            ABORT_IF_NOT(
+            ABORT_ON_FAILURE(
                 as_type<std::uint16_t>(pair.value, _cam_info_port),
                 "as_type<std::uint16_t>(" << pair.value <<") failed",
                 result::failure
@@ -47,7 +47,7 @@ CameraControl::init(const std::string & config_file)
         else
         if (pair.key == "cam_rename_port")
         {
-            ABORT_IF_NOT(
+            ABORT_ON_FAILURE(
                 as_type<std::uint16_t>(pair.value, _cam_rename_port),
                 "as_type<std::uint16_t>(" << pair.value <<") failed",
                 result::failure
@@ -57,7 +57,7 @@ CameraControl::init(const std::string & config_file)
         else
         if (pair.key == "period")
         {
-            ABORT_IF_NOT(
+            ABORT_ON_FAILURE(
                 as_type<std::uint64_t>(pair.value, _control_period),
                 "as_type<std::uint64_t>(" << pair.value <<") failed",
                 result::failure
@@ -68,7 +68,7 @@ CameraControl::init(const std::string & config_file)
         if (pair.key == "camera_aliases")
         {
             kv_pair_vec data;
-            ABORT_IF(read_config(pair.value, data), "Failed to read camera_aliases", result::failure);
+            ABORT_ON_FAILURE(read_config(pair.value, data), "Failed to read camera_aliases", result::failure);
             for (const auto & pair : data)
             {
                 _camera_aliases[pair.key] = pair.value;

@@ -16,7 +16,8 @@
 RAPI_IP=192.168.1.173
 
 rsync -avrt --delete \
-    --exclude={".git","venv","*.o","*_bin","lib*.a","cactus-rt","*img.bz2","__pycache__"} \
+    --exclude={".git","venv","*.o","*_bin","lib*.a","*img.bz2","__pycache__"} \
+    --exclude={"Catch2","cactus-rt"} \
     . $RAPI_IP:pycontrol
 
 if [ "$1" = "make" ]; then
