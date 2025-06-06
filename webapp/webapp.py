@@ -29,6 +29,7 @@ class RunSim:
     event_time_offset: float = 0.0
     sim_time_offset: datetime.timedelta = datetime.timedelta(seconds=0.0)
 
+CAMERA_CONTROL_CONFIG = "../config/camera_control.config"
 
 app = flask.Flask(__name__)
 app.config['DEBUG'] = True
@@ -36,9 +37,9 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 _gps_reader = GpsReader()
 _gps_reader.start()
-_cam_reader = CameraInfoReader("../config/camera_descriptions.config")
+_cam_reader = CameraInfoReader(CAMERA_CONTROL_CONFIG)
 _cam_reader.start()
-_event_solver = EventSolver()
+_event_solver = EventSolver(CAMERA_CONTROL_CONFIG)
 _event_solver.start()
 _run_sim = RunSim()
 _run_sim_lock = threading.Lock()
@@ -121,6 +122,7 @@ def api_dashboard_update():
 
 @app.route('/api/camera/update_description', methods=['POST'])
 def api_camera_update_description():
+
     if not flask.request.is_json:
         return make_response("error", "REquest must be JSON", 400)
 
@@ -132,7 +134,9 @@ def api_camera_update_description():
     if not serial or not new_description:
         return make_response("error", "Missing serial or description", 400)
 
+    global _cam_reader
     _cam_reader.update_description(serial, new_description)
+
     return make_response("success", "Description updated")
 
 
@@ -416,8 +420,11 @@ def api_camera_sequence_list():
 
 @app.route('/api/camera_sequence_load', methods=["POST"])
 def api_camera_sequence_load():
-    filename = flask.request.get_json().get("filename")
-    app.logger.info(f"TODO: api_camera_sequence_load({filename})")
+    filename = os.path.join("..", "sequences", flask.request.get_json().get("filename"))
+    assert os.path.isfile(filename)
+    global _event_solver
+    _event_solver.load_camera_sequence(filename)
+
     return make_response("success", f"Camera Secquence loaded successfully: {filename}", 200)
 
 

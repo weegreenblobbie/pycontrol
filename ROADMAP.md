@@ -4,22 +4,13 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Persist the event selection in a config file, so reloading the app auto loads the
-  last selected event file.
+- Plumb computed contact times into camera control, and run though the camera sequence,
+  emitting udp packets.
 
-- Add simulation buttons below the event table, start and abort
-  - simulate: location: (lat, log, alt), time: -60.0 C2, persist these in a local file.
-  - takes a snapshot of the current gps data, so residuals can be added for
-  realistic changes over time
-  - camera_control will continue to use system time, so in simulation mode, we
-  apply a time offset to the calculated event times so camera control believe the events are
-  about to fire.
+- Persist the event and camera selection in a config file, so reloading the app
+  auto loads the last selected event and sequence file.
 
-- Plumb computed contact times into camera control
-
-- Use pvlib to lookup altitude from gps lat, long
-
-- Cache computed contact times
+- (if necessary) Use pvlib to lookup altitude from gps lat, long
 
 - See if I can speed up scan_cameras().
 
@@ -76,6 +67,16 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Add simulation buttons below the event table, start and abort
+  * simulate: location: (lat, log, alt), time: -60.0 C2, persist these in a local file.
+  * takes a snapshot of the current gps data, so residuals can be added for
+  realistic changes over time
+  * camera_control will continue to use system time, so in simulation mode, we
+  apply a time offset to the calculated event times so camera control believe the events are
+  about to fire.
+
+* Cache computed contact times (IN MEMORY)
 
 * Define event file format
 * Add event selection UI to select 1 of these:

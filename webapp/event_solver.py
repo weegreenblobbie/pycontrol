@@ -5,8 +5,10 @@ import threading
 
 import astropy.time
 
-import date_utils as du
 from solar_eclipse_contact_times import find_contact_times as solar_contact_times
+import date_utils as du
+import udp_socket
+import utils
 
 
 def rounded_args_cache(num_decimal_places=4, maxsize=128):
@@ -60,13 +62,20 @@ class EventSolver:
 
     COMPUTING = "Computing ..."
 
-    def __init__(self):
+    def __init__(self, camera_control_config):
+
+        config = utils.read_kv_config(camera_control_config)
+        self._udp_ip = config["udp_ip"]
+        self._event_update_port = int(config["event_update_port"])
+
         self._params = dict()
         self._solution = dict()
         self._lock = threading.Lock()
         self._event = threading.Event()
         self._thread = None
         self._solution = dict()
+        self._reset = False
+        self._camera_sequence = "none"
 
     def start(self):
         assert self._thread is None
@@ -81,8 +90,8 @@ class EventSolver:
             # Otherwise, event.wait() returns after 60 seconds.
             self._event.wait(timeout=10.0)
 
-            # Clear the event immediately after waking up, whether by trigger or timeout
-            # This prepares it for the next trigger or timeout cycle.
+            # Clear the event immediately after waking up, whether by trigger or
+            # timeout. This prepares it for the next trigger or timeout cycle.
             self._event.clear()
 
             # Dispatch the calculation.
@@ -100,9 +109,31 @@ class EventSolver:
             return
 
         solution = self._solve(params)
+        reset = False
+        sequence = "none"
 
         with self._lock:
             self._solution = solution
+            reset = self._reset
+            self._reset = False
+            sequence = self._camera_sequence
+
+        # Notify camera_control of solution.
+        msg = (
+            f"camera_sequence {sequence}\n"
+            f"reset {int(reset)}\n"
+        )
+        for k, v in solution.items():
+            if v is None or isinstance(v, str):
+                msg += f"{k} none\n"
+            else:
+                msg += f"{k} {v.timestamp():.6f}\n"
+
+        udp_socket.send_message(msg, self._udp_ip, self._event_update_port)
+
+    def load_camera_sequence(self, filename):
+        with self._lock:
+            self._camera_sequence = filename
 
     def read(self):
         """
@@ -156,6 +187,7 @@ class EventSolver:
         with self._lock:
             self._params = new_params
             self._solution = dict()
+            self._reset = True
             # Immediately wake up the worker thread.
             self._event.set()
 

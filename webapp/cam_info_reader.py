@@ -9,90 +9,41 @@ import socket
 import threading
 import time
 
+import utils
+
 now = datetime.datetime.now
-
-
-# TODO: Read settings from config file.
-UDP_IP = "239.192.168.1"
-CAM_INFO_PORT = 10_018
-CAM_RENAME_PORT = 10_019
-FILENAME = "../config/camera_descriptions.config"
-
-
-def send_udp_message(message, target_port, target_ip):
-    """
-    Sends a UDP message (text or bytes) to a specified IP address and port.
-
-    Args:
-        message (str or bytes): The message to send. If a string, it will be
-                                encoded to UTF-8 bytes before sending.
-        target_port (int): The UDP port of the destination.
-        target_ip (str): The IP address of the destination.
-    """
-    # Create a UDP socket
-    # AF_INET specifies the address family (IPv4)
-    # SOCK_DGRAM specifies the socket type (UDP)
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-    try:
-        # Encode the message to bytes if it's a string
-        if isinstance(message, str):
-            encoded_message = message.encode('utf-8')
-        elif isinstance(message, bytes):
-            encoded_message = message
-        else:
-            raise TypeError("Message must be a string or bytes.")
-
-        # Send the message
-        # sendto() is used for UDP because it includes the destination address
-        sock.sendto(encoded_message, (target_ip, target_port))
-        print(f"UDP message sent to {target_ip}:{target_port}: '{message}'")
-
-    except socket.gaierror as e:
-        print(f"Error resolving host {target_ip}: {e}")
-    except socket.error as e:
-        print(f"Socket error: {e}")
-    except TypeError as e:
-        print(f"Type error: {e}")
-    finally:
-        # Close the socket
-        sock.close()
 
 
 class CameraInfoReader:
 
-    def __init__(self, filename=None):
+    def __init__(self, camera_control_config):
+
+        config = utils.read_kv_config(camera_control_config)
+        self._udp_ip = config["udp_ip"]
+        self._cam_info_port = int(config["cam_info_port"])
+        self._cam_rename_port = int(config["cam_rename_port"])
+        self._cam_desc_config = os.path.join("..", config["camera_aliases"])
+        assert os.path.isfile(self._cam_desc_config)
+
         self._session = None
         self._lock = threading.Lock()
         self._thread = None
         self._detected = []
         self._descriptions = dict()
-        self._filename = filename if filename else FILENAME
-        if os.path.isfile(self._filename):
-            with open(self._filename, "r") as fin:
-                data = fin.readlines()
-            for line in data:
-                if line.strip().startswith("#"):
-                    continue
-                tokens = line.split()
-                if len(tokens) != 2:
-                    raise ValueError(f"Parse error while reading {self._filename}\n    {line.strip()}\n")
-                serial, description = tokens
-                self._descriptions[serial] = description
+
+        # Read in camera aliases.
+        self._descriptions = utils.read_kv_config(self._cam_desc_config)
 
     def update_description(self, serial, desciption):
+        """
+        Updates the serial -> description mapping and notifies camera control.
+        """
+        self._descriptions[serial] = desciption
+        utils.write_kv_config(self._cam_desc_config, self._descriptions)
 
-        with open(self._filename, "w") as fout:
-            for serial, description in self._descriptions.items():
-                fout.write(f"{serial} {description}")
-
-        # Send camera renaming messages so CameraControl.cc will update the
-        # mapping.
-        #
-        # message_size serial_number ' ' short_description '\n'
         msg = f"{serial} {desciption}"
         for _ in range(3):
-            send_udp_message(msg, CAM_RENAME_PORT, UDP_IP)
+            udp_socket.send_message(msg, self._udp_ip, self._cam_rename_port)
             time.sleep(0.5)
 
     def start(self):
@@ -118,10 +69,10 @@ class CameraInfoReader:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
             # Bind to the specified port on all interfaces.
-            sock.bind(('', CAM_INFO_PORT))
+            sock.bind(('', self._cam_info_port))
 
             # Join the multicast group
-            mreq = socket.inet_aton(UDP_IP) + socket.inet_aton('0.0.0.0')
+            mreq = socket.inet_aton(self._udp_ip) + socket.inet_aton('0.0.0.0')
             sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
             sock.settimeout(3.0)
 
