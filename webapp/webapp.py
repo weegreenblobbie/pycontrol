@@ -61,14 +61,16 @@ def hello():
     )
 
 
-@app.route('/api/gps')
-def api_gps():
-    return flask.jsonify(_gps_reader.read())
-
-
-@app.route('/api/cameras')
-def api_cameras():
-    return flask.jsonify(_cam_reader.read())
+@app.route("/api/dashboard_update")
+def api_dashboard_update():
+    return (
+        flask.jsonify(
+            gps=_gps_reader.read(),
+            cameras=_cam_reader.read(),
+            events=read_events(),
+        ),
+        200
+    )
 
 
 @app.route('/api/camera/update_description', methods=['POST'])
@@ -86,6 +88,7 @@ def api_camera_update_description():
 
     _cam_reader.update_description(serial, new_description)
     return make_response("success", "Description updated")
+
 
 @app.route('/api/event_list')
 def api_event_list():
@@ -191,8 +194,7 @@ def api_event_load(filename):
     )
 
 
-@app.route('/api/events')
-def api_events():
+def read_events():
     """
     Asks the event solver for the events, and then we return a map:
 
@@ -227,10 +229,7 @@ def api_events():
             print(f"event_time: {event_time}")
             raise ValueError(f"event_time: {event_time}")
 
-    return (
-        flask.jsonify(out),
-        200
-    )
+    return out
 
 
 @app.route('/api/run_sim/defaults')

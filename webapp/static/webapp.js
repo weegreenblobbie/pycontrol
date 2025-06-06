@@ -29,6 +29,7 @@ function format_string()
 	});
 }
 
+// --- DOM Element References ---
 const gps_connection = document.getElementById("gps-connection");
 const gps_mode = document.getElementById("gps-mode");
 const gps_mode_time = document.getElementById("gps-mode-time");
@@ -66,9 +67,11 @@ const camera_sequence_file_select = document.getElementById('camera_sequence_fil
 const confirm_camera_sequence_button = document.getElementById('confirm_camera_sequence_button');
 const cancel_camera_sequence_button = document.getElementById('cancel_camera_sequence_button');
 
+// --- State Variables ---
 let current_editable_td = null;
 let is_sim_running = false;
 
+// --- Data Fetching ---
 async function fetch_data(url, options = {})
 {
 	try
@@ -121,152 +124,165 @@ async function fetch_data(url, options = {})
 	}
 }
 
-function fetch_gps()
+
+// --- UI Update Functions ---
+
+function update_gps_ui(data)
 {
-	fetch_data('/api/gps')
-		.then(data =>
-		{
-			if (!data.connected)
-			{
-				gps_connection.src = "/static/gps-disconnected.svg";
-				gps_mode.textContent = data.mode || "N/A";
-				gps_mode_time.textContent = data.mode_time || "N/A";
-				gps_sats.textContent = "N/A";
-				gps_time.textContent = "N/A";
-				gps_latitude.textContent = "N/A";
-				gps_longitude.textContent = "N/A";
-				gps_altitude.textContent = "N/A";
-				return;
-			}
+	if (!data.connected)
+	{
+		gps_connection.src = "/static/gps-disconnected.svg";
+		gps_mode.textContent = data.mode || "N/A";
+		gps_mode_time.textContent = data.mode_time || "N/A";
+		gps_sats.textContent = "N/A";
+		gps_time.textContent = "N/A";
+		gps_latitude.textContent = "N/A";
+		gps_longitude.textContent = "N/A";
+		gps_altitude.textContent = "N/A";
+		return;
+	}
 
-			if (data.mode == "2D FIX")
-			{
-				gps_connection.src = "/static/gps-degraded.svg";
-			}
-			else if (data.mode == "3D FIX")
-			{
-				gps_connection.src = "/static/gps-connected.svg";
-			}
-			else
-			{
-				gps_connection.src = "/static/gps-disconnected.svg";
-			}
+	if (data.mode == "2D FIX")
+	{
+		gps_connection.src = "/static/gps-degraded.svg";
+	}
+	else if (data.mode == "3D FIX")
+	{
+		gps_connection.src = "/static/gps-connected.svg";
+	}
+	else
+	{
+		gps_connection.src = "/static/gps-disconnected.svg";
+	}
 
-			gps_mode.textContent = data.mode;
-			gps_mode_time.textContent = data.mode_time;
-			gps_sats.textContent = format_string("%d/%d", data.sats_used, data.sats_seen);
-			gps_time.textContent = data.time;
-			gps_latitude.textContent = data.lat !== undefined ? data.lat.toFixed(4) : "N/A";
-			gps_longitude.textContent = data.long !== undefined ? data.long.toFixed(4) : "N/A";
-			gps_altitude.textContent = data.altitude !== undefined ? data.altitude.toFixed(1) : "N/A";
-		})
-		.catch(error =>
-		{
-			console.error('Error processing GPS data after fetch:', error);
-		});
+	gps_mode.textContent = data.mode;
+	gps_mode_time.textContent = data.mode_time;
+	gps_sats.textContent = format_string("%d/%d", data.sats_used, data.sats_seen);
+	gps_time.textContent = data.time;
+	gps_latitude.textContent = data.lat !== undefined ? data.lat.toFixed(4) : "N/A";
+	gps_longitude.textContent = data.long !== undefined ? data.long.toFixed(4) : "N/A";
+	gps_altitude.textContent = data.altitude !== undefined ? data.altitude.toFixed(1) : "N/A";
 }
 
-function fetch_cameras()
+function update_cameras_ui(data)
 {
-	fetch_data('/api/cameras')
-		.then(data =>
+	cameras_table_body.innerHTML = "";
+
+	if (!data || data.num_cameras == 0 || !data.detected)
+	{
+		const row = document.createElement('tr');
+		const cell = document.createElement('td');
+		cell.colSpan = 11;
+		cell.textContent = "No cameras detected or data unavailable.";
+		cell.style.textAlign = "center";
+		row.appendChild(cell);
+		cameras_table_body.appendChild(row);
+		return;
+	}
+
+	for (let camera_info of data.detected)
+	{
+		const row = document.createElement('tr');
+		const cell_connected = document.createElement('td');
+		const cell_serial = document.createElement('td');
+		const cell_desc = document.createElement('td');
+		const cell_battery = document.createElement('td');
+		const cell_port = document.createElement('td');
+		const cell_available_shots = document.createElement('td');
+		const cell_quality = document.createElement('td');
+		const cell_mode = document.createElement('td');
+		const cell_iso = document.createElement('td');
+		const cell_fstop = document.createElement('td');
+		const cell_shutter = document.createElement('td');
+
+		cell_serial.textContent = camera_info.serial || "N/A";
+		cell_desc.textContent = camera_info.desc || "N/A";
+		cell_battery.textContent = "N/A";
+		cell_port.textContent = "N/A";
+		cell_available_shots.textContent = "N/A";
+		cell_quality.textContent = "N/A";
+		cell_mode.textContent = "N/A";
+		cell_iso.textContent = "N/A";
+		cell_fstop.textContent = "N/A";
+		cell_shutter.textContent = "N/A";
+
+		cell_desc.classList.add('editable_td');
+		cell_desc.addEventListener('click', handle_editable_td_click);
+		cell_desc.dataset.serial = camera_info.serial;
+
+		const svg_connected = document.createElement('img');
+		svg_connected.width = "70";
+		svg_connected.height = "50";
+
+		if (camera_info.connected == "0" || !camera_info.connected)
 		{
-			cameras_table_body.innerHTML = "";
+			svg_connected.src = "/static/cam-disconnected.svg";
+			svg_connected.alt = "Camera Disconnected";
+		}
+		else
+		{
+			svg_connected.src = "/static/cam-connected.svg";
+			svg_connected.alt = "Camera Connected";
+			cell_battery.textContent = camera_info.batt || "N/A";
+			cell_port.textContent = camera_info.port || "N/A";
+			cell_available_shots.textContent = camera_info.num_photos || "N/A";
+			cell_quality.textContent = camera_info.quality || "N/A";
+			cell_mode.textContent = camera_info.mode || "N/A";
+			cell_iso.textContent = camera_info.iso || "N/A";
+			cell_fstop.textContent = camera_info.fstop || "N/A";
+			cell_shutter.textContent = camera_info.shutter || "N/A";
+		}
 
-			if (!data || data.num_cameras == 0 || !data.detected)
+		cell_connected.appendChild(svg_connected);
+		row.appendChild(cell_connected);
+		row.appendChild(cell_serial);
+		row.appendChild(cell_desc);
+		row.appendChild(cell_battery);
+		row.appendChild(cell_port);
+		row.appendChild(cell_available_shots);
+		row.appendChild(cell_quality);
+		row.appendChild(cell_mode);
+		row.appendChild(cell_iso);
+		row.appendChild(cell_fstop);
+		row.appendChild(cell_shutter);
+		cameras_table_body.appendChild(row);
+	}
+}
+
+function update_events_ui(events_data)
+{
+	if (typeof events_data === 'object' && events_data !== null)
+	{
+		for (const event_id in events_data)
+		{
+			if (events_data.hasOwnProperty(event_id))
 			{
-				const row = document.createElement('tr');
-				const cell = document.createElement('td');
-				cell.colSpan = 11;
-				cell.textContent = "No cameras detected or data unavailable.";
-				cell.style.textAlign = "center";
-				row.appendChild(cell);
-				cameras_table_body.appendChild(row);
-				return;
-			}
-
-			for (let camera_info of data.detected)
-			{
-				const row = document.createElement('tr');
-				const cell_connected = document.createElement('td');
-				const cell_serial = document.createElement('td');
-				const cell_desc = document.createElement('td');
-				const cell_battery = document.createElement('td');
-				const cell_port = document.createElement('td');
-				const cell_available_shots = document.createElement('td');
-				const cell_quality = document.createElement('td');
-				const cell_mode = document.createElement('td');
-				const cell_iso = document.createElement('td');
-				const cell_fstop = document.createElement('td');
-				const cell_shutter = document.createElement('td');
-
-				cell_serial.textContent = camera_info.serial || "N/A";
-				cell_desc.textContent = camera_info.desc || "N/A";
-				cell_battery.textContent = "N/A";
-				cell_port.textContent = "N/A";
-				cell_available_shots.textContent = "N/A";
-				cell_quality.textContent = "N/A";
-				cell_mode.textContent = "N/A";
-				cell_iso.textContent = "N/A";
-				cell_fstop.textContent = "N/A";
-				cell_shutter.textContent = "N/A";
-
-				cell_desc.classList.add('editable_td');
-				cell_desc.addEventListener('click', handle_editable_td_click);
-				cell_desc.dataset.serial = camera_info.serial;
-
-				const svg_connected = document.createElement('img');
-				svg_connected.width = "70";
-				svg_connected.height = "50";
-
-				if (camera_info.connected == "0" || !camera_info.connected)
+				const event_info = events_data[event_id];
+				if (Array.isArray(event_info) && event_info.length === 2)
 				{
-					svg_connected.src = "/static/cam-disconnected.svg";
-					svg_connected.alt = "Camera Disconnected";
+					const [event_time, eta] = event_info;
+					update_event_table_row(event_id, event_time, eta);
 				}
 				else
 				{
-					svg_connected.src = "/static/cam-connected.svg";
-					svg_connected.alt = "Camera Connected";
-					cell_battery.textContent = camera_info.batt || "N/A";
-					cell_port.textContent = camera_info.port || "N/A";
-					cell_available_shots.textContent = camera_info.num_photos || "N/A";
-					cell_quality.textContent = camera_info.quality || "N/A";
-					cell_mode.textContent = camera_info.mode || "N/A";
-					cell_iso.textContent = camera_info.iso || "N/A";
-					cell_fstop.textContent = camera_info.fstop || "N/A";
-					cell_shutter.textContent = camera_info.shutter || "N/A";
+					console.warn(`Malformed event info for ${event_id}. Received:`, event_info);
 				}
-
-				cell_connected.appendChild(svg_connected);
-				row.appendChild(cell_connected);
-				row.appendChild(cell_serial);
-				row.appendChild(cell_desc);
-				row.appendChild(cell_battery);
-				row.appendChild(cell_port);
-				row.appendChild(cell_available_shots);
-				row.appendChild(cell_quality);
-				row.appendChild(cell_mode);
-				row.appendChild(cell_iso);
-				row.appendChild(cell_fstop);
-				row.appendChild(cell_shutter);
-				cameras_table_body.appendChild(row);
 			}
-		})
-		.catch(error =>
-		{
-			console.error('Error processing camera data after fetch:', error);
-			cameras_table_body.innerHTML = "";
-			const row = document.createElement('tr');
-			const cell = document.createElement('td');
-			cell.colSpan = 11;
-			cell.textContent = "Error loading camera data.";
-			cell.style.textAlign = "center";
-			cell.style.color = "red";
-			row.appendChild(cell);
-			cameras_table_body.appendChild(row);
-		});
+		}
+	}
+	else
+	{
+		console.warn("Unexpected data format for events. Received:", events_data);
+	}
 }
+
+// Placeholder for when you add this data to the main fetch
+// function update_camera_sequence_ui(sequence_data) {
+//     // Logic to update the UI with camera sequence info
+// }
+
+
+// --- Main Application Logic & Event Handlers ---
 
 function handle_editable_td_click()
 {
@@ -378,7 +394,6 @@ async function populate_static_event_details(file_name)
 {
 	clear_event_data_rows();
 
-	// Add a display row for the loaded file name first.
 	const file_display_row = event_table_body.insertRow(0);
 	const file_label_cell = file_display_row.insertCell(0);
 	const file_name_cell = file_display_row.insertCell(1);
@@ -412,15 +427,16 @@ async function populate_static_event_details(file_name)
 			console.warn("Event data missing 'events' list or malformed:", event_data);
 			update_event_table_row('Events', 'No events defined or format error', '');
 		}
-		await update_dynamic_events();
-		return true; // Indicate success
+		// Since we have a global poller now, we don't need to trigger an update here.
+		// The next scheduled poll will pick up the new events.
+		return true;
 	}
 	catch (error)
 	{
 		console.error(`Error fetching static event details for ${file_name}:`, error);
 		clear_event_data_rows();
 		update_event_table_row('Error', `Failed to load ${file_name}.`, error.message.substring(0, 100));
-		return false; // Indicate failure
+		return false;
 	}
 }
 
@@ -462,46 +478,6 @@ async function fetch_files_for_modal()
 	{
 		console.error("Error fetching files for event modal:", error);
 		file_list_element.innerHTML = `<li>Error loading files: ${error.message}</li>`;
-	}
-}
-
-async function update_dynamic_events()
-{
-	if (event_row_map.size === 0)
-	{
-		return;
-	}
-
-	try
-	{
-		const dynamic_events_map = await fetch_data('/api/events');
-		if (typeof dynamic_events_map === 'object' && dynamic_events_map !== null)
-		{
-			for (const event_id in dynamic_events_map)
-			{
-				if (dynamic_events_map.hasOwnProperty(event_id))
-				{
-					const event_info = dynamic_events_map[event_id];
-					if (Array.isArray(event_info) && event_info.length === 2)
-					{
-						const [event_time, eta] = event_info;
-						update_event_table_row(event_id, event_time, eta);
-					}
-					else
-					{
-						console.warn(`Malformed event info for ${event_id} from /api/events/. Received:`, event_info);
-					}
-				}
-			}
-		}
-		else
-		{
-			console.warn("Unexpected data format from /api/events/. Received:", dynamic_events_map);
-		}
-	}
-	catch (error)
-	{
-		console.error('Error fetching dynamic events:', error);
 	}
 }
 
@@ -722,6 +698,39 @@ function handle_window_click(event)
 	}
 }
 
+// --- Main Dashboard Update Loop ---
+async function update_dashboard()
+{
+	try
+	{
+		const dashboard_data = await fetch_data('/api/dashboard_update');
+
+		if (dashboard_data.gps)
+		{
+			update_gps_ui(dashboard_data.gps);
+		}
+		if (dashboard_data.cameras)
+		{
+			update_cameras_ui(dashboard_data.cameras);
+		}
+		// Only update events table if an event file has been loaded
+		if (dashboard_data.events && event_row_map.size > 0)
+		{
+			update_events_ui(dashboard_data.events);
+		}
+		// if (dashboard_data.camera_sequence)
+		// {
+		// 	update_camera_sequence_ui(dashboard_data.camera_sequence);
+		// }
+	}
+	catch (error)
+	{
+		console.error("Failed to update dashboard:", error);
+	}
+}
+
+
+// --- DOM Ready - Initial Setup ---
 document.addEventListener('DOMContentLoaded', function()
 {
 	const rename_modal_close_button = rename_modal.querySelector('.close_button');
@@ -805,10 +814,8 @@ document.addEventListener('DOMContentLoaded', function()
 
 	update_run_sim_button_state();
 
+	// Setup the single, consolidated update loop
 	const update_interval = 1000;
-	fetch_gps();
-	setInterval(fetch_gps, update_interval);
-	fetch_cameras();
-	setInterval(fetch_cameras, update_interval);
-	setInterval(update_dynamic_events, update_interval);
+	update_dashboard(); // Initial fetch
+	setInterval(update_dashboard, update_interval);
 });
