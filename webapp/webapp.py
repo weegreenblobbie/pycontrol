@@ -68,6 +68,52 @@ def api_dashboard_update():
             gps=_gps_reader.read(),
             cameras=_cam_reader.read(),
             events=read_events(),
+            camera_control = {
+                "state": "executing",
+                "num_cameras": 2,
+                "cameras": [
+                    {
+                        "connected": True,
+                        "name": "z7",
+                        "num_events": 20,
+                        "position": 1,
+                        "next_event":[
+                            {
+                                "event_id": "C2",
+                                "ETA": " 00:01:39",
+                                "channel": "iso",
+                                "value": "800"
+                            },
+                            {
+                                "event_id": "C2",
+                                "ETA": " 00:01:39",
+                                "channel": "fstop",
+                                "value": "8.0"
+                            },
+                        ]
+                    },
+                    {
+                        "connected": True,
+                        "name": "z8",
+                        "num_events": 15,
+                        "position": 1,
+                        "next_event":[
+                            {
+                                "event_id": "C2",
+                                "ETA": " 00:01:38",
+                                "channel": "iso",
+                                "value": "200"
+                            },
+                            {
+                                "event_id": "C2",
+                                "ETA": " 00:01:38",
+                                "channel": "fstop",
+                                "value": "8.0"
+                            },
+                        ]
+                    },
+                ]
+            },
         ),
         200
     )
@@ -146,11 +192,12 @@ def update_and_trigger(type_, date_, event_ids, event_map):
     )
 
 
-@app.route('/api/event_load/<filename>')
-def api_event_load(filename):
+@app.route('/api/event_load', methods=['POST'])
+def api_event_load():
     """
     Loads an event file and configures the contact solver.
     """
+    filename = flask.request.get_json().get("filename")
     with open(os.path.join("../events", filename), "r") as fin:
         all_lines = fin.readlines()
 
@@ -367,8 +414,9 @@ def api_camera_sequence_list():
     )
 
 
-@app.route('/api/camera_sequence_load/<filename>')
-def api_camera_sequence_load(filename):
+@app.route('/api/camera_sequence_load', methods=["POST"])
+def api_camera_sequence_load():
+    filename = flask.request.get_json().get("filename")
     app.logger.info(f"TODO: api_camera_sequence_load({filename})")
     return make_response("success", f"Camera Secquence loaded successfully: {filename}", 200)
 

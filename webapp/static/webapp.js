@@ -66,6 +66,8 @@ const camera_sequence_modal_close_button = document.getElementById('camera_seque
 const camera_sequence_file_select = document.getElementById('camera_sequence_file_select');
 const confirm_camera_sequence_button = document.getElementById('confirm_camera_sequence_button');
 const cancel_camera_sequence_button = document.getElementById('cancel_camera_sequence_button');
+const camera_control_state_value = document.getElementById('camera_control_state_value');
+const control_tables_container = document.getElementById('control_tables_container');
 
 // --- State Variables ---
 let current_editable_td = null;
@@ -276,10 +278,62 @@ function update_events_ui(events_data)
 	}
 }
 
-// Placeholder for when you add this data to the main fetch
-// function update_camera_sequence_ui(sequence_data) {
-//     // Logic to update the UI with camera sequence info
-// }
+function create_control_table_for_camera(camera_data)
+{
+	const table = document.createElement('table');
+	table.classList.add('control-table');
+
+	const title_body = table.createTBody();
+	const title_row = title_body.insertRow();
+	const title_cell = title_row.insertCell();
+	title_cell.colSpan = 4;
+	title_cell.className = 'control-table-title';
+	title_cell.textContent = `${camera_data.name} (${camera_data.position} / ${camera_data.num_events})`;
+
+	const head = table.createTHead();
+	const header_row = head.insertRow();
+	const headers = ["Event ID", "ETA", "Channel", "Value"];
+	headers.forEach(header_text =>
+	{
+		const th = document.createElement('th');
+		th.textContent = header_text;
+		header_row.appendChild(th);
+	});
+
+	const data_body = table.createTBody();
+	if (camera_data.next_event && Array.isArray(camera_data.next_event))
+	{
+		camera_data.next_event.forEach(event =>
+		{
+			const row = data_body.insertRow();
+			row.insertCell().textContent = event.event_id;
+			row.insertCell().textContent = event.ETA;
+			row.insertCell().textContent = event.channel;
+			row.insertCell().textContent = event.value;
+		});
+	}
+
+	return table;
+}
+
+function update_camera_control_ui(control_data)
+{
+	if (!control_data || !control_data.state || control_data.state === "idle" || !control_data.cameras)
+	{
+		camera_control_state_value.textContent = 'idle';
+		control_tables_container.innerHTML = '';
+		return;
+	}
+
+	camera_control_state_value.textContent = control_data.state;
+
+	control_tables_container.innerHTML = '';
+	control_data.cameras.forEach(camera =>
+	{
+		const camera_table = create_control_table_for_camera(camera);
+		control_tables_container.appendChild(camera_table);
+	});
+}
 
 
 // --- Main Application Logic & Event Handlers ---
@@ -410,7 +464,12 @@ async function populate_static_event_details(file_name)
 
 	try
 	{
-		const event_data = await fetch_data(`/api/event_load/${file_name}`);
+        // *** CHANGED HERE: Filename is now in the body ***
+		const event_data = await fetch_data('/api/event_load', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file_name })
+        });
 		loading_row.remove();
 
 		update_event_table_row('Type', event_data.type || 'N/A', '');
@@ -427,8 +486,6 @@ async function populate_static_event_details(file_name)
 			console.warn("Event data missing 'events' list or malformed:", event_data);
 			update_event_table_row('Events', 'No events defined or format error', '');
 		}
-		// Since we have a global poller now, we don't need to trigger an update here.
-		// The next scheduled poll will pick up the new events.
 		return true;
 	}
 	catch (error)
@@ -658,7 +715,12 @@ async function handle_confirm_camera_sequence_click()
 
 	try
 	{
-		await fetch_data(`/api/camera_sequence_load/${selected_file_name}`);
+        // *** CHANGED HERE: Filename is now in the body ***
+		await fetch_data('/api/camera_sequence_load', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: selected_file_name })
+        });
 		console.log(`Camera sequence file "${selected_file_name}" loaded successfully.`);
 		load_camera_sequence_button.classList.add('loaded');
 	}
@@ -713,15 +775,14 @@ async function update_dashboard()
 		{
 			update_cameras_ui(dashboard_data.cameras);
 		}
-		// Only update events table if an event file has been loaded
 		if (dashboard_data.events && event_row_map.size > 0)
 		{
 			update_events_ui(dashboard_data.events);
 		}
-		// if (dashboard_data.camera_sequence)
-		// {
-		// 	update_camera_sequence_ui(dashboard_data.camera_sequence);
-		// }
+		if (dashboard_data.camera_control)
+		{
+			update_camera_control_ui(dashboard_data.camera_control);
+		}
 	}
 	catch (error)
 	{

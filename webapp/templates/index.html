@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webapp Dashboard</title>
+    <title>PyControl Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Dashboard</h1>
+        <h1>PyControl</h1>
 
         <div class="section">
             <h2>GPS Data</h2>
@@ -66,6 +66,11 @@
         <div class="section">
             <h2>Events</h2>
             <table id="event_table">
+                <colgroup>
+                    <col style="width: 25%;">
+                    <col style="width: 40%;">
+                    <col style="width: 35%;">
+                </colgroup>
                 <thead>
                     <tr>
                         <th>Event ID</th>
@@ -85,8 +90,11 @@
         </div>
 
         <div class="section">
-            <h2>Camera Sequence</h2>
+            <h2>Camera Control State: <span id="camera_control_state_value">idle</span></h2>
+            <div id="camera_control_container">
+                <div id="control_tables_container"></div>
             </div>
+        </div>
 
     </div>
 
