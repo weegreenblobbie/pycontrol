@@ -241,10 +241,10 @@ read_file(const std::string & file_path)
         std::string event_id_str, event_time_offset_str, camera_channel_str, channel_value_str;
         float event_time_offset = 0.0f;
 
-        if (!(iss >> event_id_str
-                  >> event_time_offset_str
-                  >> camera_channel_str
-                  >> channel_value_str))
+        if (not (iss >> event_id_str
+                     >> event_time_offset_str
+                     >> camera_channel_str
+                     >> channel_value_str))
         {
             ERROR_LOG << file_path << "(" << line_number << "): "
                       << "Parse Error: Incorrect number or format of columns."

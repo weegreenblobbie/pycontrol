@@ -1,7 +1,10 @@
 #pragma once
+#include <cstdint>
 
 namespace pycontrol
 {
+
+using milliseconds = std::int64_t;
 
 struct result
 {

@@ -21,11 +21,11 @@ namespace pycontrol
 {
 
 
-AutoFd::
-~AutoFd()
-{
-    if(_fd >= 0) close(_fd);
-}
+//~AutoFd::
+//~~AutoFd()
+//~{
+//~    if(_fd >= 0) close(_fd);
+//~}
 
 
 result
@@ -82,7 +82,7 @@ result
 UdpSocket::
 send(const std::string & msg)
 {
-    std::uint16_t num_bytes = ::strlen(msg.c_str());
+    const auto num_bytes = msg.size();
     ABORT_IF(num_bytes == 0, "send(), refusing to send 0 bytes", result::failure);
 
     const auto res = ::sendto(
@@ -95,7 +95,7 @@ send(const std::string & msg)
     );
 
     ABORT_IF(
-        res < 0,
+        res < 0 or errno,
         "sendto() failed, errno: " << strerror(errno),
         result::failure
     );
@@ -110,44 +110,40 @@ read(std::string & msg)
 {
     ABORT_IF_NOT(_bound, "Must call bind() first!", result::failure);
 
-    msg = "";
+    constexpr auto MAX_MSG_SIZE = 1024;
+    msg.reserve(MAX_MSG_SIZE);
 
     // Try to peek at how many bytes are avialable for reading on the socket.
-
-    int bytes_available = 0;
+    unsigned long bytes_available = 0;
     const auto res = ::ioctl(_socket_fd, FIONREAD, &bytes_available);
-    if (res == -1 or bytes_available <= 0)
+    if (res == -1 or bytes_available == 0)
     {
         // No message avialable.
         return result::success;
     }
 
     // Okay, a message is present.
-    const std::size_t MAX_BUFFER_SIZE = 1024;
-    auto buffer = std::vector<char>(MAX_BUFFER_SIZE, 0);
-
     struct ::sockaddr_in client_addr;
     ::socklen_t sizeof_sockaddr_in = sizeof(::sockaddr_in);
 
     const auto bytes_read = ::recvfrom(
         _socket_fd,
-        buffer.data(),
-        buffer.size(),
+        msg.data(),
+        MAX_MSG_SIZE,
         0 /* flags */,
         (struct sockaddr *)&client_addr,
         &sizeof_sockaddr_in
     );
 
-    ABORT_IF(bytes_read < 0, "::recvfrom() failed", result::failure);
+    ABORT_IF(bytes_read < 0 or errno, "::recvfrom() failed", result::failure);
 
     if (bytes_read == 0)
     {
         // Got an empty packet.
         return result::success;
     }
+    msg.resize(bytes_read);
 
-    // We got a packet, construct a std::string from it.
-    msg = std::string(buffer.data(), bytes_read);
     return result::success;
 }
 

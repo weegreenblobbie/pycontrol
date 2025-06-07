@@ -14,6 +14,7 @@ namespace pycontrol
 
 using socketaddr_ptr = std::shared_ptr<sockaddr_in>;
 
+/*
 class AutoFd
 {
 public:
@@ -27,6 +28,7 @@ public:
 private:
     int _fd;
 };
+*/
 
 
 class UdpSocket

@@ -1,7 +1,9 @@
 import copy
+import ctypes
 import datetime
 import functools
 import threading
+import time
 
 import astropy.time
 
@@ -76,6 +78,9 @@ class EventSolver:
         self._solution = dict()
         self._reset = False
         self._camera_sequence = "none"
+        # Use unique message counters so camera control can easily detect
+        # duplicate messages.
+        self._packet_id = ctypes.c_uint32(0)
 
     def start(self):
         assert self._thread is None
@@ -111,25 +116,36 @@ class EventSolver:
         solution = self._solve(params)
         reset = False
         sequence = "none"
+        packet_id = 0
 
         with self._lock:
-            self._solution = solution
+            packet_id = self._packet_id.value
             reset = self._reset
-            self._reset = False
             sequence = self._camera_sequence
+            self._solution = solution
+            self._reset = False
+            self._packet_id.value += 1
 
         # Notify camera_control of solution.
         msg = (
-            f"camera_sequence {sequence}\n"
-            f"reset {int(reset)}\n"
+            f"{packet_id}\n"
+            f"{sequence}\n"
+            f"{int(reset)}\n"
         )
         for k, v in solution.items():
             if v is None or isinstance(v, str):
                 msg += f"{k} none\n"
             else:
-                msg += f"{k} {v.timestamp():.6f}\n"
+                # Converte seconds from unit epoch to milliseconds, rounding to
+                # the nearest milisecond.
+                timestamp = int(v.timestamp() * 1000.0 + 0.5)
+                msg += f"{k} {timestamp:d}\n"
 
-        udp_socket.send_message(msg, self._udp_ip, self._event_update_port)
+        # Notify camera control, send 3 times for reliability.
+        for _ in range(3):
+            udp_socket.send_message(msg, self._udp_ip, self._event_update_port)
+            time.sleep(0.200)
+
 
     def load_camera_sequence(self, filename):
         with self._lock:
