@@ -144,12 +144,12 @@ std::ostream & operator<<(std::ostream & out, const str_vec & rhs)
 }
 
 result
-convert_hms_to_seconds(
+convert_hms_to_milliseconds(
     const std::string& hms_string,
-    float & total_seconds
+    milliseconds & total_seconds
 )
 {
-    total_seconds = 0.0f;
+    total_seconds = 0;
 
     ABORT_IF(hms_string.empty(), "noting to convert", result::failure);
 
@@ -160,7 +160,7 @@ convert_hms_to_seconds(
     if (clean_string[0] == '-')
     {
         is_negative = true;
-        // Remove the '-'
+        // Remove the '-'.
         clean_string = clean_string.substr(1);
     }
 
@@ -203,7 +203,8 @@ convert_hms_to_seconds(
             result::failure
         );
 
-        total_seconds = minutes * 60.0 + seconds;
+        double total = minutes * 60.0 + seconds;
+        total_seconds = static_cast<milliseconds>(total * 1000.0 + 0.5);
     }
     else if (parts.size() == 3)
     {
@@ -222,12 +223,13 @@ convert_hms_to_seconds(
             "Invalid HH:MM:SS.sss format: " << hms_string,
             result::failure
         );
-        total_seconds = hours * 3600.0f + minutes * 60.0f + seconds;
+        double total = hours * 3600.0f + minutes * 60.0f + seconds;
+        total_seconds = static_cast<milliseconds>(total * 1000.0 + 0.5);
     }
 
     if (is_negative)
     {
-        total_seconds *= -1.0f;
+        total_seconds *= -1;
     }
 
     return result::success;

@@ -39,6 +39,14 @@ namespace gphoto2cpp
                                  const std::string & property,
                                  const std::string & default_="__ERROR__"
                              );
+
+    bool                     write_property(
+                                 camera_ptr & camera,
+                                 const std::string & property,
+                                 const std::string & value
+                             );
+
+    bool                     trigger(camera_ptr & camera);
 }
 
 
@@ -303,6 +311,63 @@ read_property(const camera_ptr & camera, const std::string & property, const std
     }
 
     return default_;
+}
+
+
+inline
+bool
+write_property(camera_ptr & camera, const std::string & property, const std::string & value)
+{
+    GP2::CameraWidget * raw_widget {nullptr};
+
+    GPHOTO2CPP_SAFE_CALL(
+        GP2::gp_camera_get_single_config(
+            camera.get(),
+            property.c_str(),
+            &raw_widget,
+            get_context().get()
+        ),
+        false
+    );
+
+    // Wrap in std::shared_ptr for auto cleanup.
+    auto widget = make_widget(raw_widget);
+
+    GPHOTO2CPP_SAFE_CALL(
+        GP2::gp_widget_set_value(
+            widget.get(),
+            value.c_str()
+        ),
+        false
+    );
+
+    GPHOTO2CPP_SAFE_CALL(
+        GP2::gp_camera_set_single_config(
+            camera.get(),
+            property.c_str(),
+            widget.get(),
+            get_context().get()
+        ),
+        false
+    );
+
+    return true;
+}
+
+
+inline
+bool
+trigger(camera_ptr & camera)
+{
+    GPHOTO2CPP_SAFE_CALL(
+        GP2::gp_camera_trigger_capture(
+            camera.get(),
+            get_context().get()
+        ),
+        false
+    );
+
+    return true;
 }
 
 

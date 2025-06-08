@@ -35,9 +35,9 @@ result as_type(const std::string & input, T & output);
 
 // Converts a HH:MM:SS.sss string to total seconds.
 result
-convert_hms_to_seconds(
+convert_hms_to_milliseconds(
     const std::string& hms_string,
-    float & total_seconds
+    milliseconds & total_seconds
 );
 
 

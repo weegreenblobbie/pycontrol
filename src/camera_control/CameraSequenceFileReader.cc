@@ -52,101 +52,61 @@ const std::set<std::string> _valid_shutter_speeds = {
     "1/1.6",
     "1/1.3",
     "1",
-    "1.0",
     "1.3",
     "1.6",
     "2",
-    "2.0",
     "2.5",
     "3",
-    "3.0",
     "4",
-    "4.0",
     "5",
-    "5.0",
     "6",
-    "6.0",
     "8",
-    "8.0",
     "10",
-    "10.0",
     "13",
-    "13.0",
     "15",
-    "15.0",
     "20",
-    "20.0",
     "25",
-    "25.0",
     "30",
-    "30.0",
-    "60",
-    "60.0",
-    "90",
-    "90.0",
+    "60",    // 1 minute
+    "90",    // 1.5 minutes
     "120",   // 2 minutes
-    "120.0",
     "180",   // 3 minutes
-    "180.0",
     "240",   // 4 minutes
-    "240.0",
     "300",   // 5 minutes
-    "300.0",
     "480",   // 8 minutes
-    "480.0",
     "600",   // 10 minutes
-    "600.0",
     "720",   // 12 minutes
-    "720.0",
     "900",   // 15 minutes
-    "900.0",
 };
 
 const std::set<std::string> _valid_fstops = {
-    "1.2",
-    "1.4",
-    "2.0",
-    "2",
-    "2.2",
-    "2.8",
-    "3.2",
-    "3.5",
-    "4.0",
-    "4",
-    "4.5",
-    "5.0",
-    "5",
-    "5.6",
-    "6.3",
-    "7.1",
-    "8",
-    "8.0",
-    "9",
-    "9.0",
-    "10",
-    "10.0",
-    "11",
-    "11.0",
-    "13",
-    "13.0",
-    "14",
-    "14.0",
-    "16",
-    "16.0",
-    "18",
-    "18.0",
-    "20",
-    "20.0",
-    "22",
-    "22.0",
-    "25",
-    "25.0",
-    "29",
-    "29.0",
-    "32",
-    "32.0",
-    "36",
-    "36.0",
+    "f/1.2",
+    "f/1.4",
+    "f/2",
+    "f/2.2",
+    "f/2.8",
+    "f/3.2",
+    "f/3.5",
+    "f/4",
+    "f/4.5",
+    "f/5",
+    "f/5.6",
+    "f/6.3",
+    "f/7.1",
+    "f/8",
+    "f/9",
+    "f/10",
+    "f/11",
+    "f/13",
+    "f/14",
+    "f/16",
+    "f/18",
+    "f/20",
+    "f/22",
+    "f/25",
+    "f/29",
+    "f/32",
+    "f/36",
 };
 
 const std::set<std::string> _valid_triggers = {
@@ -228,7 +188,7 @@ read_file(const std::string & file_path)
     ABORT_IF_NOT(file.is_open(), "Could not open file " << file_path, result::failure);
 
     std::string line;
-    int line_number = 0;
+    unsigned int line_number = 0;
     while (std::getline(file, line))
     {
         line_number++;
@@ -239,7 +199,7 @@ read_file(const std::string & file_path)
 
         std::istringstream iss(line);
         std::string event_id_str, event_time_offset_str, camera_channel_str, channel_value_str;
-        float event_time_offset = 0.0f;
+        milliseconds event_time_offset_ms = 0;
 
         if (not (iss >> event_id_str
                      >> event_time_offset_str
@@ -268,13 +228,14 @@ read_file(const std::string & file_path)
         }
 
         // Parse event_time_offset_str, valid formats:
-        //    floats => 1.0  -10.0  1e2
+        //    signed ints => 1  -10  100
         //    hour:minute:seconds =>   1:15.2   1:23:43.123    -1:15.5
 
-        // If no ':' present, assume it's just a float.
+        // If no ':' present, assume it's just an int.
         if (event_time_offset_str.find(':') == std::string::npos)
         {
-            if (as_type<float>(event_time_offset_str, event_time_offset))
+            float seconds = 0;
+            if (as_type<float>(event_time_offset_str, seconds))
             {
                 ERROR_LOG << file_path << "(" << line_number << "): "
                           << "Parser Error: failed to parse event_time_offset "
@@ -283,11 +244,13 @@ read_file(const std::string & file_path)
                 clear();
                 return result::failure;
             }
+            // Convert seconds to milliseconds.
+            event_time_offset_ms = static_cast<milliseconds>(seconds * 1000.0f);
         }
         // hour:minute:seconds format.
         else
         {
-            if (convert_hms_to_seconds(event_time_offset_str, event_time_offset))
+            if (convert_hms_to_milliseconds(event_time_offset_str, event_time_offset_ms))
             {
                 ERROR_LOG << file_path << "(" << line_number << "): "
                           << "Parser Error: failed to parse event_time_offset '"
@@ -318,30 +281,39 @@ read_file(const std::string & file_path)
         std::string camera_id = camera_channel_str.substr(0, dot_pos);
         std::string channel_name = camera_channel_str.substr(dot_pos + 1);
 
+        _cam_ids.insert(camera_id);
+
         bool validation_ok = false;
+        Channel channel;
         if (channel_name == "shutter_speed")
         {
             validation_ok = _is_valid_shutter_speed(channel_value_str);
+            channel = Channel::shutter_speed;
         }
         else if (channel_name == "fstop")
         {
             validation_ok = _is_valid_fstop(channel_value_str);
+            channel = Channel::fstop;
         }
         else if (channel_name == "iso")
         {
             validation_ok = true;
+            channel = Channel::iso;
         }
         else if (channel_name == "quality")
         {
             validation_ok = true;
+            channel = Channel::quality;
         }
         else if (channel_name == "fps")
         {
             validation_ok = _is_valid_fps_value(channel_value_str);
+            channel = Channel::fps;
         }
         else if (channel_name == "trigger")
         {
             validation_ok = _is_valid_trigger_value(channel_value_str);
+            channel = Channel::trigger;
         }
         else
         {
@@ -367,11 +339,11 @@ read_file(const std::string & file_path)
             return result::failure;
         }
 
-        _sequence_entries.emplace_back(
+        _sequence.emplace_back(
             event_id_str,
-            event_time_offset,
+            event_time_offset_ms,
             camera_id,
-            channel_name,
+            channel,
             channel_value_str
         );
     }
@@ -379,18 +351,26 @@ read_file(const std::string & file_path)
     return result::success;
 }
 
-const std::vector<CameraSequenceEntry> &
+const std::vector<Event> &
 CameraSequenceFileReader::
-get_entries() const
+get_events() const
 {
-    return _sequence_entries;
+    return _sequence;
+}
+
+const std::set<CamId> &
+CameraSequenceFileReader::
+get_camera_ids() const
+{
+    return _cam_ids;
 }
 
 void
 CameraSequenceFileReader::
 clear()
 {
-    _sequence_entries.clear();
+    _sequence.clear();
+    _cam_ids.clear();
 }
 
 } /* namespace */

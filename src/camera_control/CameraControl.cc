@@ -2,11 +2,15 @@
 
 #include <gphoto2cpp/gphoto2cpp.h>
 
-#include <common/str_utils.h>
-#include <camera_control/CameraControl.h>
 #include <camera_control/Camera.h>
+#include <camera_control/CameraControl.h>
+#include <camera_control/CameraSequence.h>
+#include <camera_control/CameraSequenceFileReader.h>
+#include <common/str_utils.h>
 
-namespace {
+
+namespace
+{
 
 // Returns the current system time in miliseconds since UNIX epoch.
 pycontrol::milliseconds
@@ -19,6 +23,7 @@ now()
 
 } /* namespace */
 
+
 namespace pycontrol
 {
 
@@ -28,9 +33,12 @@ namespace pycontrol
 //
 //     # comments start with '#' and the rest of the line is ignored.
 //     udp_ip            239.192.168.1  # The UDP IP address the telemetry is sent to.
-//     cam_info_port     10018          # UDP port telemetry is sent to.
-//     cam_rename_port   10019          # UDP port camera rename packets arrive on.
+//     cam_info_port     10018          # Output UDP port for detected camera info.
+//     cam_rename_port   10019          # Input UDP port camera rename packets arrive on.
+//     event_port        10020          # Input UDP port for reading event packets on.
+//     seq_state_port    10021          # Output UDP port for sending camera sequence state.
 //     period            50             # 20 Hz or 50 ms dispatch period.
+//     camera_aliases    filename       # A file to persistently map camera serial numbers to short names.
 //
 //-----------------------------------------------------------------------------
 result
@@ -42,53 +50,64 @@ CameraControl::init(const std::string & config_file)
     kv_pair_vec config_pairs;
     ABORT_IF(read_config(config_file, config_pairs), "failed", result::failure);
 
+    _control_period = 0;
+
+    std::string udp_ip = "";
+    auto info_port = std::uint16_t {0};
+    auto rename_port = std::uint16_t {0};
+    auto event_port = std::uint16_t {0};
+    auto seq_port = std::uint16_t {0};
+
     for (const auto & pair : config_pairs)
     {
         if (pair.key == "udp_ip")
         {
-            _ip = pair.value;
-            ABORT_IF_NOT(_ip.starts_with("239."), "Please use a local multicast IP address", result::failure);
+            udp_ip = pair.value;
         }
         else
         if (pair.key == "cam_info_port")
         {
             ABORT_ON_FAILURE(
-                as_type<std::uint16_t>(pair.value, _info_port),
+                as_type<std::uint16_t>(pair.value, info_port),
                 "as_type<std::uint16_t>(" << pair.value <<") failed",
                 result::failure
             );
-            ABORT_IF(_info_port < 1024, "port too low, pick a higher port", result::failure);
         }
         else
         if (pair.key == "cam_rename_port")
         {
             ABORT_ON_FAILURE(
-                as_type<std::uint16_t>(pair.value, _rename_port),
+                as_type<std::uint16_t>(pair.value, rename_port),
                 "as_type<std::uint16_t>(" << pair.value <<") failed",
                 result::failure
             );
-            ABORT_IF(_rename_port < 1024, "port too low, pick a higher port", result::failure);
         }
         else
         if (pair.key == "event_update_port")
         {
             ABORT_ON_FAILURE(
-                as_type<std::uint16_t>(pair.value, _event_port),
+                as_type<std::uint16_t>(pair.value, event_port),
                 "as_type<std::uint16_t>(" << pair.value <<") failed",
                 result::failure
             );
-            ABORT_IF(_event_port < 1024, "port too low, pick a higher port", result::failure);
         }
-
+        else
+        if (pair.key == "seq_state_port")
+        {
+            ABORT_ON_FAILURE(
+                as_type<std::uint16_t>(pair.value, seq_port),
+                "as_type<std::uint16_t>(" << pair.value <<") failed",
+                result::failure
+            );
+        }
         else
         if (pair.key == "period")
         {
             ABORT_ON_FAILURE(
-                as_type<std::uint64_t>(pair.value, _control_period),
+                as_type<milliseconds>(pair.value, _control_period),
                 "as_type<std::uint64_t>(" << pair.value <<") failed",
                 result::failure
             );
-            ABORT_IF(_control_period < 10, "100+ Hz is probably too fast", result::failure);
         }
         else
         if (pair.key == "camera_aliases")
@@ -97,24 +116,36 @@ CameraControl::init(const std::string & config_file)
             ABORT_ON_FAILURE(read_config(pair.value, data), "Failed to read camera_aliases", result::failure);
             for (const auto & pair : data)
             {
-                _camera_aliases[pair.key] = pair.value;
-                INFO_LOG << "init(): mapping camera alias: " << pair.key << " to " << pair.value << "\n";
+                const auto & serial = pair.key;
+                const auto & id = pair.value;
+                INFO_LOG << "init(): mapping camera alias: " << serial << " to " << id << "\n";
+                _serial_to_id[serial] = id;
+                _id_to_serial[id] = serial;
             }
         }
     }
 
-    INFO_LOG << "init():            udp_ip: " << _ip << "\n";
-    INFO_LOG << "init():     cam_info_port: " << _info_port << "\n";
-    INFO_LOG << "init():   cam_rename_port: " << _rename_port << "\n";
-    INFO_LOG << "init(): event_update_port: " << _event_port << "\n";
+    ABORT_IF_NOT(udp_ip.starts_with("239."), "Please use a local multicast IP address", result::failure);
+    ABORT_IF(info_port < 1024, "cam_info_port too low, pick a higher port", result::failure);
+    ABORT_IF(rename_port < 1024, "cam_rename_port too low, pick a higher port", result::failure);
+    ABORT_IF(event_port < 1024, "event_update_port too low, pick a higher port", result::failure);
+    ABORT_IF(seq_port < 1024, "seq_state_port too low, pick a higher port", result::failure);
+    ABORT_IF(_control_period < 10, "100+ Hz is probably too fast", result::failure);
+
+    INFO_LOG << "init():            udp_ip: " << udp_ip << "\n";
+    INFO_LOG << "init():     cam_info_port: " << info_port << "\n";
+    INFO_LOG << "init():   cam_rename_port: " << rename_port << "\n";
+    INFO_LOG << "init(): event_update_port: " << event_port << "\n";
+    INFO_LOG << "init():    seq_state_port: " << seq_port << "\n";
     INFO_LOG << "init():    control_period: " << _control_period << " ms\n";
 
-    ABORT_ON_FAILURE(_cam_info_socket.init(_ip, _info_port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_cam_info_socket.init(udp_ip, info_port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_seq_state_socket.init(udp_ip, seq_port), "UpdSocket::init() failed", result::failure);
 
-    ABORT_ON_FAILURE(_cam_rename_socket.init(_ip, _rename_port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_cam_rename_socket.init(udp_ip, rename_port), "UpdSocket::init() failed", result::failure);
     ABORT_ON_FAILURE(_cam_rename_socket.bind(), "UdpSocket::bind() failed", result::failure);
 
-    ABORT_ON_FAILURE(_event_socket.init(_ip, _event_port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_event_socket.init(udp_ip, event_port), "UpdSocket::init() failed", result::failure);
     ABORT_ON_FAILURE(_event_socket.bind(), "UdpSocket::bind() failed", result::failure);
 
     return result::success;
@@ -153,9 +184,11 @@ _camera_scan()
                         "camera.config"
                     );
                     _cameras[serial] = cam;
-                    if (_camera_aliases.count(serial) == 0)
+                    if (not _serial_to_id.contains(serial))
                     {
-                        _camera_aliases[serial] = cam->read_settings().desc;
+                        const auto & id = cam->read_settings().desc;
+                        _serial_to_id[serial] = id;
+                        _id_to_serial[id] = serial;
                     }
                 }
 
@@ -167,7 +200,7 @@ _camera_scan()
 
                 DEBUG_LOG << "adding "
                           << "serial=" << serial << " "
-                          << "desc=" << _camera_aliases[serial] << " "
+                          << "desc=" << _serial_to_id[serial] << " "
                           << "port=" << port
                           << "\n";
 
@@ -185,7 +218,7 @@ _camera_scan()
             {
                 DEBUG_LOG << "removing "
                           << "serial=" << info.serial << " "
-                          << "desc=" << _camera_aliases[info.serial] << " "
+                          << "desc=" << _serial_to_id[info.serial] << " "
                           << "port=" << port
                           << "\n";
                 cam->disconnect();
@@ -208,17 +241,13 @@ CameraControl::
 _send_detected_cameras()
 {
     _message.seekp(0, std::ios::beg);
-    _message << "CAM_CONTROL\n"
-             << "state " << _state << "\n"
-             << "num_cameras " << _cameras.size() << "\n";
-    for (const auto & pair : _cameras)
+    _message << "num_cameras " << _cameras.size() << "\n";
+    for (const auto & [serial, cam_ptr] : _cameras)
     {
-        const auto & cam = pair.second;
-        const auto & info = cam->read_settings();
+        const auto & info = cam_ptr->read_settings();
+        const auto & entry = _serial_to_id.find(serial);
 
-        const auto & entry = _camera_aliases.find(info.serial);
-
-        const auto desc = entry != _camera_aliases.end() ?
+        const auto desc = entry != _serial_to_id.end() ?
                           entry->second :
                           info.desc;
 
@@ -234,14 +263,80 @@ _send_detected_cameras()
                  << "batt " << info.battery_level << "\n"
                  << "num_photos " << info.num_photos << "\n";
     }
-    // Mark the end of the buffer for strlen().
+    // Mark the end of the stream and rewind before sending.
     _message << '\0';
-    // Rewind.
     _message.seekp(0, std::ios::beg);
 
-    // Emit telemetry packet.
     ABORT_ON_FAILURE(
         _cam_info_socket.send(_message.str()),
+        "UdpSocket::send() failed",
+        result::failure
+    );
+
+    return result::success;
+}
+
+
+result
+CameraControl::
+_send_sequence_state()
+{
+    _message.seekp(0, std::ios::beg);
+    _message << "state ";
+    switch(_state)
+    {
+        case State::init: { _message << "init"; break;}
+        case State::scan: { _message << "scan"; break;}
+        case State::monitor: { _message << "monitor"; break;}
+        case State::execute_ready: { _message << "execute_ready"; break;}
+        case State::executing: { _message << "executing"; break;}
+    }
+    _message << "\n";
+    _message << "num_cameras " << _cameras.size() << "\n";
+    for (const auto & [serial, cam_ptr] : _cameras)
+    {
+        const auto & info = cam_ptr->read_settings();
+        const auto & entry = _serial_to_id.find(serial);
+
+        const auto name = entry != _serial_to_id.end() ?
+                          entry->second :
+                          info.desc;
+
+        _message << "connected " << info.connected << "\n"
+                 << "name " << name << "\n";
+
+        const auto seq_itor = _sequence_map.find(name);
+
+        if (seq_itor != _sequence_map.end())
+        {
+            const auto & seq = *seq_itor->second;
+            const auto & event = seq.front();
+
+            const auto eta_ms = _get_event_time(seq.front()) - _control_time;
+
+            _message << "num_events " << seq.size() << "\n"
+                     << "position " << seq.pos() << "\n"
+                     << "event_id " << event.event_id << "\n"
+                     << "eta " << eta_ms << "\n"
+                     << "channel " << to_string(event.channel) << "\n"
+                     << "value " << event.channel_value << "\n";
+        }
+        else
+        {
+            _message << "num_events 0\n"
+                     << "position 0\n"
+                     << "event_id none\n"
+                     << "eta none\n"
+                     << "channel none\n"
+                     << "value none\n";
+        }
+    }
+    // Mark the end of the stream and rewind before sending.
+    _message << '\0';
+    _message.seekp(0, std::ios::beg);
+
+    ABORT_ON_FAILURE(
+        _seq_state_socket.send(_message.str()),
         "UdpSocket::send() failed",
         result::failure
     );
@@ -271,8 +366,12 @@ _read_camera_renames()
 
     if (tokens.size() == 2)
     {
-        INFO_LOG << "mapping serial " << tokens[0] << " to " << tokens[1] << "\n";
-        _camera_aliases[tokens[0]] = tokens[1];
+        const auto & serial = tokens[0];
+        const auto & id = tokens[1];
+
+        INFO_LOG << "mapping serial " << serial << " to " << id << "\n";
+        _serial_to_id[serial] = id;
+        _id_to_serial[id] = serial;
     }
     else
     {
@@ -321,29 +420,30 @@ _read_events()
         return result::success;
     }
 
+    _event_packet_id = packet_id;
+
     // Parse the reset of the message;
 
-    std::string   sequence  (128, '\0');
-    bool          reset     {false};
-    std::string   event_id  (64, '\0');
-    std::int64_t  timestamp {0};
+    auto sequence_fn = std::string(128, '\0');
+    auto reset       = bool{false};
+    auto event_id    = std::string(16, '\0');
+    auto timestamp   = milliseconds{0};
 
     ABORT_IF_NOT(
-        ss >> sequence,
-        "Bad event message, failed to read 'sequence'",
+        ss >> sequence_fn,
+        "Bad event message, failed to read the sequence filename",
         result::failure
     );
 
     ABORT_IF_NOT(
         ss >> reset,
-        "Bad event message, failed to read 'sequence'",
+        "Bad event message, failed to read the bool reset",
         result::failure
     );
 
-    if (reset or sequence != _sequence)
+    // Clear the event map on reset, as there will likely be a large change.
+    if (reset)
     {
-        // TODO: reread sequence file.
-        // TODO: reset camera event positions.
         _event_map.clear();
     }
 
@@ -356,19 +456,176 @@ _read_events()
         }
         ABORT_IF_NOT(
             ss >> timestamp,
-            "Bad event message, failed to read 'timestamp'",
+            "Bad event message, failed to read the timestamp",
             result::failure
         );
         _event_map[event_id] = timestamp;
     }
 
-    _event_packet_id = packet_id;
+    // If the camera sequence changed, reread the file and remake the camera
+    // sequences.
+    if (_sequence_filename != sequence_fn)
+    {
+        auto seq_reader = CameraSequenceFileReader();
+        ABORT_ON_FAILURE(
+            seq_reader.read_file(sequence_fn),
+            "Failed to read camera sequence '" << sequence_fn << "'",
+            result::failure
+        );
+        _sequence_filename = sequence_fn;
+
+        _sequence_map.clear();
+
+        const auto & event_seq = seq_reader.get_events();
+        const auto & cam_ids = seq_reader.get_camera_ids();
+
+        for (const auto & id : cam_ids)
+        {
+            auto cam_seq = std::make_shared<CameraSequence>();
+            ABORT_IF_NOT(
+                cam_seq,
+                "Failed to make CameraSequence",
+                result::failure
+            );
+            ABORT_ON_FAILURE(
+                cam_seq->load(id, event_seq),
+                "CameraSequence.load() failed",
+                result::failure
+            );
+            _sequence_map[id] = cam_seq;
+        }
+    }
+
+    // If reset was requested, we reset the camera sequences and pop off events
+    // that are in the past.
+    if (reset)
+    {
+        for (auto & [id, cam_seq] : _sequence_map)
+        {
+            cam_seq->reset();
+
+            // Pop off events that are in the past.
+            while (
+                not cam_seq->empty() and
+                _get_event_time(cam_seq->front()) < _control_time
+            )
+            {
+                cam_seq->pop();
+            }
+        }
+    }
 
     INFO_LOG << "successfully processed event packet " << packet_id << std::endl;
 
     return result::success;
 }
 
+milliseconds
+CameraControl::
+_get_event_time(const Event & event) const
+{
+    const auto & event_time_ms = _event_map.find(event.event_id);
+    if (event_time_ms != _event_map.end())
+    {
+        return event_time_ms->second + event.event_time_offset_ms;
+    }
+    return MAX_TIME;
+}
+
+milliseconds
+CameraControl::
+_get_next_event_time() const
+{
+    milliseconds next_event = MAX_TIME;
+
+    for (const auto & [serial, cam_ptr] : _cameras)
+    {
+        if (not cam_ptr->read_settings().connected)
+        {
+            continue;
+        }
+        const auto & id = _serial_to_id.find(serial);
+        if (id == _serial_to_id.end())
+        {
+            continue;
+        }
+        const auto & seq = _sequence_map.find(id->second);
+        if (seq == _sequence_map.end() or seq->second->empty())
+        {
+            continue;
+        }
+
+        next_event = std::min(
+            next_event,
+            _get_event_time(seq->second->front())
+        );
+    }
+
+    return next_event;
+}
+
+
+result
+CameraControl::
+_dispatch_camera_events()
+{
+    for (auto & [serial, cam_ptr] : _cameras)
+    {
+        const auto & id = _serial_to_id.find(serial);
+        if (id == _serial_to_id.end())
+        {
+            continue;
+        }
+        const auto & seq_itor = _sequence_map.find(id->second);
+        if (seq_itor == _sequence_map.end() or seq_itor->second->empty())
+        {
+            continue;
+        }
+
+        auto & seq = seq_itor->second;
+
+        if (seq->empty())
+        {
+            continue;
+        }
+
+        auto event_time = _get_event_time(seq->front());
+
+        while (event_time <= _control_time)
+        {
+            // Execute the camera event.
+            auto res1 = cam_ptr->handle(seq->front());
+
+            if (res1 == result::failure)
+            {
+                ERROR_LOG << "camera->handle(event) failed" << std::endl;
+                // TODO count camera errors and report to UI.
+            }
+
+            // Move to the next event.
+            seq->pop();
+            if (seq->empty())
+            {
+                // Hit the end of the event sequence.
+                break;
+            }
+
+            event_time = _get_event_time(seq->front());
+
+            // Flush camera settings if the next event is trigger.
+            if (seq->front().channel == Channel::trigger)
+            {
+                auto res2 = cam_ptr->write_settings();
+                if (res2 == result::failure)
+                {
+                    ERROR_LOG << "camera->write-settings() failed" << std::endl;
+                    // TODO count camera errors and report to UI.
+                }
+            }
+        }
+    }
+    return result::success;
+}
 
 
 result
@@ -379,12 +636,16 @@ dispatch()
     bool send_telemetry = false;
     bool scan_cameras = false;
 
+    _control_time = now();
+
     switch(_state)
     {
         case CameraControl::State::init:
         {
-            // For now just transition to scan.
-            next_state = CameraControl::State::scan;
+            _scan_time += _control_time;
+            _send_time += _control_time;
+            _read_time += _control_time;
+            next_state = State::scan;
             break;
         }
         case CameraControl::State::scan:
@@ -399,9 +660,15 @@ dispatch()
         {
             scan_cameras = true;
             send_telemetry = true;
-            // TODO: transition to execute_ready if we have a valid camera
-            // schedule.
-            next_state = CameraControl::State::monitor;
+
+            // Transition to the next state if we have an event time for any
+            // currently connected camera.
+            const auto next_event_time = _get_next_event_time();
+
+            if (next_event_time < MAX_TIME)
+            {
+                next_state = CameraControl::State::monitor;
+            }
             break;
         }
 
@@ -410,24 +677,33 @@ dispatch()
             scan_cameras = true;
             send_telemetry = true;
 
-            // TODO: transition to executing when a scheduled camera event is
-            //       "soon", say <= 60s away.
-            next_state = CameraControl::State::execute_ready;
+            const auto next_event_time = _get_next_event_time();
+
+            if (next_event_time < (_control_time + 60'000))
+            {
+                next_state = CameraControl::State::execute_ready;
+            }
             break;
         }
 
         case CameraControl::State::executing:
         {
-            // TODO: dispatch all camera commands up to and including current
-            //       control time.
-            //
-            // This means control_time probably must equal nanos since gps
-            // epoch.
-            //
-            next_state = CameraControl::State::executing;
+            scan_cameras = false;
+            send_telemetry = true;
 
-            // TODO: If next event time > 60s, transition back to execute_ready;
-            next_state = CameraControl::State::execute_ready;
+            ABORT_ON_FAILURE(
+                _dispatch_camera_events(),
+                "_dispatch_camera_events() failed",
+                result::failure
+            );
+
+            const auto next_event_time = _get_next_event_time();
+
+            // Transition back to execute_ready if the next event is far away.
+            if (next_event_time >= (_control_time + 60'000))
+            {
+                next_state = State::execute_ready;
+            }
             break;
         }
 
@@ -437,8 +713,6 @@ dispatch()
             break;
         }
     }
-
-    _control_time += _control_period;
 
     if (_state != next_state)
     {
@@ -451,31 +725,18 @@ dispatch()
     // Scan for camera changes.
     if (_scan_time <= _control_time)
     {
-        _scan_time += 2000;  // 0.5 Hz.
+        _scan_time = _control_time + 2000;  // 0.5 Hz.
         if (scan_cameras)
         {
             _camera_scan();
         }
     }
 
-    // Send out 1 Hz telemetry.
-    if (_send_time <= _control_time)
-    {
-        _send_time += 1000;  // 1 Hz.
-        if (send_telemetry)
-        {
-            ABORT_ON_FAILURE(
-                _send_detected_cameras(),
-                "_send_detected_cameras() failed",
-                result::failure
-            );
-        }
-    }
 
     // Read any commands.
     if (_read_time <= _control_time)
     {
-        _read_time += 1000; // 1 Hz.
+        _read_time = _control_time + 1000; // 1 Hz.
 
         ABORT_ON_FAILURE(
             _read_camera_renames(),
@@ -487,6 +748,26 @@ dispatch()
             "_read_events() failed",
             result::failure
         );
+    }
+
+    // Send out 1 Hz telemetry.
+    if (_send_time <= _control_time)
+    {
+        _send_time = _control_time + 1000;  // 1 Hz.
+        if (send_telemetry)
+        {
+            ABORT_ON_FAILURE(
+                _send_detected_cameras(),
+                "_send_detected_cameras() failed",
+                result::failure
+            );
+
+            ABORT_ON_FAILURE(
+                _send_sequence_state(),
+                "_send_sequence_state() failed",
+                result::failure
+            );
+        }
     }
 
     return result::success;

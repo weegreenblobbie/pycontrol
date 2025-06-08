@@ -25,7 +25,6 @@ class CameraInfoReader:
         self._cam_desc_config = os.path.join("..", config["camera_aliases"])
         assert os.path.isfile(self._cam_desc_config)
 
-        self._session = None
         self._lock = threading.Lock()
         self._thread = None
         self._detected = []
@@ -87,8 +86,6 @@ class CameraInfoReader:
 
                 # Example message:
                 #
-                #     CAM_CONTROL
-                #     state monitor
                 #     num_cameras 2
                 #     connected 1
                 #     serial 3006513
@@ -117,18 +114,6 @@ class CameraInfoReader:
                 # Parse the message.
                 lines = data.split("\n")
                 idx = 0
-
-                # Assert the message type.
-                msg_type = lines[idx].strip()
-                idx += 1
-
-                if msg_type != "CAM_CONTROL":
-                    print(f"Unknown message type '{msg_type}'")
-                    continue
-
-                # State.
-                state = lines[idx].split()[-1]
-                idx += 1
 
                 # num _cameras.
                 num_cameras = int(lines[idx].split()[-1])

@@ -1,6 +1,6 @@
 TOPTARGETS := all clean real-clean
 
-SUBDIRS := common camera_control control
+SUBDIRS := common camera_control
 
 $(TOPTARGETS): $(SUBDIRS)
 $(SUBDIRS):

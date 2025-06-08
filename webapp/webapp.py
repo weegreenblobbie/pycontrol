@@ -12,6 +12,7 @@ import date_utils as du
 from cam_info_reader import CameraInfoReader
 from event_solver import EventSolver
 from gps_reader import GpsReader
+from cam_sequence_reader import CameraSequenceReader
 
 @dataclasses.dataclass(kw_only=True)
 class GpsPos:
@@ -39,6 +40,8 @@ _gps_reader = GpsReader()
 _gps_reader.start()
 _cam_reader = CameraInfoReader(CAMERA_CONTROL_CONFIG)
 _cam_reader.start()
+_seq_reader = CameraSequenceReader(CAMERA_CONTROL_CONFIG)
+_seq_reader.start()
 _event_solver = EventSolver(CAMERA_CONTROL_CONFIG)
 _event_solver.start()
 _run_sim = RunSim()
@@ -66,55 +69,10 @@ def hello():
 def api_dashboard_update():
     return (
         flask.jsonify(
-            gps=_gps_reader.read(),
-            cameras=_cam_reader.read(),
-            events=read_events(),
-            camera_control = {
-                "state": "executing",
-                "num_cameras": 2,
-                "cameras": [
-                    {
-                        "connected": True,
-                        "name": "z7",
-                        "num_events": 20,
-                        "position": 1,
-                        "next_event":[
-                            {
-                                "event_id": "C2",
-                                "ETA": " 00:01:39",
-                                "channel": "iso",
-                                "value": "800"
-                            },
-                            {
-                                "event_id": "C2",
-                                "ETA": " 00:01:39",
-                                "channel": "fstop",
-                                "value": "8.0"
-                            },
-                        ]
-                    },
-                    {
-                        "connected": True,
-                        "name": "z8",
-                        "num_events": 15,
-                        "position": 1,
-                        "next_event":[
-                            {
-                                "event_id": "C2",
-                                "ETA": " 00:01:38",
-                                "channel": "iso",
-                                "value": "200"
-                            },
-                            {
-                                "event_id": "C2",
-                                "ETA": " 00:01:38",
-                                "channel": "fstop",
-                                "value": "8.0"
-                            },
-                        ]
-                    },
-                ]
-            },
+            gps = _gps_reader.read(),
+            cameras = _cam_reader.read(),
+            events = read_events(),
+            camera_control = _seq_reader.read(),
         ),
         200
     )

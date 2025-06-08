@@ -8,6 +8,7 @@
 #include <gphoto2cpp/gphoto2cpp.h>
 
 #include <common/types.h>
+#include <camera_control/Event.h>
 
 namespace pycontrol
 {
@@ -44,17 +45,21 @@ public:
 
     void fetch_settings();
     const Info & read_settings() { return _info; }
-    void write_settings();
+    result write_settings();
+    result trigger();
+    result handle(const Event & event);
 
     void set_shutter(const std::string & speed);
     void set_fstop(const std::string & fstop);
     void set_iso(const std::string & iso);
+    void set_quality(const std::string & quality);
 
 private:
 
-    bool                   _stale_shutter {1};
-    bool                   _stale_fstop   {1};
-    bool                   _stale_iso     {1};
+    bool                   _stale_shutter {true};
+    bool                   _stale_fstop   {true};
+    bool                   _stale_iso     {true};
+    bool                   _stale_quality {true};
     Info                   _info;
     gphoto2cpp::camera_ptr _camera;
 };

@@ -5,18 +5,18 @@
 #include <set>
 
 #include <common/types.h>
+#include <camera_control/Event.h>
+
 
 namespace pycontrol
 {
-
-// Forward.
-struct CameraSequenceEntry;
 
 class CameraSequenceFileReader
 {
 public:
     result read_file(const std::string & file_path);
-    const std::vector<CameraSequenceEntry> & get_entries() const;
+    const std::vector<Event> & get_events() const;
+    const std::set<CamId> & get_camera_ids() const;
     void clear();
 
 private:
@@ -29,33 +29,10 @@ private:
     bool _is_valid_fps_value(const std::string& value) const;
     bool _is_valid_trigger_value(const std::string& value) const;
 
-    std::vector<CameraSequenceEntry> _sequence_entries {};
+    std::vector<Event> _sequence {};
+    std::set<CamId> _cam_ids {};
 };
 
 
-struct CameraSequenceEntry
-{
-    std::string event_id;
-    float event_time_offset_seconds;
-    std::string camera_id;
-    std::string channel_name;
-    std::string channel_value;
 
-    // Convient constructor to enable std::vector::emplace_back().
-    CameraSequenceEntry(
-        std::string event_id,
-        const float & event_time_offset_seconds,
-        std::string camera_id,
-        std::string channel_name,
-        std::string channel_value
-    )
-    : event_id(std::move(event_id)),
-      event_time_offset_seconds(event_time_offset_seconds),
-      camera_id(std::move(camera_id)),
-      channel_name(std::move(channel_name)),
-      channel_value(std::move(channel_value))
-    {}
-};
-
-
-} /* Namespace */
+} /* namespace */

@@ -14,16 +14,10 @@
 namespace pycontrol
 {
 
-using port_set = std::set<std::string>;
-
 // Forwards.
 class Camera;
-class CameraEventSequence;
-using camera_map = std::map<std::string, std::shared_ptr<Camera>>;
-using camera_alias = std::map<std::string, std::string>;
-using event_map = std::map<std::string, std::int64_t>;
-using sequence = std::map<std::string, std::shared_ptr<CameraEventSequence>>;
-
+class CameraSequence;
+struct Event;
 
 class CameraControl
 {
@@ -43,8 +37,8 @@ public:
 
     CameraControl() {}
 
-    const std::uint64_t & control_time() const { return _control_time; }
-    const std::uint64_t & control_period() const { return _control_period; }
+    const milliseconds & control_time() const { return _control_time; }
+    const milliseconds & control_period() const { return _control_period; }
 
 private:
 
@@ -53,35 +47,45 @@ private:
 
     void _camera_scan();
     result _send_detected_cameras();
+    result _send_sequence_state();
     result _read_camera_renames();
     result _read_events();
+    result _dispatch_camera_events();
+
+    milliseconds _get_event_time(const Event & event) const;
+    milliseconds _get_next_event_time() const;
+
+    using port_set = std::set<UsbPort>;
+    using event_map = std::map<EventId, milliseconds>;
+    using camera_map = std::map<Serial, std::shared_ptr<Camera>>;
+    using serial_to_id = std::map<Serial, CamId>;
+    using id_to_serial = std::map<CamId, Serial>;
+    using sequence_map = std::map<CamId, std::shared_ptr<CameraSequence>>;
 
     State             _state   {State::init};
     camera_map        _cameras {};
-    camera_alias      _camera_aliases {};
+    serial_to_id      _serial_to_id {};
+    id_to_serial      _id_to_serial {};
     port_set          _current_ports {};
-    std::stringstream _message {};
+
+    std::stringstream _message = std::stringstream(std::string(1024, '\0'));
     std::string       _buffer = std::string(1024, '\0');
+    UdpSocket         _cam_info_socket {};
+    UdpSocket         _cam_rename_socket {};
+    UdpSocket         _event_socket {};
+    UdpSocket         _seq_state_socket {};
 
-    std::string    _ip {};
-    std::uint16_t  _info_port {};
-    std::uint16_t  _rename_port {};
-    std::uint16_t  _event_port {};
-    std::uint64_t  _control_time {0};
-    std::uint64_t  _control_period {};
-    std::uint64_t  _scan_time {0};
-    std::uint64_t  _send_time {0};
-    std::uint64_t  _read_time {500};  // Keep out of phase with _send_time.
+    milliseconds      _control_time {0};
+    milliseconds      _control_period {0};
+    milliseconds      _scan_time {0};
+    milliseconds      _send_time {0};
+    milliseconds      _read_time {500};  // Keeping it out of phase
 
-    std::uint32_t  _event_packet_id {0};
-    std::string    _sequence {};
+    std::uint32_t     _event_packet_id {0};
+    std::string       _sequence_filename {};
+    event_map         _event_map {};
+    sequence_map      _sequence_map {};
 
-    // Maps event ids to their time, seconds from unix epoch.
-    event_map      _event_map {};
-
-    UdpSocket      _cam_info_socket {};
-    UdpSocket      _cam_rename_socket {};
-    UdpSocket      _event_socket {};
 };
 
 
