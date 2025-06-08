@@ -70,10 +70,10 @@ private:
 
     std::stringstream _message = std::stringstream(std::string(1024, '\0'));
     std::string       _buffer = std::string(1024, '\0');
-    UdpSocket         _cam_info_socket {};
-    UdpSocket         _cam_rename_socket {};
-    UdpSocket         _event_socket {};
-    UdpSocket         _seq_state_socket {};
+    UdpSocket         _cam_info_socket;
+    UdpSocket         _cam_rename_socket;
+    UdpSocket         _event_socket;
+    UdpSocket         _seq_state_socket;
 
     milliseconds      _control_time {0};
     milliseconds      _control_period {0};

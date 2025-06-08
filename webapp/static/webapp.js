@@ -278,6 +278,7 @@ function update_events_ui(events_data)
 	}
 }
 
+// *** THIS FUNCTION IS UPDATED FOR THE NEW DATA FORMAT ***
 function create_control_table_for_camera(camera_data)
 {
 	const table = document.createElement('table');
@@ -301,17 +302,12 @@ function create_control_table_for_camera(camera_data)
 	});
 
 	const data_body = table.createTBody();
-	if (camera_data.next_event && Array.isArray(camera_data.next_event))
-	{
-		camera_data.next_event.forEach(event =>
-		{
-			const row = data_body.insertRow();
-			row.insertCell().textContent = event.event_id;
-			row.insertCell().textContent = event.ETA;
-			row.insertCell().textContent = event.channel;
-			row.insertCell().textContent = event.value;
-		});
-	}
+    // The loop is removed. We now create just one row with the flattened data.
+	const row = data_body.insertRow();
+	row.insertCell().textContent = camera_data.event_id || 'N/A';
+	row.insertCell().textContent = camera_data.ETA || 'N/A';
+	row.insertCell().textContent = camera_data.channel || 'N/A';
+	row.insertCell().textContent = camera_data.value || 'N/A';
 
 	return table;
 }
@@ -464,7 +460,6 @@ async function populate_static_event_details(file_name)
 
 	try
 	{
-        // *** CHANGED HERE: Filename is now in the body ***
 		const event_data = await fetch_data('/api/event_load', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -715,7 +710,6 @@ async function handle_confirm_camera_sequence_click()
 
 	try
 	{
-        // *** CHANGED HERE: Filename is now in the body ***
 		await fetch_data('/api/camera_sequence_load', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

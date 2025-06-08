@@ -21,37 +21,43 @@ namespace pycontrol
 {
 
 
-//~AutoFd::
-//~~AutoFd()
-//~{
-//~    if(_fd >= 0) close(_fd);
-//~}
-
-
 result
 UdpSocket::
 init(const std::string & ipv4, const std::uint16_t & port)
 {
-    ABORT_IF(_socket_fd >= 0, "socket already initialized", result::failure);
+    ABORT_IF(_socket_fd >= 0, "socket already initialized on fd: " << _socket_fd, result::failure);
 
     // 1. Create a UDP socket.
     // AF_INET: IPv4 Internet protocols
     // SOCK_DGRAM: Datagram (UDP) socket
     // 0: Default protocol for the given socket type (IPPROTO_UDP for SOCK_DGRAM)
     _socket_fd = ::socket(AF_INET, SOCK_DGRAM, 0);
-    ABORT_IF(_socket_fd < 0, "Failed to open socket", result::failure);
+    ABORT_IF(
+        _socket_fd < 0,
+        "Failed to open socket for port: " << port,
+        result::failure
+    );
 
     // 2. Prepare the server address structure.
     _sockaddr = std::make_shared<sockaddr_in>();
-    ABORT_IF_NOT(_sockaddr, "make_shared<sockaddr_in>() failed", result::failure);
+    ABORT_IF_NOT(
+        _sockaddr,
+        "make_shared<sockaddr_in>() failed while opening socket for port: " << port,
+        result::failure
+    );
 
     ::memset(_sockaddr.get(), 0, sizeof(sockaddr_in));
 
     auto addr = _sockaddr.get();
     addr->sin_family = AF_INET;
     addr->sin_addr.s_addr = ::inet_addr(ipv4.c_str());
-    ABORT_IF(addr->sin_addr.s_addr < 0, "inet_addr() failed", result::failure);
+    ABORT_IF(
+        addr->sin_addr.s_addr < 0,
+        "inet_addr() failed while opening port: " << port,
+        result::failure
+    );
     addr->sin_port = ::htons(port);
+    _port = port;
 
     return result::success;
 }
@@ -61,14 +67,18 @@ result
 UdpSocket::
 bind()
 {
-    ABORT_IF(_bound, "UdpSocket already bound!", result::failure);
+    ABORT_IF(
+        _bound,
+        "UdpSocket already bound to port: " << _port,
+        result::failure
+    );
 
     // 3. Bind the socket to the server address.
     const int res = ::bind(_socket_fd, (const struct sockaddr *)_sockaddr.get(), sizeof(sockaddr_in));
     if (res == -1)
     {
         ::close(_socket_fd);
-        ERROR_LOG << "Error: Could not bind to socket!";
+        ERROR_LOG << "Error: Could not bind to socket on port: " << _port << std::endl;
         return result::failure;
     }
 
@@ -83,7 +93,11 @@ UdpSocket::
 send(const std::string & msg)
 {
     const auto num_bytes = msg.size();
-    ABORT_IF(num_bytes == 0, "send(), refusing to send 0 bytes", result::failure);
+    ABORT_IF(
+        num_bytes == 0,
+        "send(), refusing to send 0 bytes on port: " << _port,
+        result::failure
+    );
 
     const auto res = ::sendto(
         _socket_fd,
@@ -95,8 +109,8 @@ send(const std::string & msg)
     );
 
     ABORT_IF(
-        res < 0 or errno,
-        "sendto() failed, errno: " << strerror(errno),
+        res < 0 or (errno != 0 and errno != EAGAIN),
+        "sendto() failed on port: " << _port << ", errno: " << strerror(errno),
         result::failure
     );
 
@@ -112,6 +126,7 @@ read(std::string & msg)
 
     constexpr auto MAX_MSG_SIZE = 1024;
     msg.reserve(MAX_MSG_SIZE);
+    msg.resize(0);
 
     // Try to peek at how many bytes are avialable for reading on the socket.
     unsigned long bytes_available = 0;
@@ -134,6 +149,8 @@ read(std::string & msg)
         (struct sockaddr *)&client_addr,
         &sizeof_sockaddr_in
     );
+
+    INFO_LOG << "read() read " << bytes_read << "bytes" << std::endl;
 
     ABORT_IF(bytes_read < 0 or errno, "::recvfrom() failed", result::failure);
 

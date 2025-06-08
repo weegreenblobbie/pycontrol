@@ -14,26 +14,16 @@ namespace pycontrol
 
 using socketaddr_ptr = std::shared_ptr<sockaddr_in>;
 
-/*
-class AutoFd
-{
-public:
-    explicit AutoFd(int fd) : _fd{fd} {}
-    ~AutoFd();
-    int get() const { return _fd; }
-
-    operator bool() const { return _fd >= 0; }
-    operator int() const { return _fd; }
-
-private:
-    int _fd;
-};
-*/
-
-
 class UdpSocket
 {
 public:
+
+    UdpSocket():
+        _port(0),
+        _socket_fd(-1),
+        _sockaddr(nullptr),
+        _bound(false)
+    {}
 
     result init(
         const std::string & ipv4,
@@ -43,14 +33,12 @@ public:
     result read(std::string & msg);
     result bind();
 
-    UdpSocket() {}
-
 private:
 
     explicit UdpSocket(const UdpSocket & copy) = delete;
     UdpSocket & operator=(const UdpSocket & rhs) = delete;
 
-    // TODO: use AutoFd instead of int?
+    unsigned int _port {0};
     int _socket_fd { -1 };
     socketaddr_ptr _sockaddr {nullptr};
     bool _bound {false};

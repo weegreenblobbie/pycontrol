@@ -37,12 +37,12 @@ protected:
     {
         ABORT_IF_NOT(
             _cam_control,
-            "_cam_control is null!",
+            "FATAL: _cam_control is null!",
             LoopControl::Stop
         );
         ABORT_IF(
             _cam_control->dispatch(),
-            "CameraControl.dispatch() failed",
+            "FATAL: CameraControl.dispatch() failed",
             LoopControl::Stop
         );
         return LoopControl::Continue;

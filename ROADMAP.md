@@ -10,6 +10,9 @@ Make it work
 - Persist the event and camera selection in a config file, so reloading the app
   auto loads the last selected event and sequence file.
 
+- Add gps time and system time delta to the gps status line, to help verify if chrony
+  is correctly syncing system time.
+
 - (if necessary) Use pvlib to lookup altitude from gps lat, long
 
 - See if I can speed up scan_cameras().

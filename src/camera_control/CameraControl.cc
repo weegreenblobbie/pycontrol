@@ -140,13 +140,14 @@ CameraControl::init(const std::string & config_file)
     INFO_LOG << "init():    control_period: " << _control_period << " ms\n";
 
     ABORT_ON_FAILURE(_cam_info_socket.init(udp_ip, info_port), "UpdSocket::init() failed", result::failure);
-    ABORT_ON_FAILURE(_seq_state_socket.init(udp_ip, seq_port), "UpdSocket::init() failed", result::failure);
 
     ABORT_ON_FAILURE(_cam_rename_socket.init(udp_ip, rename_port), "UpdSocket::init() failed", result::failure);
     ABORT_ON_FAILURE(_cam_rename_socket.bind(), "UdpSocket::bind() failed", result::failure);
 
     ABORT_ON_FAILURE(_event_socket.init(udp_ip, event_port), "UpdSocket::init() failed", result::failure);
     ABORT_ON_FAILURE(_event_socket.bind(), "UdpSocket::bind() failed", result::failure);
+
+    ABORT_ON_FAILURE(_seq_state_socket.init(udp_ip, seq_port), "UpdSocket::init() failed", result::failure);
 
     return result::success;
 }
@@ -356,7 +357,7 @@ _read_camera_renames()
     );
 
     // No message avialable.
-    if (_buffer.empty())
+    if (_buffer.empty() or _buffer.size() == 0)
     {
         return result::success;
     }
@@ -667,6 +668,10 @@ dispatch()
 
             if (next_event_time < MAX_TIME)
             {
+                next_state = CameraControl::State::execute_ready;
+            }
+            else
+            {
                 next_state = CameraControl::State::monitor;
             }
             break;
@@ -680,6 +685,10 @@ dispatch()
             const auto next_event_time = _get_next_event_time();
 
             if (next_event_time < (_control_time + 60'000))
+            {
+                next_state = CameraControl::State::executing;
+            }
+            else
             {
                 next_state = CameraControl::State::execute_ready;
             }
@@ -703,6 +712,10 @@ dispatch()
             if (next_event_time >= (_control_time + 60'000))
             {
                 next_state = State::execute_ready;
+            }
+            else
+            {
+                next_state = CameraControl::State::executing;
             }
             break;
         }
