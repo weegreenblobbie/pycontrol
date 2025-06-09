@@ -1,7 +1,11 @@
 #include <algorithm>
 #include <cctype>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
+#include <string>
+
 
 #include <common/io.h>
 #include <common/str_utils.h>
@@ -146,10 +150,10 @@ std::ostream & operator<<(std::ostream & out, const str_vec & rhs)
 result
 convert_hms_to_milliseconds(
     const std::string& hms_string,
-    milliseconds & total_seconds
+    milliseconds & total_milliseconds
 )
 {
-    total_seconds = 0;
+    total_milliseconds = 0;
 
     ABORT_IF(hms_string.empty(), "noting to convert", result::failure);
 
@@ -204,7 +208,7 @@ convert_hms_to_milliseconds(
         );
 
         double total = minutes * 60.0 + seconds;
-        total_seconds = static_cast<milliseconds>(total * 1000.0 + 0.5);
+        total_milliseconds = static_cast<milliseconds>(total * 1000.0 + 0.5);
     }
     else if (parts.size() == 3)
     {
@@ -224,15 +228,57 @@ convert_hms_to_milliseconds(
             result::failure
         );
         double total = hours * 3600.0f + minutes * 60.0f + seconds;
-        total_seconds = static_cast<milliseconds>(total * 1000.0 + 0.5);
+        total_milliseconds = static_cast<milliseconds>(total * 1000.0 + 0.5);
     }
 
     if (is_negative)
     {
-        total_seconds *= -1;
+        total_milliseconds *= -1;
     }
 
     return result::success;
+}
+
+
+std::string
+convert_milliseconds_to_hms(const milliseconds & total_milliseconds)
+{
+    auto total_ms = total_milliseconds;
+
+    const bool is_negative = total_ms < 0;
+
+    total_ms = std::abs(total_ms);
+
+    const auto hours = total_ms / 3600'000;
+
+    total_ms -= hours * 3600'000;
+
+    const auto minutes = total_ms / 60'000;
+
+    total_ms -= minutes * 60'000;
+
+    const auto seconds = total_ms / 1'000;
+
+    total_ms -= seconds * 1'000;
+
+    std::stringstream ss;
+    ss << std::setfill('0');
+
+    if (is_negative)
+    {
+        ss << "-";
+    }
+    else
+    {
+        ss << " ";
+    }
+
+    ss << std::setw(2) << hours << ":"
+       << std::setw(2) << minutes << ":"
+       << std::setw(2) << seconds << "."
+       << std::setw(3) << total_ms;
+
+    return ss.str();
 }
 
 

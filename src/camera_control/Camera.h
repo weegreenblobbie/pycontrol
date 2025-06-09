@@ -56,10 +56,10 @@ public:
 
 private:
 
-    bool                   _stale_shutter {true};
-    bool                   _stale_fstop   {true};
-    bool                   _stale_iso     {true};
-    bool                   _stale_quality {true};
+    bool                   _stale_shutter {false};
+    bool                   _stale_fstop   {false};
+    bool                   _stale_iso     {false};
+    bool                   _stale_quality {false};
     Info                   _info;
     gphoto2cpp::camera_ptr _camera;
 };

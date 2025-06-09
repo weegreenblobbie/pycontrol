@@ -27,6 +27,7 @@
       ansible.builtin.apt:
         autoremove: true
         purge: true
+        # TODO: remove pulseaudio
         name:
           - raspberrypi-ui-mods
           - vlc*

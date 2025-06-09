@@ -132,6 +132,9 @@ def update_and_trigger(type_, date_, event_ids, event_map):
         sim_is_running = _run_sim.is_running
         sim_pos = copy.deepcopy(_run_sim.gps_pos)
         sim_offset = copy.deepcopy(_run_sim.gps_offset)
+        sim_time_offset = _run_sim.sim_time_offset
+
+    print(f"sim_time_offset: {sim_time_offset}")
 
     if sim_is_running:
         """
@@ -151,6 +154,7 @@ def update_and_trigger(type_, date_, event_ids, event_map):
         altitude=altitude,
         event_ids=event_ids,
         event=event_map,
+        sim_time_offset=sim_time_offset,
     )
 
 
@@ -192,7 +196,12 @@ def api_event_load():
                 data["event"] = dict()
             data["event"][key] = du.make_datetime(values[0])
 
-    update_and_trigger(data["type"], date_, data["events"], data.get("event", dict()))
+    update_and_trigger(
+        data["type"],
+        date_,
+        data["events"],
+        data.get("event", dict())
+    )
 
     app.logger.info(f"loaded event {filename}")
 
@@ -216,9 +225,6 @@ def read_events():
     events = _event_solver.read()
     all_events = _event_solver.event_ids()
 
-    with _run_sim_lock:
-        sim_time_offset = copy.deepcopy(_run_sim.sim_time_offset)
-
     out = dict()
     for event_id in all_events:
         event_time = events.get(event_id, EventSolver.COMPUTING)
@@ -230,8 +236,7 @@ def read_events():
             out[event_id] = ("Event not visible!", "N/A")
 
         elif isinstance(event_time, datetime.datetime):
-            event_time += sim_time_offset
-            eta = du.eta(du.now(), event_time)
+            eta = du.eta(source=du.now(), destination=event_time)
             out[event_id] = (du.normalize(event_time), eta)
 
         else:
@@ -335,7 +340,12 @@ def api_run_sim():
 
     params = _event_solver.params()
 
-    update_and_trigger(params["type"], params["datetime"], params["event_ids"], params["event"])
+    update_and_trigger(
+        params["type"],
+        params["datetime"],
+        params["event_ids"],
+        params["event"]
+    )
 
     with open("../config/run_sim.config", "w") as fout:
         """
@@ -356,9 +366,21 @@ def api_run_sim():
 
 @app.route('/api/run_sim/stop')
 def api_run_sim_stop():
+    global _event_solver
     global _run_sim
+    global _run_sim_lock
+
     with _run_sim_lock:
         _run_sim = RunSim()
+
+    params = _event_solver.params()
+
+    update_and_trigger(
+        params["type"],
+        params["datetime"],
+        params["event_ids"],
+        params["event"]
+    )
 
     return make_response("success", "Simulation stopped.", 200)
 
@@ -378,7 +400,9 @@ def api_camera_sequence_list():
 
 @app.route('/api/camera_sequence_load', methods=["POST"])
 def api_camera_sequence_load():
-    filename = os.path.join("..", "sequences", flask.request.get_json().get("filename"))
+    filename = os.path.abspath(
+        os.path.join("..", "sequences", flask.request.get_json().get("filename"))
+    )
     assert os.path.isfile(filename)
     global _event_solver
     _event_solver.load_camera_sequence(filename)

@@ -1,4 +1,8 @@
 #include <chrono>
+//~#include <format>  // If I had a full c++20 supported g++ on the Raspberry PI.
+#include <iomanip>    // Required for std::put_time and std::setw
+#include <ctime>      // Required for std::time_t, std::tm, and std::gmtime
+
 
 #include <gphoto2cpp/gphoto2cpp.h>
 
@@ -20,6 +24,35 @@ now()
         std::chrono::system_clock::now().time_since_epoch()
     ).count();
 }
+
+
+// @brief Formats a time_point into an ISO 8601 string in UTC.
+// * Example output: "2025-06-08T14:07:09.123Z"
+// This implementation is compatible with C++11 and later.
+// * @param time_point The time_point to format.
+// @return A string containing the formatted time.
+std::string
+format_iso8601_utc(pycontrol::milliseconds ms_since_epoch)
+{
+    // Create a duration and time_point from the incoming integer.
+    // We trust that this integer is the "correct" POSIX time in milliseconds.
+    auto const duration = std::chrono::milliseconds(ms_since_epoch);
+    auto const time_point = std::chrono::time_point<std::chrono::system_clock>(duration);
+
+    // Separate into seconds and the fractional millisecond part
+    auto const seconds_since_epoch = std::chrono::time_point_cast<std::chrono::seconds>(time_point);
+    auto const ms_part = std::chrono::duration_cast<std::chrono::milliseconds>(time_point - seconds_since_epoch);
+
+    std::time_t time_t_seconds = std::chrono::system_clock::to_time_t(seconds_since_epoch);
+
+    std::stringstream ss;
+    // std::gmtime correctly interprets a POSIX time_t as UTC
+    ss << std::put_time(std::gmtime(&time_t_seconds), "%Y-%m-%dT%H:%M:%S");
+    ss << '.' << std::setw(3) << std::setfill('0') << ms_part.count() << 'Z';
+
+    return ss.str();
+}
+
 
 } /* namespace */
 
@@ -308,25 +341,37 @@ _send_sequence_state()
 
         const auto seq_itor = _sequence_map.find(name);
 
+        bool have_sequence = false;
+
         if (seq_itor != _sequence_map.end())
         {
             const auto & seq = *seq_itor->second;
-            const auto & event = seq.front();
+            if (not seq.empty())
+            {
+                have_sequence = true;
+                const auto & event = seq.front();
+                const auto event_time = _get_event_time(event);
 
-            const auto eta_ms = _get_event_time(seq.front()) - _control_time;
+                const auto eta_ms = event_time == MAX_TIME ?
+                    MAX_TIME :
+                    (event_time - _control_time);
 
-            _message << "num_events " << seq.size() << "\n"
-                     << "position " << seq.pos() << "\n"
-                     << "event_id " << event.event_id << "\n"
-                     << "eta " << eta_ms << "\n"
-                     << "channel " << to_string(event.channel) << "\n"
-                     << "value " << event.channel_value << "\n";
+                _message << "num_events " << seq.size() << "\n"
+                         << "position " << seq.pos() << "\n"
+                         << "event_id " << event.event_id << "\n"
+                         << "event_time_offset " << convert_milliseconds_to_hms(event.event_time_offset_ms) << "\n"
+                         << "eta " << eta_ms << "\n"
+                         << "channel " << to_string(event.channel) << "\n"
+                         << "value " << event.channel_value << "\n";
+            }
         }
-        else
+
+        if (not have_sequence)
         {
             _message << "num_events 0\n"
                      << "position 0\n"
                      << "event_id none\n"
+                     << "event_time_offset none\n"
                      << "eta none\n"
                      << "channel none\n"
                      << "value none\n";
@@ -436,6 +481,12 @@ _read_events()
         result::failure
     );
 
+    // If the sequence is none, nothing to do.
+    if (sequence_fn == "none")
+    {
+        return result::success;
+    }
+
     ABORT_IF_NOT(
         ss >> reset,
         "Bad event message, failed to read the bool reset",
@@ -451,13 +502,16 @@ _read_events()
     // Read event_id timestamp pairs, abort the loop on failure.
     while (true)
     {
+        // The message may or may not contain event_id timestamp entries, abort
+        // processing if no event_id is present or we're done reading.
         if (not (ss >> event_id))
         {
             break;
         }
         ABORT_IF_NOT(
             ss >> timestamp,
-            "Bad event message, failed to read the timestamp",
+            "Bad event message, failed to read the timestamp, msg: '"
+            << _buffer << "'",
             result::failure
         );
         _event_map[event_id] = timestamp;
@@ -515,8 +569,6 @@ _read_events()
             }
         }
     }
-
-    INFO_LOG << "successfully processed event packet " << packet_id << std::endl;
 
     return result::success;
 }
@@ -584,6 +636,10 @@ _dispatch_camera_events()
         }
 
         auto & seq = seq_itor->second;
+
+        DEBUG_LOG << "    seq.pos() = " << seq->pos() << std::endl
+                  << "    seq.size() = " << seq->size() << std::endl
+                  << "    seq.empty() = " << seq->empty() << std::endl;
 
         if (seq->empty())
         {
@@ -753,12 +809,12 @@ dispatch()
 
         ABORT_ON_FAILURE(
             _read_camera_renames(),
-            "_read_camera_renames() failed",
+            "aborting on failure",
             result::failure
         );
         ABORT_ON_FAILURE(
             _read_events(),
-            "_read_events() failed",
+            "aborting on failure",
             result::failure
         );
     }
@@ -771,13 +827,13 @@ dispatch()
         {
             ABORT_ON_FAILURE(
                 _send_detected_cameras(),
-                "_send_detected_cameras() failed",
+                "aboriting on failure",
                 result::failure
             );
 
             ABORT_ON_FAILURE(
                 _send_sequence_state(),
-                "_send_sequence_state() failed",
+                "_send_sequence_stateaborting on failure",
                 result::failure
             );
         }

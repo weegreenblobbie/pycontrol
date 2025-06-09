@@ -70,6 +70,20 @@ Camera::fetch_settings()
 result
 Camera::write_settings()
 {
+    if (_stale_shutter or _stale_fstop or _stale_iso or _stale_quality)
+    {
+        bool success = gphoto2cpp::write_property(
+            _camera,
+            "capturetarget",
+            "Memory card"
+        );
+        ABORT_IF_NOT(
+            success,
+            "failed to write capturetarget: Memory card",
+            result::failure
+        );
+    }
+
     if (_stale_shutter)
     {
         bool success = gphoto2cpp::write_property(
@@ -91,7 +105,7 @@ Camera::write_settings()
     {
         bool success = gphoto2cpp::write_property(
             _camera,
-            "f-nmber",
+            "f-number",
             _info.fstop
         );
 

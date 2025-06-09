@@ -13,7 +13,7 @@ public:
 
     const Event & front() const;
     void pop();
-    unsigned int pos() const { return _idx + 1; }
+    unsigned int pos() const;
     void reset() {_idx = 0;}
     bool empty() const;
     std::size_t size() const;

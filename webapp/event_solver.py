@@ -90,9 +90,9 @@ class EventSolver:
 
     def _run(self):
         while True:
-            # Wait for either a trigger (event.set()) or 60 seconds (timeout).
+            # Wait for either a trigger (event.set()) or 10 seconds (timeout).
             # If event.set() is called, event.wait() returns immediately.
-            # Otherwise, event.wait() returns after 60 seconds.
+            # Otherwise, event.wait() returns after 10 seconds.
             self._event.wait(timeout=10.0)
 
             # Clear the event immediately after waking up, whether by trigger or
@@ -134,14 +134,14 @@ class EventSolver:
         )
         for k, v in solution.items():
             if v is None or isinstance(v, str):
-                msg += f"{k} none\n"
+                continue
             else:
-                # Converte seconds from unit epoch to milliseconds, rounding to
-                # the nearest milisecond.
+                # Convert seconds from unix epoch seconds to milliseconds,
+                # rounding to the nearest milisecond.
                 timestamp = int(v.timestamp() * 1000.0 + 0.5)
                 msg += f"{k} {timestamp:d}\n"
 
-        # Notify camera control, send 3 times for reliability.
+        # Notify camera control, send 3 times to improve reliability.
         for _ in range(3):
             udp_socket.send_message(msg, self._udp_ip, self._event_update_port)
             time.sleep(0.200)
@@ -197,6 +197,7 @@ class EventSolver:
         assert "datetime" in new_params
         assert "event_ids" in new_params
         assert "event" in new_params
+        assert "sim_time_offset" in new_params
 
         new_params = copy.deepcopy(new_params)
 
@@ -230,6 +231,15 @@ class EventSolver:
 
         elif type_ == "lunar":
             solution = self._solve_lunar(params)
+
+        # Because the solution is cached, we must copy it to apply the sim time
+        # offset without modifying the cached object.
+        solution = copy.deepcopy(solution)
+
+        for key in solution:
+            timestamp = solution[key]
+            if timestamp is not None:
+                solution[key] += params["sim_time_offset"]
 
         return solution
 

@@ -12,7 +12,7 @@ CPPINCLUDES = -I.. \
               -I$(CACTUS_INSTALL_DIR)/build/release/_deps/quill-src/quill/include \
               -I$(CATCH2_INSTALL_DIR)/include
 
-CXXFLAGS = -std=c++2a -Wall -O2 -g $(CPPINCLUDES)
+CXXFLAGS = -std=c++20 -Wall -O2 -g $(CPPINCLUDES)
 
 LINKFLAGS = \
     -L../common \

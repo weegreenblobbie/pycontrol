@@ -40,6 +40,8 @@ convert_hms_to_milliseconds(
     milliseconds & total_seconds
 );
 
+std::string
+convert_milliseconds_to_hms(const milliseconds & total_milliseconds);
 
 //-----------------------------------------------------------------------------
 // Inline implementations.

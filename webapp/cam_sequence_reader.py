@@ -9,9 +9,11 @@ import socket
 import threading
 import time
 
+import date_utils as du
 import utils
 
-now = datetime.datetime.now
+
+MAX_TIME = (1 << 63) - 1
 
 
 class CameraSequenceReader:
@@ -107,18 +109,36 @@ class CameraSequenceReader:
                     idx += 1
                     event_id = lines[idx].split()[-1]
                     idx += 1
+                    if event_id == "none":
+                        idx += 4
+                        continue
+
+                    event_time_offset_s = lines[idx].split()[-1]
+                    idx += 1
+
                     eta = int(lines[idx].split()[-1])
                     idx += 1
+
                     channel = lines[idx].split()[-1]
                     idx += 1
+
                     value = lines[idx].split()[-1]
                     idx += 1
+
+                    # If the event isn't defined (caused by the event not being
+                    # visible), the eta will be MAX_TIME, so use N/A.
+                    if eta == MAX_TIME:
+                        eta = "N/A"
+                    else:
+                        eta = du.eta(seconds = eta / 1000.0)
+
                     cameras.append(dict(
                         connected = connected,
                         name = name,
                         num_events = num_events,
                         position = position,
                         event_id = event_id,
+                        event_time_offset_s = event_time_offset_s,
                         eta = eta,
                         channel = channel,
                         value = value,
@@ -127,7 +147,7 @@ class CameraSequenceReader:
                 with self._lock:
                     self._data = dict(
                         state = state,
-                        num_cameras = num_cameras,
+                        num_cameras = len(cameras),
                         cameras = cameras,
                     )
 

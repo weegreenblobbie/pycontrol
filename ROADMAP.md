@@ -4,14 +4,25 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Plumb computed contact times into camera control, and run though the camera sequence,
-  emitting udp packets.
+- When I stop the sim by pressing Stop Sim, this should send the reset signal to
+  CameraControl.
+
+- When I load a camera sequence, i expected the sequence table to get populated in about 1
+  second.  Currently takes a bunch of time.
+
+- When we reach the end of all camera sequences, we should emit messages with empty events so
+  the webapp clears the event table.
+
+- Display the top 3 camera sequuence events.
 
 - Persist the event and camera selection in a config file, so reloading the app
   auto loads the last selected event and sequence file.
 
 - Add gps time and system time delta to the gps status line, to help verify if chrony
   is correctly syncing system time.
+
+- Add camera connection counter so one can observe if it's constantly reconnecting (see this
+  with my own eyes, rebooting the pi fixed it.)
 
 - (if necessary) Use pvlib to lookup altitude from gps lat, long
 
@@ -70,6 +81,9 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Plumb computed contact times into camera control, and run though the camera sequence,
+  emitting udp packets.
 
 * Add simulation buttons below the event table, start and abort
   * simulate: location: (lat, log, alt), time: -60.0 C2, persist these in a local file.

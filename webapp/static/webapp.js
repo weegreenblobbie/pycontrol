@@ -287,13 +287,13 @@ function create_control_table_for_camera(camera_data)
 	const title_body = table.createTBody();
 	const title_row = title_body.insertRow();
 	const title_cell = title_row.insertCell();
-	title_cell.colSpan = 4;
+	title_cell.colSpan = 5;
 	title_cell.className = 'control-table-title';
-	title_cell.textContent = `${camera_data.name} (${camera_data.position} / ${camera_data.num_events})`;
+	title_cell.textContent = `${camera_data.name}: ${camera_data.position} / ${camera_data.num_events}`;
 
 	const head = table.createTHead();
 	const header_row = head.insertRow();
-	const headers = ["Event ID", "ETA", "Channel", "Value"];
+	const headers = ["Event ID", "Offset (s)", "ETA", "Channel", "Value"];
 	headers.forEach(header_text =>
 	{
 		const th = document.createElement('th');
@@ -305,7 +305,8 @@ function create_control_table_for_camera(camera_data)
     // The loop is removed. We now create just one row with the flattened data.
 	const row = data_body.insertRow();
 	row.insertCell().textContent = camera_data.event_id || 'N/A';
-	row.insertCell().textContent = camera_data.ETA || 'N/A';
+	row.insertCell().textContent = camera_data.event_time_offset_s || 'N/A';
+	row.insertCell().textContent = camera_data.eta || 'N/A';
 	row.insertCell().textContent = camera_data.channel || 'N/A';
 	row.insertCell().textContent = camera_data.value || 'N/A';
 

@@ -92,7 +92,7 @@ result
 UdpSocket::
 send(const std::string & msg)
 {
-    const auto num_bytes = msg.size();
+    const auto num_bytes = ::strlen(msg.data());
     ABORT_IF(
         num_bytes == 0,
         "send(), refusing to send 0 bytes on port: " << _port,
@@ -125,15 +125,15 @@ read(std::string & msg)
     ABORT_IF_NOT(_bound, "Must call bind() first!", result::failure);
 
     constexpr auto MAX_MSG_SIZE = 1024;
-    msg.reserve(MAX_MSG_SIZE);
-    msg.resize(0);
+    msg.resize(MAX_MSG_SIZE);
 
     // Try to peek at how many bytes are avialable for reading on the socket.
     unsigned long bytes_available = 0;
     const auto res = ::ioctl(_socket_fd, FIONREAD, &bytes_available);
-    if (res == -1 or bytes_available == 0)
+    if (res < 0 or bytes_available == 0)
     {
-        // No message avialable.
+        // No message avialable, mark the buffer as empty and return.
+        msg.clear();
         return result::success;
     }
 
@@ -144,22 +144,28 @@ read(std::string & msg)
     const auto bytes_read = ::recvfrom(
         _socket_fd,
         msg.data(),
-        MAX_MSG_SIZE,
+        msg.size(),
         0 /* flags */,
         (struct sockaddr *)&client_addr,
         &sizeof_sockaddr_in
     );
 
-    INFO_LOG << "read() read " << bytes_read << "bytes" << std::endl;
-
-    ABORT_IF(bytes_read < 0 or errno, "::recvfrom() failed", result::failure);
+    ABORT_IF(
+        bytes_read < 0 and (errno != EAGAIN and errno != EWOULDBLOCK),
+        "::recvfrom() failed on port: " << _port
+        << ", errno: " << strerror(errno),
+        result::failure
+    );
 
     if (bytes_read == 0)
     {
-        // Got an empty packet.
-        return result::success;
+        // Got an empty packet or need to try again.
+        msg.clear();
     }
-    msg.resize(bytes_read);
+    else
+    {
+        msg.resize(bytes_read);
+    }
 
     return result::success;
 }

@@ -27,7 +27,7 @@ def send_message(message, target_ip, target_port):
         # Send the message
         # sendto() is used for UDP because it includes the destination address
         sock.sendto(encoded_message, (target_ip, target_port))
-        print(f"UDP message sent to {target_ip}:{target_port}: '{message}'")
+        # print(f"UDP message sent to {target_ip}:{target_port}: '{message}'")
 
     except socket.gaierror as e:
         print(f"Error resolving host {target_ip}: {e}")

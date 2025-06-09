@@ -27,11 +27,14 @@ def normalize(obj):
     return obj.isoformat(timespec='milliseconds').replace('+00:00', 'Z')
 
 
-def eta(source, destination):
+def eta(**kwargs):
     """
     Returns days, hours, minutes, seconds from the origin.
     """
-    seconds = (destination - source).total_seconds()
+    if "seconds" in kwargs:
+        seconds = kwargs["seconds"]
+    else:
+        seconds = (kwargs["destination"] - kwargs["source"]).total_seconds()
 
     is_negative = seconds < 0.0
 
