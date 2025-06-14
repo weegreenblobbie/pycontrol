@@ -32,10 +32,6 @@ unsigned int
 CameraSequence::
 pos() const
 {
-    if (empty())
-    {
-        return _idx;
-    }
     return _idx + 1;
 }
 
@@ -59,17 +55,14 @@ void
 CameraSequence::
 pop()
 {
-    if (_idx + 1 < _sequence.size())
-    {
-        ++_idx;
-    }
+    ++_idx;
 }
 
 bool
 CameraSequence::
 empty() const
 {
-    return _sequence.empty() or _idx == _sequence.size();
+    return _sequence.empty() or _idx >= _sequence.size();
 }
 
 std::size_t
