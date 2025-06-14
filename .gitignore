@@ -1,9 +1,11 @@
 external/cactus-rt
 external/Catch2
+external/Catch2_installed
 webapp/venv
 webapp/__pycache__
 rasberry-pi-4/ansible/venv
 rasberry-pi-4/rpi4-64-bit-fresh.img.bz2
+*.d
 *.o
 lib*.a
 src/*/*_bin

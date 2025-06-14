@@ -54,6 +54,9 @@ protected:
 
 int main(int argc, char ** argv)
 {
+    // Deugging libgphoto2.
+    //gphoto2cpp::set_log_level(gphoto2cpp::LogLevel_t::debug);
+
     // Construct CameraControl.
     auto cc = std::make_shared<pycontrol::CameraControl>();
     ABORT_IF(cc->init("config/camera_control.config"), "CameraControl.init() failed", 1);

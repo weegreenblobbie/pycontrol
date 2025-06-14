@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include <gphoto2/gphoto2-port-log.h>
+
 namespace GP2 {
 #include <gphoto2/gphoto2-abilities-list.h>
 #include <gphoto2/gphoto2-camera.h>
@@ -17,7 +19,10 @@ namespace GP2 {
 
 constexpr auto ERROR_UNKNOWN_PORT = GP_ERROR_UNKNOWN_PORT;
 constexpr auto OK = GP_OK;
+constexpr auto ERROR_BAD_PARAMETERS = GP_ERROR_BAD_PARAMETERS;
 }
+
+
 
 namespace gphoto2cpp
 {
@@ -47,6 +52,10 @@ namespace gphoto2cpp
                              );
 
     bool                     trigger(camera_ptr & camera);
+
+    enum class LogLevel_t : unsigned int {debug, error};
+
+    bool set_log_level(LogLevel_t lvl);
 }
 
 
@@ -64,15 +73,45 @@ namespace gphoto2cpp
     } while (0)
 #define GPHOTO2CPP_SAFE_CALL( expr, return_code) \
     do { \
-        if ((expr) < GP2::OK) \
+        auto res = (expr); \
+        if (res < GP2::OK) \
         { \
-            GPHOTO2CPP_ERROR_LOG << #expr << ": gphoto2 call failed, aborting" << std::endl; \
+            static int error_count_##__LINE__ = 0; \
+            if (error_count_##__LINE__ < 5) \
+            { \
+                GPHOTO2CPP_ERROR_LOG << #expr << ": call failed with " << GP2::gp_port_result_as_string(res) << ", aborting" << std::endl; \
+                ++error_count_##__LINE__; \
+            } \
+            else if (error_count_##__LINE__ == 5) \
+            { \
+               GPHOTO2CPP_ERROR_LOG << "Suppressing further error messages for '" << #expr << "' at this location (" << __FILE__ << ":" << __LINE__ << ")." << std::endl; \
+               ++error_count_##__LINE__; \
+            } \
             return return_code; \
         } \
     } while (0)
 
 namespace gphoto2cpp
 {
+
+inline
+std::string
+to_string(const GP2::CameraWidgetType widget_type)
+{
+    switch(widget_type)
+    {
+        case GP2::GP_WIDGET_WINDOW: return "GP_WIDGET_WINDOW";
+        case GP2::GP_WIDGET_SECTION: return "GP_WIDGET_SECTION";
+        case GP2::GP_WIDGET_TEXT: return "GP_WIDGET_TEXT";
+        case GP2::GP_WIDGET_RANGE: return "GP_WIDGET_RANGE";
+        case GP2::GP_WIDGET_TOGGLE: return "GP_WIDGET_TOGGLE";
+        case GP2::GP_WIDGET_RADIO: return "GP_WIDGET_RADIO";
+        case GP2::GP_WIDGET_MENU: return "GP_WIDGET_MENU";
+        case GP2::GP_WIDGET_BUTTON: return "GP_WIDGET_BUTTON";
+        case GP2::GP_WIDGET_DATE: return "GP_WIDGET_DATE";
+    }
+    return "UNKNOWN_GP2_CAMERA_WIDGET_TYPE";
+}
 
 
 inline
@@ -333,6 +372,13 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
     // Wrap in std::shared_ptr for auto cleanup.
     auto widget = make_widget(raw_widget);
 
+    GP2::CameraWidgetType widget_type;
+
+    GPHOTO2CPP_SAFE_CALL(
+        GP2::gp_widget_get_type(widget.get(), &widget_type),
+        false
+    );
+
     GPHOTO2CPP_SAFE_CALL(
         GP2::gp_widget_set_value(
             widget.get(),
@@ -341,15 +387,23 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
         false
     );
 
-    GPHOTO2CPP_SAFE_CALL(
-        GP2::gp_camera_set_single_config(
-            camera.get(),
-            property.c_str(),
-            widget.get(),
-            get_context().get()
-        ),
-        false
+    auto res = GP2::gp_camera_set_single_config(
+        camera.get(),
+        property.c_str(),
+        widget.get(),
+        get_context().get()
     );
+
+    if (res == GP2::ERROR_BAD_PARAMETERS)
+    {
+        GPHOTO2CPP_ERROR_LOG
+            << "gp_camera_set_single_config(" << property << ") failed with "
+            << GP2::gp_port_result_as_string(res)
+            << " (" << res << ") for widget type "
+            << to_string(widget_type)
+            << std::endl;
+        return false;
+    };
 
     return true;
 }
@@ -366,6 +420,53 @@ trigger(camera_ptr & camera)
         ),
         false
     );
+
+    return true;
+}
+
+
+inline
+void _debug_print(
+    GPLogLevel level,
+    const char * domain,
+    const char * str,
+    void * data)
+{
+    std::cerr << "GP2 DEBUG: " << str << std::endl;
+}
+
+inline
+void _error_print(
+    GPLogLevel level,
+    const char * domain,
+    const char * str,
+    void * data)
+{
+    std::cerr << "GP2 ERROR: " << str << std::endl;
+}
+
+inline
+bool set_log_level(LogLevel_t lvl)
+{
+    switch(lvl)
+    {
+        case LogLevel_t::debug:
+        {
+            GPHOTO2CPP_SAFE_CALL(
+                gp_log_add_func(GP_LOG_DEBUG, _debug_print, NULL),
+                false
+            );
+            break;
+        }
+        case LogLevel_t::error:
+        {
+            GPHOTO2CPP_SAFE_CALL(
+                gp_log_add_func(GP_LOG_ERROR, _error_print, NULL),
+                false
+            );
+            break;
+        }
+    }
 
     return true;
 }

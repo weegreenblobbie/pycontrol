@@ -20,11 +20,11 @@ rm -rf webapp/__pycache__
 
 rsync -avrt --delete \
     --exclude={".git","venv","*.o","*_bin","lib*.a","*img.bz2","__pycache__/*"} \
-    --exclude={"Catch2","cactus-rt"} \
+    --exclude={"Catch2","Catch2_installed","cactus-rt"} \
     . $RAPI_IP:pycontrol
 
-if [ "$1" = "make" ]; then
-    ssh -t $RAPI_IP "cd pycontrol && make"
-else
+if [ $# -eq 0 ]; then
     echo "rsync only, to build pass 'make' on the command line."
+else
+    ssh -t $RAPI_IP "cd pycontrol && $@"
 fi

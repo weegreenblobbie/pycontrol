@@ -19,6 +19,8 @@ Camera(
 {
     _info.desc = gphoto2cpp::read_property(_camera, "manufacturer") + " "
                + gphoto2cpp::read_property(_camera, "cameramodel");
+
+    //gphoto2cpp::set_log_level(gphoto2cpp::LogLevel_t::debug);
 }
 
 
@@ -74,12 +76,12 @@ Camera::write_settings()
     {
         bool success = gphoto2cpp::write_property(
             _camera,
-            "capturetarget",
+            "Capture Target",
             "Memory card"
         );
         ABORT_IF_NOT(
             success,
-            "failed to write capturetarget: Memory card",
+            "failed to write 'Capture Target': Memory card",
             result::failure
         );
     }
@@ -88,13 +90,13 @@ Camera::write_settings()
     {
         bool success = gphoto2cpp::write_property(
             _camera,
-            "shutterspeed2",
+            "Shutter Speed 2",
             _info.shutter
         );
 
         ABORT_IF_NOT(
             success,
-            "failed to write shutterspeed2: " << _info.shutter,
+            "failed to write 'Shutter Speed 2': " << _info.shutter,
             result::failure
         );
 
@@ -105,13 +107,13 @@ Camera::write_settings()
     {
         bool success = gphoto2cpp::write_property(
             _camera,
-            "f-number",
+            "F-Number",
             _info.fstop
         );
 
         ABORT_IF_NOT(
             success,
-            "failed to write f-number: " << _info.fstop,
+            "failed to write 'F-Number': " << _info.fstop,
             result::failure
         );
 
@@ -122,13 +124,13 @@ Camera::write_settings()
     {
         bool success = gphoto2cpp::write_property(
             _camera,
-            "iso",
+            "ISO Speed",
             _info.iso
         );
 
         ABORT_IF_NOT(
             success,
-            "failed to write iso: " << _info.iso,
+            "failed to write 'ISO Speed': " << _info.iso,
             result::failure
         );
 
@@ -139,13 +141,13 @@ Camera::write_settings()
     {
         bool success = gphoto2cpp::write_property(
             _camera,
-            "imagequality",
+            "Image Quality",
             _info.quality
         );
 
         ABORT_IF_NOT(
             success,
-            "failed to write imagequality: " << _info.quality,
+            "failed to write 'Image Quality': " << _info.quality,
             result::failure
         );
 

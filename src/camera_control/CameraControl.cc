@@ -637,10 +637,6 @@ _dispatch_camera_events()
 
         auto & seq = seq_itor->second;
 
-        DEBUG_LOG << "    seq.pos() = " << seq->pos() << std::endl
-                  << "    seq.size() = " << seq->size() << std::endl
-                  << "    seq.empty() = " << seq->empty() << std::endl;
-
         if (seq->empty())
         {
             continue;

@@ -108,6 +108,7 @@
         name:
           - cmake
           - g++
+          - gphoto2
           - libbenchmark-dev
           - libboost-dev
           - libgtest-dev
