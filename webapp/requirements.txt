@@ -1,6 +1,5 @@
 Flask>=3
 astropy>=5.2.2
-gps>=3.19
 jplephem>=2.22
 numpy
 pyproj>=3.7

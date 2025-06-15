@@ -361,7 +361,7 @@ _send_sequence_state()
                          << "event_id " << event.event_id << "\n"
                          << "event_time_offset " << convert_milliseconds_to_hms(event.event_time_offset_ms) << "\n"
                          << "eta " << eta_ms << "\n"
-                         << "channel " << to_string(event.channel) << "\n"
+                         << "channel " << name << "." << to_string(event.channel) << "\n"
                          << "value " << event.channel_value << "\n";
             }
         }

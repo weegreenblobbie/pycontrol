@@ -161,9 +161,11 @@ function update_gps_ui(data)
 	gps_mode_time.textContent = data.mode_time;
 	gps_sats.textContent = format_string("%d/%d", data.sats_used, data.sats_seen);
 	gps_time.textContent = data.time;
-	gps_latitude.textContent = data.lat !== undefined ? data.lat.toFixed(4) : "N/A";
-	gps_longitude.textContent = data.long !== undefined ? data.long.toFixed(4) : "N/A";
-	gps_altitude.textContent = data.altitude !== undefined ? data.altitude.toFixed(1) : "N/A";
+	gps_latitude.textContent = data.lat !== undefined ? data.lat.toFixed(6) : "N/A";
+	gps_longitude.textContent = data.long !== undefined ? data.long.toFixed(6) : "N/A";
+	gps_altitude.textContent = data.altitude !== undefined ? data.altitude.toFixed(2) : "N/A";
+
+	console.log("gps: " + data);
 }
 
 function update_cameras_ui(data)
@@ -292,7 +294,7 @@ function create_control_table_for_camera(camera_data)
 
     // Create the new dynamic first header with the camera name and number of events
 	const first_header = document.createElement('th');
-	first_header.textContent = `${camera_data.name} (# of ${camera_data.num_events || 'N/A'})`;
+	first_header.textContent = `# of ${camera_data.num_events || 'N/A'}`;
 	header_row.appendChild(first_header);
 
     // Create the rest of the static headers
@@ -312,7 +314,7 @@ function create_control_table_for_camera(camera_data)
 	row.insertCell().textContent = camera_data.position || 'N/A';
 	row.insertCell().textContent = camera_data.event_id || 'N/A';
 	row.insertCell().textContent = camera_data.event_time_offset_s || 'N/A';
-	row.insertCell().textContent = camera_data.ETA || 'N/A';
+	row.insertCell().textContent = camera_data.eta || 'N/A';
 	row.insertCell().textContent = camera_data.channel || 'N/A';
 	row.insertCell().textContent = camera_data.value || 'N/A';
 
