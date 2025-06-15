@@ -407,6 +407,15 @@ def api_camera_sequence_load():
     global _event_solver
     _event_solver.load_camera_sequence(filename)
 
+    params = _event_solver.params()
+
+    update_and_trigger(
+        params["type"],
+        params["datetime"],
+        params["event_ids"],
+        params["event"]
+    )
+
     return make_response("success", f"Camera Secquence loaded successfully: {filename}", 200)
 
 

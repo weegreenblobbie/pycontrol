@@ -9,7 +9,9 @@ h1 {
     color: #0056b3;
     border-bottom: 2px solid #0056b3;
     padding-bottom: 5px;
-    margin-top: 40px;
+    font-size: 1.8em;
+    margin-top: 20px;
+    margin-bottom: 15px;
 }
 
 h2 {
@@ -20,7 +22,7 @@ h2 {
 }
 
 h2 span {
-    font-weight: normal; /* Make the dynamic state value regular weight */
+    font-weight: normal;
 }
 
 table {
@@ -78,7 +80,6 @@ td pre {
     background-color: #e6e6e6;
 }
 
-/* --- Event Table Specific Styling --- */
 #event_table {
     table-layout: fixed;
 }
@@ -97,7 +98,6 @@ td pre {
     text-align: left;
 }
 
-/* --- MODAL STYLES --- */
 .modal {
     display: none;
     position: fixed;
@@ -220,7 +220,6 @@ td pre {
     white-space: pre-wrap;
 }
 
-/* --- MASTER BUTTON CONTAINER --- */
 #master_button_container {
     text-align: center;
     padding: 20px 0;
@@ -243,7 +242,6 @@ td pre {
     opacity: 0.9;
 }
 
-/* --- SPECIFIC BUTTON STATES --- */
 #load_event_file_button {
     background-color: red;
 }
@@ -268,7 +266,6 @@ td pre {
     background-color: red;
 }
 
-/* --- Camera Control Display --- */
 #control_tables_container {
     display: flex;
     justify-content: center;
@@ -280,10 +277,8 @@ td pre {
 .control-table {
     width: auto;
     max-width: 45%;
-    /* Allows two tables side-by-side within the 80% main width */
     flex-grow: 1;
     margin: 0;
-    /* Override default table margin */
 }
 
 .control-table .control-table-title {
@@ -293,8 +288,6 @@ td pre {
     text-align: center;
 }
 
-
-/* --- SIM MODAL --- */
 #run_sim_modal .modal-content {
     width: 400px;
     max-width: 90%;
@@ -339,7 +332,6 @@ td pre {
     color: white;
 }
 
-/* --- CALCULATING MODAL --- */
 #calculating_modal .modal-content {
     background-color: #fefefe;
     padding: 30px;
@@ -383,7 +375,6 @@ td pre {
     margin-top: 15px;
 }
 
-/* --- CAMERA SELECTION MODAL --- */
 #camera_sequence_modal .modal-content {
     max-width: 400px;
 }

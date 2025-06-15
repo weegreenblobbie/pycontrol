@@ -278,35 +278,41 @@ function update_events_ui(events_data)
 	}
 }
 
-// *** THIS FUNCTION IS UPDATED FOR THE NEW DATA FORMAT ***
+// =========================================================================
+// === THIS FUNCTION IS UPDATED TO CREATE THE NEW 6-COLUMN TABLE LAYOUT  ===
+// =========================================================================
 function create_control_table_for_camera(camera_data)
 {
 	const table = document.createElement('table');
 	table.classList.add('control-table');
 
-	const title_body = table.createTBody();
-	const title_row = title_body.insertRow();
-	const title_cell = title_row.insertCell();
-	title_cell.colSpan = 5;
-	title_cell.className = 'control-table-title';
-	title_cell.textContent = `${camera_data.name}: ${camera_data.position} / ${camera_data.num_events}`;
-
+	// --- Header Row (6 columns) ---
 	const head = table.createTHead();
 	const header_row = head.insertRow();
-	const headers = ["Event ID", "Offset (s)", "ETA", "Channel", "Value"];
-	headers.forEach(header_text =>
+
+    // Create the new dynamic first header with the camera name and number of events
+	const first_header = document.createElement('th');
+	first_header.textContent = `${camera_data.name} (# of ${camera_data.num_events || 'N/A'})`;
+	header_row.appendChild(first_header);
+
+    // Create the rest of the static headers
+	const other_headers = ["Event ID", "Offset (s)", "ETA", "Channel", "Value"];
+	other_headers.forEach(header_text =>
 	{
 		const th = document.createElement('th');
 		th.textContent = header_text;
 		header_row.appendChild(th);
 	});
 
+	// --- Data Row (6 columns) ---
 	const data_body = table.createTBody();
-    // The loop is removed. We now create just one row with the flattened data.
 	const row = data_body.insertRow();
+
+    // Populate the 6 columns in the new order, starting with the event position
+	row.insertCell().textContent = camera_data.position || 'N/A';
 	row.insertCell().textContent = camera_data.event_id || 'N/A';
 	row.insertCell().textContent = camera_data.event_time_offset_s || 'N/A';
-	row.insertCell().textContent = camera_data.eta || 'N/A';
+	row.insertCell().textContent = camera_data.ETA || 'N/A';
 	row.insertCell().textContent = camera_data.channel || 'N/A';
 	row.insertCell().textContent = camera_data.value || 'N/A';
 

@@ -1,61 +1,71 @@
-#! /usr/bin/env python3
-"""
-A client that reads from the gpsd service continuously in a thread while
-allowing other threads to safely read the latest state.
-"""
-import copy
-import datetime
-import threading
+import gps
 import time
+import threading
+from datetime import datetime, timedelta
+from pyproj import Transformer
 
-import gps # the gpsd interface module
-
-MODES = ("INVALID", "NO FIX", "2D FIX", "3D FIX")
-STATUS = ("UNKNOWN", "FIX", "DGPS_FIX")
-
-now = datetime.datetime.now
-
-NO_ERROR = 0
-
-def _get_hms(current, mode_time_start):
-    if not mode_time_start:
-        return None
-    seconds = (current - mode_time_start).total_seconds()
-    num_hours = int(seconds / 3600.0)
-    seconds -= num_hours * 3600.0
-    num_minutes = int(seconds / 60.0)
-    seconds -= num_minutes * 60.0
-    seconds = int(seconds)
-    return f"{num_hours:2d}:{num_minutes:02d}:{seconds:02d}"
-
+def format_timedelta_to_hms(td):
+    """Formats a timedelta object into a HH:MM:SS string."""
+    if not isinstance(td, timedelta):
+        return "00:00:00"
+    total_seconds = int(td.total_seconds())
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 class GpsReader:
+    """
+    A class to read GPS data from gpsd in a separate thread.
+    """
+    DATA_TIMEOUT_SECONDS = 2
+    FLOAT_TOLERANCE = 1e-7
+    MODES = ("NOT SEEN", "NO FIX", "2D FIX", "3D FIX")
 
     def __init__(self):
-        self._altitude = None
-        self._path = None
-        self._mode = "Disconnected"
-        self._mode_time = now()
-        self._device = None
-        self._connected = False
-        self._error = None
-        self._time = None
-        self._time_err = None
-        self._lat = None
-        self._long = None
-        self._satellites_seen = None
-        self._satellites_used = None
-        self._session = None
-        self._lock = threading.Lock()
         self._thread = None
+        self._running = False
+        self._lock = threading.Lock()
+
+        # Initialize all data fields to default values.
+        self._connected = False
+        self._error = False
+        self._mode = self.MODES[0]
+        self._mode_time = "00:00:00"
+        self._time = None
+        self._lat = 0.0
+        self._long = 0.0
+        self._altitude = 0.0
+        self._time_err = None
+        self._device = None
+        self._path = None
+        self._satellites_used = 0
+        self._satellites_seen = 0
+
+        self._last_known_mode = 0
+        self._mode_change_time = datetime.now()
+
+        ecef_crs = "EPSG:4978"
+        lla_crs = "EPSG:4326"
+        self._transformer = Transformer.from_crs(ecef_crs, lla_crs, always_xy=True)
 
     def start(self):
-        self._thread = threading.Thread(target=self._run_in_thread)
-        self._thread.daemon = True
+        if self._running:
+            return
+
+        self._running = True
+        self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 
+    def stop(self):
+        if not self._running:
+            return
+
+        self._running = False
+        if self._thread and self._thread.is_alive():
+            self._thread.join()
+
     def read(self):
-        assert self._thread, "Please call start() first!"
+        """Returns a dictionary containing the latest GPS data. Thread-safe."""
         with self._lock:
             data = dict(
                 connected=self._connected and not self._error,
@@ -65,165 +75,105 @@ class GpsReader:
                 lat=self._lat,
                 long=self._long,
                 altitude=self._altitude,
-                time_err=self._time_err,
-                device=self._device,
-                path=self._path,
                 sats_used=self._satellites_used,
                 sats_seen=self._satellites_seen,
             )
-
-        data["mode_time"] = _get_hms(now(), data["mode_time"])
-
-        # Discard Nones.
-        keys = list(data.keys())
-        for key in keys:
-            v = data[key]
-            if v is None:
-                del data[key]
-
         return data
 
-    def _run_in_thread(self):
-        session = gps.gps(mode=gps.WATCH_ENABLE)
-        self._session = session
+    def _run(self):
+        """The main loop for the background thread."""
+        session = None
+        last_report_timestamp = datetime.now()
 
-        while True:
-            response = session.read()
-            if response != NO_ERROR:
-                time.sleep(1)
-                continue
+        while self._running:
+            try:
+                if session is None:
+                    session = gps.gps(mode=gps.WATCH_ENABLE | gps.WATCH_NEWSTYLE)
 
-            # The valid bits when it's connected and a FIX vs no GPS device:
-            #         24 23    16 15     8 7      0
-            #     0b0010 00000101 00110101 01111110    # Working with GPS FIX
-            #
-            # The bit fields are defined here:
-            #
-            #     https://gitlab.com/gpsd/gpsd/-/blob/f7a8c18f6e676f921cc683198d3b6df439d3d047/gps/gps.py.in#L69
-            #
-            # Happy data have these bits set:
-            #
-            #     bit 1 is ONLINE_SET - not sure what this means
-            #     bit 2 is TIME_SET
-            #     bit 3 is TIMERR_SET
-            #     bit 4 is LATLON_SET
-            #     bit 5 is ALTITUDE_SET
-            #     bit 6 is SPEED_SET
-            #     bit 7 is TRACK_SET
-            #     bit 8 is CLIMB_SET
-            #     bit 9 is STATUS_SET
-            #     bit 10 is MODE_SET
-            #     bit 11 is DOP_SET
-            #     bit 12 is HERR_SET
-            #     bit 13 is VERR_SET
-            #     bit 14 is ATTITUDE_SET
-            #     bit 15 is SATELLITE_SET
-            #     bit 16 is SPEEDERR_SET
-            #     bit 17 is TRACKERR_SET
-            #     bit 18 is CLIMBERR_SET
-            #     bit 25 is PACKET_SET
-            #
-            # When I unplug the USB GPS device after it's been happy:
-            #
-            #         24 23    16 15     8 7      0
-            #     0b0010 00001000 00000000 00000010
-            #
-            #     bit 1 is ONLINE_SET
-            #     bit 19 is DEVICE_SET
-            #     bit 25 is PACKET_SET
-            #
-            # When a GPS device has never been plugged in:
-            #
-            #         24 23    16 15     8 7      0
-            #     0b0010 00000000 00000000 00000000
-            #
-            #     bit 25 is PACKET_SET
+                # Check for stale data first.
+                if datetime.now() - last_report_timestamp > timedelta(seconds=self.DATA_TIMEOUT_SECONDS):
+                    # If data is stale, acquire lock and update the status.
+                    with self._lock:
+                        self._connected = False
+                        if self._last_known_mode != 0:
+                            self._last_known_mode = 0
+                            self._mode_change_time = datetime.now()
+                            self._mode = self.MODES[0]
+                            self._mode_time = "00:00:00"
 
-            have_error = gps.ERROR_SET & session.valid != 0
+                # Use a very short timeout to poll for data without blocking
+                # for long.
+                if session.waiting(timeout=0.1):
+                    report = session.next()
+                    # Reset timer on successful read
+                    last_report_timestamp = datetime.now()
 
-            connected = gps.ONLINE_SET & session.valid != 0
+                    updates_to_commit = {'connected': True, 'error': False}
+                    if report['class'] == 'TPV':
+                        updates_to_commit.update(self._process_tpv_report(report))
+                    elif report['class'] == 'SKY':
+                        updates_to_commit.update(self._process_sky_report(report))
 
-            device_error = gps.DEVICE_SET & session.valid != 0
+                    # --- Acquire lock only for the final, quick update ---
+                    with self._lock:
+                        for key, value in updates_to_commit.items():
+                            setattr(self, f"_{key}", value)
 
-            with self._lock:
-                self._connected = connected
-                if session.satellites:
-                    self._satellites_used = session.satellites_used
-                    self._satellites_seen = len(session.satellites)
-                self._path = session.path if session.path else None
-                self._device = session.device
-                self._error = have_error or device_error
-                if self._error:
-                    current_mode = "Disconnected"
-                    if current_mode != self._mode:
-                        self._mode = current_mode
-                        self._mode_time = now()
-                    self._time = None
-                    self._time_err = None
-                    self._lat = None
-                    self._long = None
-                    self._altitude = None
-                    self._satellites_used = None
-                    self._satellites_seen = None
+            except Exception as e:
+                print(f"GpsReader thread error: {e}")
+                with self._lock:
+                    self._error = True
+                    self._connected = False
+                if session:
+                    session.close()
+                session = None
 
-            if not (gps.MODE_SET & session.valid) or session.fix.mode == 0:
-                # not useful, probably not a TPV message
-                continue
+            # Sleep at the end of every loop iteration for responsiveness.
+            time.sleep(0.25)
 
-            with self._lock:
+    def _process_tpv_report(self, report):
+        """Processes a TPV report and returns a dict of updates."""
+        updates = {}
+        current_mode = getattr(report, 'mode', 0)
 
-                if self._mode_time is None:
-                    self._mode_time = now()
+        if current_mode != self._last_known_mode:
+            # Note: This check uses a stale self value, but it's only for a print statement.
+            # The core state update will be atomic.
+            # This state is only used by this thread.
+            self._last_known_mode = current_mode
+            self._mode_change_time = datetime.now()
 
-                # Mode.
-                current_mode = MODES[session.fix.mode]
-                if current_mode != self._mode:
-                    self._mode = current_mode
-                    self._mode_time = now()
+        time_in_mode = datetime.now() - self._mode_change_time
+        updates['mode'] = self.MODES[current_mode]
+        updates['mode_time'] = format_timedelta_to_hms(time_in_mode)
+        updates['time'] = getattr(report, 'time', None)
 
-                # Time.
-                if gps.TIME_SET & session.valid:
-                    self._time = session.fix.time
-                else:
-                    self._time = None
+        has_fix = current_mode >= 2
+        lat_from_report = getattr(report, 'lat', 0.0)
+        is_lat_lon_invalid = abs(lat_from_report) < self.FLOAT_TOLERANCE
+        ecefx = getattr(report, 'ecefx', 0.0)
+        has_valid_ecef = abs(ecefx) < self.FLOAT_TOLERANCE
 
-                # Time error.
-                if gps.TIMERR_SET & session.valid:
-                    self._time_err = session.fix.ept
-                else:
-                    self._time_err = None
+        if has_fix and is_lat_lon_invalid and has_valid_ecef:
+            x, y, z = report.ecefx, report.ecefy, report.ecefz
+            lon, lat, alt = self._transformer.transform(x, y, z)
+            updates['lat'], updates['long'], updates['altitude'] = lat, lon, alt
+        elif has_fix:
+            updates['lat'] = lat_from_report
+            updates['long'] = getattr(report, 'lon', 0.0)
+            updates['altitude'] = getattr(report, 'alt', 0.0)
+        else:
+            updates['lat'], updates['long'], updates['altitude'] = 0.0, 0.0, 0.0
 
-                # Location.
-                if (
-                    gps.isfinite(session.fix.latitude) and
-                    gps.isfinite(session.fix.longitude)
-                ):
-                    self._lat = session.fix.latitude
-                    self._long = session.fix.longitude
-                else:
-                    self._lat = None
-                    self._long = None
+        return updates
 
-                # Altitude above mean sea level.
-                if gps.isfinite(session.fix.altMSL):
-                    self._altitude = session.fix.altMSL
-                else:
-                    self._altitude = None
-
-                # if lat long or alt is None, reset mode.
-                if any([self._lat is None, self._long is None, self._altitude is None]):
-                    self._mode = "INVALID"
-                    self._mode_time = now()
-
-
-        print("thread exited")
-
-
-if __name__ == "__main__":
-    gr = GpsReader()
-    gr.start()
-
-    while True:
-        print(gr.read())
-        time.sleep(3)
-
+    def _process_sky_report(self, report):
+        """Processes a SKY report and returns a dict of updates."""
+        updates = {}
+        if hasattr(report, 'satellites'):
+            updates['satellites_seen'] = len(report.satellites)
+            updates['satellites_used'] = sum(1 for sat in report.satellites if sat.used)
+        else:
+            updates['satellites_seen'] = 0
+            updates['satellites_used'] = 0
+        return updates
