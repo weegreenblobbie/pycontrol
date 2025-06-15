@@ -15,12 +15,11 @@
 
 RAPI_IP=192.168.1.173
 
-# Always delete the local pycache folder.
-rm -rf webapp/__pycache__
-
 rsync -avrt --delete \
-    --exclude={".git","venv","*.o","*_bin","lib*.a","*img.bz2","__pycache__/*"} \
-    --exclude={"Catch2","Catch2_installed","cactus-rt"} \
+    --include='external/gphoto2cpp/**' \
+    --include='external/Makefile' \
+    --exclude='external/*' \
+    --exclude={'.git/','venv/','*.o','*_bin','lib*.a','*img.bz2','__pycache__/'} \
     . $RAPI_IP:pycontrol
 
 if [ $# -eq 0 ]; then

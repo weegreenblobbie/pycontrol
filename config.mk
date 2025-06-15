@@ -10,9 +10,11 @@ VERBOSE ?= 0
 
 # Set the @ symbol for silencing commands based on the VERBOSE flag.
 ifeq ($(VERBOSE), 0)
-    SILENT = @
+	SILENT = @
+	DEVNULL = 2>&1 > /dev/null
 else
-    SILENT =
+	SILENT =
+	DEVNULL =
 endif
 
 # --- Global Project Settings ---
@@ -27,15 +29,32 @@ SRC_DIR := $(ROOT_DIR)src
 
 # Color defs.
 ifneq (,$(shell which tput))
-	GREEN  := $(shell tput setaf 2)
-	BLUE   := $(shell tput setaf 4)
-	BOLD   := $(shell tput bold)
-	RESET  := $(shell tput sgr0)
+	BLUE    := $(shell tput setaf 4)
+	BOLD    := $(shell tput bold)
+	CYAN    := $(shell tput setaf 6)
+	GREEN   := $(shell tput setaf 2)
+	MAGENTA := $(shell tput setaf 5)
+	ORANGE  := $(shell tput setaf 208) # 256-color terminal support needed
+	PURPLE  := $(shell tput setaf 5)
+	RED     := $(shell tput setaf 1)
+	RESET   := $(shell tput sgr0)
 else
-	GREEN  :=
-	BLUE   :=
-	BOLD   :=
-	RESET  :=
+	BLUE    :=
+	BOLD    :=
+	CYAN    :=
+	GREEN   :=
+	MAGENTA :=
+	ORANGE  :=
+	PURPLE  :=
+	RED     :=
+	RESET   :=
 endif
+
+BUILD_COLOR     := $(BOLD)$(BLUE)
+CLEAN_COLOR     := $(BOLD)
+CLONE_COLOR     := $(BOLD)$(PURPLE)
+CONFIGURE_COLOR := $(BOLD)$(CYAN)
+INSTALL_COLOR   := $(BOLD)$(MAGENTA)
+LINK_COLOR      := $(BOLD)$(RED)
 
 # :mode=makefile:

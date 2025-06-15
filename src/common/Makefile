@@ -12,15 +12,15 @@ DEPS = $(SOURCES:.cc=.d)
 all: $(LIB)
 
 %.o: %.cc
-	@echo "$(BOLD)$(GREEN)Compiling$(RESET) $<"
+	@echo "$(BUILD_COLOR)Building$(RESET) $<"
 	$(SILENT)$(CXX) $(CXXFLAGS) $(CPPINCLUDES) -c $< -o $@
 
 $(LIB): $(OBJECTS)
-	@echo "$(BOLD)$(BLUE)Archiving$(RESET) $(LIB)"
+	@echo "$(LINK_COLOR)Archiving$(RESET) $(LIB)"
 	$(SILENT)$(AR) rcs $(LIB) $(OBJECTS)
 
 clean:
-	@echo "$(BOLD)Cleaning$(RESET)"
+	@echo "$(CLEAN_COLOR)Cleaning$(RESET)"
 	$(SILENT)rm -f $(LIB) $(OBJECTS) $(DEPS)
 
 # KEEP at the end so %.o rule doesn't overwrite the dependcy tracking

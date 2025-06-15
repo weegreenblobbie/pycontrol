@@ -99,4 +99,26 @@ echo "SUCCESS"
 )
 
 
+Compiling the project
+=====================
 
+We need to install the folling depencies for building:
+```
+cmake
+g++
+git
+gphoto2
+libgphoto2-dev
+libgtest-dev
+libprotobuf-dev
+libxml2-dev            # libgphoto2
+libcurl4-gnutls-dev    # libgphoto2
+libgd-dev              # libgphoto2
+libexif-dev            # libgphoto2
+libltdl-dev            # libgphoto2
+libusb-1.0-0-dev       # libusb-dev
+make
+meson
+protobuf-dev
+python3.12-venv
+```

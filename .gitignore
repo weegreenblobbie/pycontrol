@@ -1,6 +1,13 @@
+external/bin
+external/include
+external/lib
 external/cactus-rt
+external/cactus_build
 external/Catch2
-external/Catch2_installed
+external/catch2_build
+external/libgphoto2
+external/share
+external/venv
 webapp/venv
 webapp/__pycache__
 rasberry-pi-4/ansible/venv

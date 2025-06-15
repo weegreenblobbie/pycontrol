@@ -1,17 +1,21 @@
-.PHONY: all
+include ../config.mk
+
 all: venv
 
 venv: requirements.txt
-	rm -rf ./venv
-	python3 -m venv venv
-	. venv/bin/activate; \
-	    python -m pip install --upgrade pip; \
-		pip install -r requirements.txt
+	@echo "$(BOLD)$(BLUE)Building$(RESET) $@"
+	$(SILENT)rm -rf ./venv && \
+	python3 -m venv venv $(DEVNULL) && \
+	. venv/bin/activate $(DEVNULL) && \
+	    python -m pip install --upgrade pip $(DEVNULL) && \
+		pip install -r requirements.txt $(DEVNULL)
 
+.PHONY: clean real-clen
 clean:
-	@echo cleaning
+	@echo "$(BOLD)Cleaning$(RESET)"
 
 real-clean:
-	rm -rf ./venv
+	@echo "$(BOLD)Real Cleaning$(RESET)"
+	$(SILENT)rm -rf ./venv
 
 # :mode=Makefile:

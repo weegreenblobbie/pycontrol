@@ -2,23 +2,12 @@ include ../../config.mk
 
 EXTERNAL_DIR = $(ROOT_DIR)external
 
-GPHOTO2_INSTALL_DIR := $(EXTERNAL_DIR)/gphoto2cpp
-CACTUS_INSTALL_DIR := $(EXTERNAL_DIR)/cactus-rt
-CATCH2_INSTALL_DIR := $(EXTERNAL_DIR)/Catch2_installed
-
-CPPINCLUDES = -I.. \
-              -I$(GPHOTO2_INSTALL_DIR)/include \
-              -I$(CACTUS_INSTALL_DIR)/include \
-              -I$(CACTUS_INSTALL_DIR)/build/release/_deps/quill-src/quill/include \
-              -I$(CATCH2_INSTALL_DIR)/include
+CPPINCLUDES = -I.. -I$(EXTERNAL_DIR)/include
 
 LINKFLAGS = \
     -L../common \
-    -L$(CACTUS_INSTALL_DIR)/build/release \
-	-L$(CACTUS_INSTALL_DIR)/build/release/_deps/quill-build/quill \
-	-L$(CACTUS_INSTALL_DIR)/build/release/protos \
-	-L$(CATCH2_INSTALL_DIR)/lib \
-	-Wl,-rpath,$(abspath $(CATCH2_INSTALL_DIR)/lib)
+	-L$(EXTERNAL_DIR)/lib \
+	-Wl,-rpath,$(abspath $(EXTERNAL_DIR)/lib)
 
 LIBS = \
     -lcommon \
@@ -26,8 +15,8 @@ LIBS = \
     -lgphoto2_port \
     -lgphoto2_port \
     -lcactus_rt \
-    -lquill \
     -lcactus_tracing_embedded_perfetto_protos \
+    -lquill \
 	-lprotobuf \
 	-lpthread \
 	-lCatch2 \
@@ -54,22 +43,22 @@ UNIT_TEST_BIN_SRC := $(wildcard *_uto.cc)
 UNIT_TEST_BIN_OBJS := $(UNIT_TEST_BIN_SRC:.cc=.o)
 
 %.o: %.cc
-	@echo "$(BOLD)$(GREEN)Compiling$(RESET) $<"
+	@echo "$(BUILD_COLOR)Building$(RESET) $<"
 	$(SILENT)$(CXX) $(CXXFLAGS) $(CPPINCLUDES) -c $< -o $@
 
 $(CAMERA_CONTROL_BIN): $(CAMERA_CONTROL_BIN_OBJS) ../common/libcommon.a
-	@echo "$(BOLD)$(BLUE)Linking$(RESET) $(CAMERA_CONTROL_BIN)"
+	@echo "$(LINK_COLOR)Linking$(RESET) $@"
 	$(SILENT)$(CXX) -o $(CAMERA_CONTROL_BIN) $(CAMERA_CONTROL_BIN_OBJS) $(LINKFLAGS) $(LIBS)
 
 $(UNIT_TEST_BIN): $(ALL_SOURCE) $(UNIT_TEST_BIN_OBJS) CameraSequenceFileReader.o ../common/libcommon.a
-	@echo "$(BOLD)$(BLUE)Linking$(RESET) $(UNIT_TEST_BIN)"
+	@echo "$(LINK_COLOR)Linking$(RESET) $@"
 	$(SILENT)$(CXX) -o $(UNIT_TEST_BIN) $(UNIT_TEST_BIN_OBJS) CameraSequenceFileReader.o $(LINKFLAGS) $(LIBS)
 
 test: $(UNIT_TEST_BIN)
 	./$(UNIT_TEST_BIN)
 
 clean:
-	@echo "$(BOLD)Cleaning"
+	@echo "$(CLEAN_COLOR)Cleaning$(RESET)"
 	$(SILENT)rm -f $(ALL_BIN) $(ALL_OBJECTS) $(DEPS)
 
 dump:
