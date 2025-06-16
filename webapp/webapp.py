@@ -255,8 +255,13 @@ def api_run_sim_defaults():
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        key, value = line.split()
-        data[key] = value
+        tokens = line.split()
+        if len(tokens) == 2:
+            key, value = tokens
+            data[key] = value
+        else:
+            key = tokens[0]
+            data[key] = ""
 
     return (flask.jsonify(data), 200)
 
@@ -269,10 +274,10 @@ def api_run_sim():
     gps_longitude = flask.request.args.get('gps_longitude', type=float)
     gps_altitude = flask.request.args.get('gps_altitude', type=float)
     event_id = flask.request.args.get('event_id', type=str)
-    event_time_offset = datetime.timedelta(seconds=flask.request.args.get('event_time_offset', type=float))
+    event_time_offset = flask.request.args.get('event_time_offset', type=float)
 
     # Basic validation.
-    if any(p is None for p in [gps_latitude, gps_longitude, gps_altitude, event_id, event_time_offset]):
+    if any(p is None for p in [gps_latitude, gps_longitude, gps_altitude]):
         return make_response("error", "Missing or invalid simulation parameters.", 400)
 
     global _event_solver
@@ -287,8 +292,8 @@ def api_run_sim():
         return make_response("error", "Simulation is already running.", 400)
 
     all_event_ids = _event_solver.event_ids()
-    if event_id not in all_event_ids:
-        return make_response("error", f"Bad event_id {event_id}", 400)
+    if event_id and event_id not in all_event_ids:
+        return make_response("error", f"Bad event_id '{event_id}'", 400)
 
     # We have a bit of a checking and egg problem here.  Most likly, you are not
     # currently in the path of totality, so there will not be any contact times
@@ -296,9 +301,10 @@ def api_run_sim():
     # with the simulated gps position to compute conact times if avialable.
     solution = _event_solver.simulate_trigger(gps_latitude, gps_longitude, gps_altitude)
 
-    event_time = solution.get(event_id)
-    if event_time is None:
-        return make_response("error", f"No event time for {event_id}", 400)
+    if event_id:
+        event_time = solution.get(event_id)
+        if event_time is None:
+            return make_response("error", f"No event time for {event_id}", 400)
 
     # Compute the sim time offset, when applied, all the computed event times
     # shift to the current system time, which in turn, makes the camera control
@@ -310,7 +316,16 @@ def api_run_sim():
     #
     # sim_time_offset = current_time - event_time - event_time_offset
     #
-    sim_time_offset = du.now() - event_time - event_time_offset
+    if event_id:
+        if event_time_offset is None:
+            return make_response("error", "Event time offset can not be None", 400)
+
+        event_time_offset = datetime.timedelta(seconds=event_time_offset)
+
+        sim_time_offset = du.now() - event_time - event_time_offset
+
+    else:
+        sim_time_offset = datetime.timedelta(seconds=0)
 
     # Grab current gps position for computing gps residual deltas.
     snapshot = _gps_reader.read()

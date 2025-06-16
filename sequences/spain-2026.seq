@@ -1,4 +1,4 @@
-C2    -10    z7.trigger     1
+#C2    -10    z7.trigger     1
 C2     -9    z7.trigger     1
 C2     -8    z7.trigger     1
 C2     -7    z7.trigger     1
@@ -9,13 +9,13 @@ C2     -3    z7.trigger     1
 C2     -2    z7.trigger     1
 C2     -1    z7.trigger     1
 C2      0    z7.trigger     1
-C2      1    z7.trigger     1
-C2      2    z7.trigger     1
-C2      3    z7.trigger     1
-C2      4    z7.trigger     1
-C2      5    z7.trigger     1
-C2      6    z7.trigger     1
-C2      7    z7.trigger     1
-C2      8    z7.trigger     1
-C2      9    z7.trigger     1
-C2     10    z7.trigger     1
+# C2      1    z7.trigger     1
+# C2      2    z7.trigger     1
+# C2      3    z7.trigger     1
+# C2      4    z7.trigger     1
+# C2      5    z7.trigger     1
+# C2      6    z7.trigger     1
+# C2      7    z7.trigger     1
+# C2      8    z7.trigger     1
+# C2      9    z7.trigger     1
+# C2     10    z7.trigger     1

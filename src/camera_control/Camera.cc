@@ -72,31 +72,27 @@ Camera::fetch_settings()
 result
 Camera::write_settings()
 {
-    if (_stale_shutter or _stale_fstop or _stale_iso or _stale_quality)
-    {
-        bool success = gphoto2cpp::write_property(
-            _camera,
-            "Capture Target",
-            "Memory card"
-        );
-        ABORT_IF_NOT(
-            success,
-            "failed to write 'Capture Target': Memory card",
-            result::failure
-        );
-    }
+//~    if (_stale_shutter or _stale_fstop or _stale_iso or _stale_quality)
+//~    {
+//~        ABORT_IF_NOT(
+//~            gphoto2cpp::write_property(
+//~                    _camera,
+//~                    "capturetarget",
+//~                    "memorycard"
+//~                ),
+//~            result::failure
+//~        );
+//~    }
 
     if (_stale_shutter)
     {
-        bool success = gphoto2cpp::write_property(
-            _camera,
-            "Shutter Speed 2",
-            _info.shutter
-        );
-
         ABORT_IF_NOT(
-            success,
-            "failed to write 'Shutter Speed 2': " << _info.shutter,
+            gphoto2cpp::write_property(
+                _camera,
+                "shutterspeed2",
+                _info.shutter
+            ),
+            "failed to write 'shutterspeed2': " << _info.shutter,
             result::failure
         );
 
@@ -107,13 +103,13 @@ Camera::write_settings()
     {
         bool success = gphoto2cpp::write_property(
             _camera,
-            "F-Number",
+            "f-number",
             _info.fstop
         );
 
         ABORT_IF_NOT(
             success,
-            "failed to write 'F-Number': " << _info.fstop,
+            "failed to write 'f-number': " << _info.fstop,
             result::failure
         );
 
@@ -124,13 +120,13 @@ Camera::write_settings()
     {
         bool success = gphoto2cpp::write_property(
             _camera,
-            "ISO Speed",
+            "iso",
             _info.iso
         );
 
         ABORT_IF_NOT(
             success,
-            "failed to write 'ISO Speed': " << _info.iso,
+            "failed to write 'iso': " << _info.iso,
             result::failure
         );
 
@@ -141,13 +137,13 @@ Camera::write_settings()
     {
         bool success = gphoto2cpp::write_property(
             _camera,
-            "Image Quality",
+            "imagequality",
             _info.quality
         );
 
         ABORT_IF_NOT(
             success,
-            "failed to write 'Image Quality': " << _info.quality,
+            "failed to write 'imagequality': " << _info.quality,
             result::failure
         );
 
@@ -241,11 +237,11 @@ Camera::handle(const Event & event)
         }
         case Channel::trigger:
         {
-            ABORT_ON_FAILURE(
+            ABORT_IF_NOT(
                  gphoto2cpp::trigger(_camera),
                  "failed to trgger camera",
                  result::failure
-             );
+            );
             break;
         }
     }

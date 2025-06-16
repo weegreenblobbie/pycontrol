@@ -4,14 +4,28 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- When I stop the sim by pressing Stop Sim, this should send the reset signal to
-  CameraControl.
+- Cache read_property widgets.
+
+- Try reusing the widget cache when reconnecting a camera, are widgets tied to
+  the camera pointer or do they work with any camera pointer?
+  If it can't be reused, need to add a update_cache(old_ptr, new_ptr);
+
+- Add and test more camera channels:
+    z7.autofocus         manual
+    z7.capturetarget     memorycard
+    z7.date              now
+    z7.mode              manual
+    z7.quality           raw
+-- convert all channels and values to lowercase
+
+- Run Sim button should work multiple times when Event Id is an empty string
+-- Also fix the integer intput widgest, no silly up/down buttons, allow one to type in
+   and fix the issue if the mouse up event happens outside the diaglog, don't close it.
+
+- Internally convert all event ids to lowercase.
 
 - When I load a camera sequence, i expected the sequence table to get populated in about 1
   second.  Currently takes a bunch of time.
-
-- When we reach the end of all camera sequences, we should emit messages with empty events so
-  the webapp clears the event table.
 
 - Display the top 3 camera sequuence events.
 
@@ -26,9 +40,10 @@ Make it work
 
 - (if necessary) Use pvlib to lookup altitude from gps lat, long
 
-- See if I can speed up scan_cameras().
-
-- Define camera schedule format
+- See if I can speed up scan_cameras() & gphoto2cpp.h.
+-- remove as many memory allocations as possible.
+-- cache choices for setting widget values using a hash map in write_property() to
+   change it from a O(N) operation to O(1)
 
 - Implement and test these workflows:
     - pick event, clear any camera schedule
@@ -82,6 +97,24 @@ MAke it work well for others
 Past Items Completed
 ====================
 
+* Can no omit the Event Id in the Run Sim dialog, this computes the contact times for the
+  real event!  Dialog still needs to javascript love to fix reuse case.
+
+* Many fixes to gphoto2cpp.h, now can do basic settings and trigger capture error free!
+
+* Much improved GNU make setup, sparse, colorful output, added common install prefix for
+  external libs, simplying include and link flags.
+
+* Fixed a bug in gps_reader, where the TPV report from the GPS antenna had zeros for
+  latitude, longitude but non-zero ECEF x,y,z, so to work around this, used pyproj to
+  convert ECEF x,y,z to lat, long, alt if lat, long were zero.
+
+* When we reach the end of all camera sequences, we should emit messages with empty events so
+  the webapp clears the event table.
+
+* When I stop the sim by pressing Stop Sim, this should send the reset signal to
+  CameraControl.
+
 * Plumb computed contact times into camera control, and run though the camera sequence,
   emitting udp packets.
 
@@ -92,6 +125,8 @@ Past Items Completed
   * camera_control will continue to use system time, so in simulation mode, we
   apply a time offset to the calculated event times so camera control believe the events are
   about to fire.
+
+* Define camera schedule format
 
 * Cache computed contact times (IN MEMORY)
 

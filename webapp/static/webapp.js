@@ -609,7 +609,7 @@ async function handle_sim_okay_click()
 		event_time_offset: parseFloat(sim_time_offset_input.value)
 	};
 
-	if (isNaN(params.gps_latitude) || isNaN(params.gps_longitude) || isNaN(params.gps_altitude) || isNaN(params.event_time_offset) || !params.event_id)
+	if (isNaN(params.gps_latitude) || isNaN(params.gps_longitude) || isNaN(params.gps_altitude))
 	{
 		alert("Please enter valid numbers for GPS coordinates/offset and a valid Event ID.");
 		return;

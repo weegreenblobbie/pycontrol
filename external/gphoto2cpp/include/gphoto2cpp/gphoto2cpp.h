@@ -1,11 +1,16 @@
 #pragma once
 
-#include <string.h>
+//#include <string.h>
 
 #include <iostream>
+#include <map>
 #include <memory>
+#include <set>
+#include <sstream>
 #include <string>
 #include <vector>
+
+#include <ctime> // For syncing the camera time to system time.
 
 #include <gphoto2/gphoto2-port-log.h>
 
@@ -15,6 +20,7 @@ namespace GP2 {
 #include <gphoto2/gphoto2-context.h>
 #include <gphoto2/gphoto2-port-info-list.h>
 #include <gphoto2/gphoto2-port-result.h>
+#include <gphoto2/gphoto2-result.h>
 #include <gphoto2/gphoto2-widget.h>
 
 constexpr auto ERROR_UNKNOWN_PORT = GP_ERROR_UNKNOWN_PORT;
@@ -63,6 +69,7 @@ namespace gphoto2cpp
 // Inline implementation.
 //-----------------------------------------------------------------------------
 
+#define GPHOTO2CPP_DEBUG_LOG std::cerr << __FILE__ << "(" << __LINE__ << "): DEBUG: "
 #define GPHOTO2CPP_ERROR_LOG std::cerr << __FILE__ << "(" << __LINE__ << "): ERROR: "
 #define GPHOTO2CPP_CHECK_PTR( expr, message, return_code ) \
     do { \
@@ -79,7 +86,7 @@ namespace gphoto2cpp
             static int error_count_##__LINE__ = 0; \
             if (error_count_##__LINE__ < 5) \
             { \
-                GPHOTO2CPP_ERROR_LOG << #expr << ": call failed with " << GP2::gp_port_result_as_string(res) << ", aborting" << std::endl; \
+                GPHOTO2CPP_ERROR_LOG << #expr << ": call failed with " << GP2::gp_result_as_string(res) << ", aborting" << std::endl; \
                 ++error_count_##__LINE__; \
             } \
             else if (error_count_##__LINE__ == 5) \
@@ -93,6 +100,36 @@ namespace gphoto2cpp
 
 namespace gphoto2cpp
 {
+
+using widget_map = std::map<std::string, widget_ptr>;
+using camera_widget_map = std::map<camera_ptr, widget_map>;
+
+inline
+std::shared_ptr<camera_widget_map>
+get_widget_cache()
+{
+    static auto _cam_widget_map = std::make_shared<camera_widget_map>();
+    GPHOTO2CPP_CHECK_PTR(_cam_widget_map, "failed", nullptr);
+    return _cam_widget_map;
+}
+
+
+template <typename T>
+bool
+str_as_type(const std::string & value, T &output)
+{
+    std::stringstream ss(value);
+    if (not (ss >> output))
+    {
+        GPHOTO2CPP_ERROR_LOG << "str type conversion failed on '"
+                             << value
+                             << "'"
+                             << std::endl;
+        return false;
+    }
+
+    return true;
+}
 
 inline
 std::string
@@ -357,53 +394,265 @@ inline
 bool
 write_property(camera_ptr & camera, const std::string & property, const std::string & value)
 {
-    GP2::CameraWidget * raw_widget {nullptr};
+    auto cache_ptr = get_widget_cache();
+    GPHOTO2CPP_CHECK_PTR(cache_ptr, "failed", false);
+
+    auto cache = *cache_ptr;
+
+    auto widget_map_itor = cache.find(camera);
+    if (widget_map_itor == cache.end())
+    {
+        cache[camera] = widget_map{};
+
+    }
+
+    auto widget = widget_ptr {nullptr};
+
+    auto widget_map = cache[camera];
+    auto widget_itor = widget_map.find(property);
+    if (widget_itor == widget_map.end())
+    {
+        GP2::CameraWidget * raw_widget {nullptr};
+
+        GPHOTO2CPP_SAFE_CALL(
+            GP2::gp_camera_get_single_config(
+                camera.get(),
+                property.c_str(),
+                &raw_widget,
+                get_context().get()
+            ),
+            false
+        );
+
+        // Wrap in std::shared_ptr for auto cleanup.
+        widget = make_widget(raw_widget);
+
+        cache[camera][property] = widget;
+    }
+    else
+    {
+        widget = widget_itor->second;
+    }
+
+    GP2::CameraWidget * child {nullptr};
 
     GPHOTO2CPP_SAFE_CALL(
-        GP2::gp_camera_get_single_config(
-            camera.get(),
+        _lookup_widget(
+            widget.get(),
             property.c_str(),
-            &raw_widget,
-            get_context().get()
+            &child
         ),
         false
     );
-
-    // Wrap in std::shared_ptr for auto cleanup.
-    auto widget = make_widget(raw_widget);
 
     GP2::CameraWidgetType widget_type;
-
     GPHOTO2CPP_SAFE_CALL(
-        GP2::gp_widget_get_type(widget.get(), &widget_type),
+        GP2::gp_widget_get_type(child, &widget_type),
         false
     );
 
-    GPHOTO2CPP_SAFE_CALL(
-        GP2::gp_widget_set_value(
-            widget.get(),
-            value.c_str()
-        ),
-        false
-    );
-
-    auto res = GP2::gp_camera_set_single_config(
-        camera.get(),
-        property.c_str(),
-        widget.get(),
-        get_context().get()
-    );
-
-    if (res == GP2::ERROR_BAD_PARAMETERS)
+    // Modeled after:
+    //     https://github.com/gphoto/gphoto2/blob/dfd3d4328d31a28436746191c3d4fa6b258ab797/gphoto2/actions.c#L1845
+    //
+    switch (widget_type)
     {
-        GPHOTO2CPP_ERROR_LOG
-            << "gp_camera_set_single_config(" << property << ") failed with "
-            << GP2::gp_port_result_as_string(res)
-            << " (" << res << ") for widget type "
-            << to_string(widget_type)
-            << std::endl;
-        return false;
-    };
+        // String.
+        case GP2::GP_WIDGET_TEXT:
+        {
+            GPHOTO2CPP_SAFE_CALL(
+                GP2::gp_widget_set_value(child, value.c_str()),
+                false
+            );
+            return true;
+        }
+
+        // Float.
+        case GP2::GP_WIDGET_RANGE:
+        {
+            float min_ {0.0f};
+            float max_ {0.0f};
+            float step_ {0.0f};
+
+            GPHOTO2CPP_SAFE_CALL(
+                GP2::gp_widget_get_range(child, &min_, &max_, &step_),
+                false
+            );
+
+            float value_f {0.0f};
+
+            if (not str_as_type<float>(value, value_f))
+            {
+                GPHOTO2CPP_ERROR_LOG << "value not a float: '"
+                                     << value
+                                     << "'"
+                                     << std::endl;
+                return false;
+            };
+
+            // Range Check
+            if(value_f < min_ or value_f > max_)
+            {
+                GPHOTO2CPP_ERROR_LOG << "value out of bounds: "
+                                     << min_ << " < "
+                                     << value_f << " < "
+                                     << max_
+                                     << " is false"
+                                     << std::endl;
+                return false;
+            }
+
+            return true;
+        }
+
+        // Integer.
+        case GP2::GP_WIDGET_TOGGLE:
+        {
+            static const std::set<std::string> false_bools = {
+                "off", "no", "false", "0",
+            };
+            static const std::set<std::string> true_bools = {
+                "on",  "yes","true", "1",
+            };
+            int bool_value = 999;
+
+            if (false_bools.contains(value))
+            {
+                bool_value = 0;
+            }
+            else if (true_bools.contains(value))
+            {
+                bool_value = 1;
+            }
+
+            // No match.
+            if (bool_value == 999)
+            {
+                GPHOTO2CPP_ERROR_LOG << "value '"
+                                     << value
+                                     << "' is not a boolean"
+                                     << std::endl;
+                return false;
+            }
+            GPHOTO2CPP_SAFE_CALL(
+                GP2::gp_widget_set_value(child, &bool_value),
+                false
+            );
+
+            return true;
+        }
+
+        // Date.
+        case GP2::GP_WIDGET_DATE:
+        {
+            if(value != "now")
+            {
+                GPHOTO2CPP_ERROR_LOG << "value '"
+                                     << value
+                                     << "' != now, only now is supported."
+                                     << std::endl;
+               return false;
+            }
+
+            auto right_now = std::time(nullptr);
+
+            GPHOTO2CPP_SAFE_CALL(
+                GP2::gp_widget_set_value(child, &right_now),
+                false
+            );
+
+            return true;
+        }
+
+        case GP2::GP_WIDGET_MENU: // Fall through.
+        case GP2::GP_WIDGET_RADIO:
+        {
+            const int num_choices = GP2::gp_widget_count_choices(child);
+            if (num_choices < GP2::OK)
+            {
+                GPHOTO2CPP_ERROR_LOG << "gp_widget_count_choices() returned "
+                                     << num_choices
+                                     << std::endl;
+                return false;
+            }
+
+//~            GPHOTO2CPP_DEBUG_LOG << property << " has num_choices: " << num_choices << std::endl;
+
+            bool choice_set = false;
+
+            // Try to set the value if it matches a valid choice.
+            for (int idx = 0; idx < num_choices; ++idx)
+            {
+                const char * choice;
+                auto ret = GP2::gp_widget_get_choice(child, idx, &choice);
+                if (ret < GP2::OK)
+                {
+                    continue;
+                }
+
+//~                GPHOTO2CPP_DEBUG_LOG << "    " << idx << ": " << choice << std::endl;
+
+                if (value == choice)
+                {
+                    GPHOTO2CPP_SAFE_CALL(
+                        GP2::gp_widget_set_value(child, value.c_str()),
+                        false
+                    );
+                    choice_set = true;
+                    break; // out of for loop.
+                }
+            }
+
+            if (choice_set)
+            {
+//~                GPHOTO2CPP_DEBUG_LOG << "choice_set: " << property << " to " << value << std::endl;
+                return true;
+            }
+
+            GPHOTO2CPP_DEBUG_LOG << "Trying to set " << property << " to " << value
+                << " with gp_widget_set_value()" << std::endl;
+
+            // Try to set the string directly.
+            GPHOTO2CPP_SAFE_CALL(
+                GP2::gp_widget_set_value(child, value.c_str()),
+                false
+            );
+
+            return true;
+        }
+
+        default:
+        {
+            GPHOTO2CPP_ERROR_LOG << "Widget Type '" << to_string(widget_type)
+                                 << "' does not support writes.";
+            return false;
+        }
+    } // switch
+
+    GPHOTO2CPP_DEBUG_LOG << "'" << property << "' widget type: " << to_string(widget_type) << std::endl;
+
+    if (child == widget.get())
+    {
+        GPHOTO2CPP_SAFE_CALL(
+            GP2::gp_camera_set_single_config(
+                camera.get(),
+                property.c_str(),
+                child,
+                get_context().get()
+            ),
+            false
+        );
+    }
+    else
+    {
+        GPHOTO2CPP_SAFE_CALL(
+            GP2::gp_camera_set_config(
+                camera.get(),
+                widget.get(),
+                get_context().get()
+            ),
+            false
+        );
+    }
 
     return true;
 }

@@ -16,7 +16,7 @@
 RAPI_IP=192.168.1.173
 
 rsync -avrt --delete \
-    --include='external/gphoto2cpp/**' \
+    --include='external/gphoto2cpp' \
     --include='external/Makefile' \
     --exclude='external/*' \
     --exclude={'.git/','venv/','*.o','*_bin','lib*.a','*img.bz2','__pycache__/'} \
