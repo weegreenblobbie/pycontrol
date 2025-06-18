@@ -44,6 +44,7 @@ public:
     void disconnect();
 
     void fetch_settings();
+    void flush_settings();
     const Info & read_settings() { return _info; }
     result write_settings();
     result trigger();
@@ -56,10 +57,10 @@ public:
 
 private:
 
-    bool                   _stale_shutter {false};
-    bool                   _stale_fstop   {false};
-    bool                   _stale_iso     {false};
-    bool                   _stale_quality {false};
+    bool                   _stale_shutter {true};
+    bool                   _stale_fstop   {true};
+    bool                   _stale_iso     {true};
+    bool                   _stale_quality {true};
     Info                   _info;
     gphoto2cpp::camera_ptr _camera;
 };

@@ -1,0 +1,123 @@
+@startuml
+
+title Reading and Writing Camera Settings (Refined Workflow)
+
+participant "Application" as App
+participant "gphoto2cpp.h" as Wrapper
+participant "cache" as Cache
+participant "libgphoto2" as GP2
+database "Camera" as HW
+
+App -> Wrapper: read_config()
+activate Wrapper
+Wrapper -> Cache: cache.get("root")
+activate Cache
+Cache --> Wrapper: nullptr (cache miss)
+deactivate Cache
+note right of Wrapper: Cache is empty, must fetch from hardware.
+
+Wrapper -> GP2: gp_camera_get_config()
+activate GP2
+GP2 -> HW: Read all settings
+HW --> GP2: Current state
+GP2 --> Wrapper: new_root_widget_ptr
+deactivate GP2
+note right of Wrapper: Got new root widget tree, cache it.
+Wrapper -> Cache: cache.set("root", new_root_widget_ptr)
+activate Cache
+Cache --> Wrapper: Success
+deactivate Cache
+
+Wrapper --> App: Success
+deactivate Wrapper
+
+App -> Wrapper: read_property("iso")
+activate Wrapper
+Wrapper -> Cache: cache.get("iso")
+activate Cache
+Cache --> Wrapper: nullptr (cache miss)
+deactivate Cache
+Wrapper -> Cache: cache.get("root")
+activate Cache
+Cache --> Wrapper: root_widget_ptr
+deactivate Cache
+Wrapper -> GP2: gp_widget_get_child_by_name(root_widget_ptr, "iso")
+activate GP2
+GP2 --> Wrapper: GP_OK
+deactivate GP2
+Wrapper -> Cache: cache.add("iso", iso_child_ptr)
+activate Cache
+Cache --> Wrapper: success
+deactivate Cache
+Wrapper -> GP2: gp_widget_get_value(iso_child_ptr)
+activate GP2
+GP2 --> Wrapper: "800"
+deactivate GP2
+Wrapper --> App: "800"
+deactivate Wrapper
+
+App -> Wrapper: write_property("iso", "1600")
+activate Wrapper
+Wrapper -> Cache: cache.get("iso")
+activate Cache
+Cache --> Wrapper: iso_child_ptr
+deactivate Cache
+Wrapper -> GP2: gp_widget_set_value(iso_child_ptr, "1600")
+activate GP2
+GP2 --> Wrapper: GP_OK
+note right of Wrapper: Value updated in local memory only.\nlibgphoto2 marks widget as changed.
+deactivate GP2
+Wrapper --> App: Success (local change OK)
+deactivate Wrapper
+
+App -> Wrapper: write_config()
+activate Wrapper
+Wrapper -> Cache: cache.get("root")
+activate Cache
+Cache --> Wrapper: root_widget_ptr
+deactivate Cache
+Wrapper -> GP2: gp_camera_set_config(root_widget_ptr)
+activate GP2
+GP2 -> HW: Write all settings from tree
+HW --> GP2: OK
+GP2 --> Wrapper: GP_OK
+deactivate GP2
+Wrapper -> GP2: gp_widget_set_changed(root_widget_ptr, FALSE)
+activate GP2
+note right of Wrapper: Reset changed flag after successful apply.
+GP2 --> Wrapper: GP_OK
+deactivate GP2
+Wrapper --> App: Success
+deactivate Wrapper
+
+App -> Wrapper: read_config()
+activate Wrapper
+Wrapper -> Cache: cache.get("root")
+activate Cache
+Cache --> Wrapper: old_root_widget_ptr
+deactivate Cache
+Wrapper -> GP2: gp_widget_free(old_root_widget_ptr)
+activate GP2
+GP2 --> Wrapper: void return
+deactivate GP2
+Wrapper -> Cache: clear()
+activate Cache
+Cache --> Wrapper: success
+deactivate Cache
+note right of Wrapper: Now we re-fetch like the first time...
+Wrapper -> GP2: gp_camera_get_config()
+activate GP2
+GP2 -> HW: Read all settings
+HW --> GP2: Current state
+GP2 --> Wrapper: new_root_widget_ptr
+deactivate GP2
+note right of Wrapper: Got new root widget tree
+Wrapper -> Cache: cache.set("root", new_root_widget_ptr)
+activate Cache
+Cache --> Wrapper: Success
+deactivate Cache
+Wrapper --> App: Success
+
+deactivate Wrapper
+
+@enduml

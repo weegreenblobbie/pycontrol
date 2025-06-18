@@ -67,25 +67,29 @@ Camera::fetch_settings()
     _info.iso = gphoto2cpp::read_property(_camera, "iso");
     _info.quality = gphoto2cpp::read_property(_camera, "imagequality");
     _info.num_photos = gphoto2cpp::read_property(_camera, "availableshots");
+
+    _stale_shutter = false;
+    _stale_fstop = false;
+    _stale_iso = false;
+    _stale_quality = false;
 }
 
 result
 Camera::write_settings()
 {
-//~    if (_stale_shutter or _stale_fstop or _stale_iso or _stale_quality)
-//~    {
-//~        ABORT_IF_NOT(
-//~            gphoto2cpp::write_property(
-//~                    _camera,
-//~                    "capturetarget",
-//~                    "memorycard"
-//~                ),
-//~            result::failure
-//~        );
-//~    }
+    bool any_stale = _stale_shutter or _stale_fstop or _stale_iso or _stale_quality;
 
     if (_stale_shutter)
     {
+        ABORT_IF_NOT(
+            gphoto2cpp::write_property(
+                _camera,
+                "shutterspeed2",
+                _info.shutter
+            ),
+            "failed to write 'shutterspeed2': " << _info.shutter,
+            result::failure
+        );
         ABORT_IF_NOT(
             gphoto2cpp::write_property(
                 _camera,
@@ -101,14 +105,21 @@ Camera::write_settings()
 
     if (_stale_fstop)
     {
-        bool success = gphoto2cpp::write_property(
-            _camera,
-            "f-number",
-            _info.fstop
-        );
-
         ABORT_IF_NOT(
-            success,
+            gphoto2cpp::write_property(
+                _camera,
+                "f-number",
+                _info.fstop
+            ),
+            "failed to write 'f-number': " << _info.fstop,
+            result::failure
+        );
+        ABORT_IF_NOT(
+            gphoto2cpp::write_property(
+                _camera,
+                "f-number",
+                _info.fstop
+            ),
             "failed to write 'f-number': " << _info.fstop,
             result::failure
         );
@@ -118,14 +129,21 @@ Camera::write_settings()
 
     if (_stale_iso)
     {
-        bool success = gphoto2cpp::write_property(
-            _camera,
-            "iso",
-            _info.iso
-        );
-
         ABORT_IF_NOT(
-            success,
+            gphoto2cpp::write_property(
+                _camera,
+                "iso",
+                _info.iso
+            ),
+            "failed to write 'iso': " << _info.iso,
+            result::failure
+        );
+        ABORT_IF_NOT(
+            gphoto2cpp::write_property(
+                _camera,
+                "iso",
+                _info.iso
+            ),
             "failed to write 'iso': " << _info.iso,
             result::failure
         );
@@ -135,19 +153,40 @@ Camera::write_settings()
 
     if (_stale_quality)
     {
-        bool success = gphoto2cpp::write_property(
-            _camera,
-            "imagequality",
-            _info.quality
-        );
-
         ABORT_IF_NOT(
-            success,
+            gphoto2cpp::write_property(
+                _camera,
+                "imagequality",
+                _info.quality
+            ),
             "failed to write 'imagequality': " << _info.quality,
             result::failure
         );
-
+        ABORT_IF_NOT(
+            gphoto2cpp::write_property(
+                _camera,
+                "imagequality",
+                _info.quality
+            ),
+            "failed to write 'imagequality': " << _info.quality,
+            result::failure
+        );
         _stale_quality = false;
+    }
+
+    if (any_stale)
+    {
+        DEBUG_LOG << "flushing camera properties.\n";
+        ABORT_IF_NOT(
+            gphoto2cpp::flush_properties(_camera),
+            "failed to flush settings",
+            result::failure
+        );
+        ABORT_IF_NOT(
+            gphoto2cpp::flush_properties(_camera),
+            "failed to flush settings",
+            result::failure
+        );
     }
 
     return result::success;

@@ -1,13 +1,12 @@
 #pragma once
 
-//#include <string.h>
-
 #include <iostream>
 #include <map>
 #include <memory>
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <ctime> // For syncing the camera time to system time.
@@ -35,7 +34,6 @@ namespace gphoto2cpp
     using cam_list_ptr = std::shared_ptr<GP2::CameraList>;
     using context_ptr = std::shared_ptr<GP2::GPContext>;
     using camera_ptr = std::shared_ptr<GP2::Camera>;
-    using widget_ptr = std::shared_ptr<GP2::CameraWidget>;
     using port_info_list_ptr = std::shared_ptr<GP2::GPPortInfoList>;
 
     std::vector<std::string> auto_detect();
@@ -43,7 +41,6 @@ namespace gphoto2cpp
     camera_ptr               make_camera();
     cam_list_ptr             make_camera_list();
     port_info_list_ptr       make_port_info_list();
-    widget_ptr               make_widget(GP2::CameraWidget * ptr);
     camera_ptr               open_camera(const std::string & port);
     std::string              read_property(
                                  const camera_ptr & camera,
@@ -56,6 +53,8 @@ namespace gphoto2cpp
                                  const std::string & property,
                                  const std::string & value
                              );
+
+    bool                     flush_properties(camera_ptr & camera);
 
     bool                     trigger(camera_ptr & camera);
 
@@ -101,16 +100,90 @@ namespace gphoto2cpp
 namespace gphoto2cpp
 {
 
-using widget_map = std::map<std::string, widget_ptr>;
-using camera_widget_map = std::map<camera_ptr, widget_map>;
+using child_widget_ptr = GP2::CameraWidget *;
+using widget_ptr = std::shared_ptr<GP2::CameraWidget>;
+
+using root_widget_ptr = widget_ptr;
+
+widget_ptr make_widget(GP2::CameraWidget * ptr);
+
+/*
+Each camera pointer is associated with a root widget, this root widget is
+allocated on demand by calling:
+
+    gp_camera_get_config(camera_ptr, &root_widget_ptr, context_ptr)
+
+It is the caller's responsibility to dispose of the root widget by calling
+
+    gp_widget_free(root_widget_ptr)
+
+to reclaim the memory.  The root widget builds a tree of child widgets for
+accessing all the properties of the camera.  There is a 1:1 mapping from
+camera_ptr to root_widget_ptr.
+
+Once the root widget is contructed, we can search for child widgets by name by
+calling:
+
+    gp_widget_get_child_by_name(root_widget_ptr, name, &child_widget_ptr)
+    gp_widget_get_child_by_label(root_widget_ptr, label, &child_widget_ptr)
+
+The child pointers returned by these functions are owned by the root widget, so
+their lifetime doesn't need to be managed by the caller.
+
+Now we can read and write camera properties using the child widgets and calling
+vaiious get/set functions depending on the type of widget it is:
+
+    gp_widget_get_value(child_widget_ptr, value)
+    gp_widget_set_value(child_widget_ptr, value)
+
+The gp_widget_set_value() call doesn't actually send the updated value to the
+camera yet, after updating 1 or more child widgets, we need to flush all the
+pending updates to the camera by calling:
+
+    gp_camera_set_config(camera_ptr, root_widget_ptr, context_ptr);
+
+and all the pending updates will be written to the camera.
+
+To speed up reading and writing camera properties, this header uses a cache
+to map the camera pointer to the root widget:
+
+    using camera_to_root_widget = std::map<camer_ptr, root_widget_ptr>;
+
+The camera_to_root_widget map is used to keep the root_widget_ptr alive.  Next,
+we also map the camera pointer to a property map:
+
+    std::map<camera_ptr, property_map>;
+
+Where:
+
+    using property_map = std::unordered_map<std::string, child_widget_ptr>;
+
+This allows us to get the property map from the camera_ptr in one lookup, then
+call the widget set value call as needed.
+
+If the property map isn't found, it means we haven't allocated a root widget
+yet, so on look up miss, a root widget is created and added to the corret map.
+
+*/
+
+using camera_to_root     = std::map<camera_ptr, root_widget_ptr>;
+using property_map       = std::unordered_map<std::string, child_widget_ptr>;
+using camera_to_property = std::map<camera_ptr, property_map>;
 
 inline
-std::shared_ptr<camera_widget_map>
-get_widget_cache()
+camera_to_root &
+get_camera_to_root()
 {
-    static auto _cam_widget_map = std::make_shared<camera_widget_map>();
-    GPHOTO2CPP_CHECK_PTR(_cam_widget_map, "failed", nullptr);
-    return _cam_widget_map;
+    static auto _camera_to_root = camera_to_root();
+    return _camera_to_root;
+}
+
+inline
+camera_to_property &
+get_camera_to_property()
+{
+    static auto _camera_to_property = camera_to_property();
+    return _camera_to_property;
 }
 
 
@@ -394,56 +467,61 @@ inline
 bool
 write_property(camera_ptr & camera, const std::string & property, const std::string & value)
 {
-    auto cache_ptr = get_widget_cache();
-    GPHOTO2CPP_CHECK_PTR(cache_ptr, "failed", false);
+    auto & cam_to_prop = get_camera_to_property();
 
-    auto cache = *cache_ptr;
-
-    auto widget_map_itor = cache.find(camera);
-    if (widget_map_itor == cache.end())
+    auto prop_map_itor = cam_to_prop.find(camera);
+    if (prop_map_itor == cam_to_prop.end())
     {
-        cache[camera] = widget_map{};
-
-    }
-
-    auto widget = widget_ptr {nullptr};
-
-    auto widget_map = cache[camera];
-    auto widget_itor = widget_map.find(property);
-    if (widget_itor == widget_map.end())
-    {
-        GP2::CameraWidget * raw_widget {nullptr};
+        // Cache miss, we need to create the root widget.
+        GP2::CameraWidget * raw_root {nullptr};
 
         GPHOTO2CPP_SAFE_CALL(
-            GP2::gp_camera_get_single_config(
+            GP2::gp_camera_get_config(
                 camera.get(),
-                property.c_str(),
-                &raw_widget,
+                &raw_root,
                 get_context().get()
             ),
             false
         );
 
         // Wrap in std::shared_ptr for auto cleanup.
-        widget = make_widget(raw_widget);
+        auto root = make_widget(raw_root);
 
-        cache[camera][property] = widget;
+        // Add the root widget to the map for lifetime extention.
+        get_camera_to_root()[camera] = root;
+
+        // Add a new property_map.
+        cam_to_prop[camera] = property_map();
+
+        // Get a itorator to the new map.
+        prop_map_itor = cam_to_prop.find(camera);
     }
-    else
+
+    auto & prop_map = prop_map_itor->second;
+
+    auto child_itor = prop_map.find(property);
+    if (child_itor == prop_map.end())
     {
-        widget = widget_itor->second;
+        // Cache miss, we need to lookup the child widget using the root widget.
+        auto root = get_camera_to_root()[camera];
+
+        auto child = child_widget_ptr {nullptr};
+
+        GPHOTO2CPP_SAFE_CALL(
+            _lookup_widget(
+                root.get(),
+                property.c_str(),
+                &child
+            ),
+            false
+        );
+
+        // Add the child to the map.
+        prop_map[property] = child;
+        child_itor = prop_map.find(property);
     }
 
-    GP2::CameraWidget * child {nullptr};
-
-    GPHOTO2CPP_SAFE_CALL(
-        _lookup_widget(
-            widget.get(),
-            property.c_str(),
-            &child
-        ),
-        false
-    );
+    auto child = child_itor->second;
 
     GP2::CameraWidgetType widget_type;
     GPHOTO2CPP_SAFE_CALL(
@@ -501,19 +579,27 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
                 return false;
             }
 
+            GPHOTO2CPP_SAFE_CALL(
+                GP2::gp_widget_set_value(child, &value_f),
+                false
+            );
+
             return true;
         }
 
-        // Integer.
+        // Boolean.
         case GP2::GP_WIDGET_TOGGLE:
         {
             static const std::set<std::string> false_bools = {
                 "off", "no", "false", "0",
             };
             static const std::set<std::string> true_bools = {
-                "on",  "yes","true", "1",
+                "on",  "yes", "true", "1",
             };
-            int bool_value = 999;
+
+            constexpr int INVALID_BOOL = 999;
+
+            int bool_value = INVALID_BOOL;
 
             if (false_bools.contains(value))
             {
@@ -525,7 +611,7 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
             }
 
             // No match.
-            if (bool_value == 999)
+            if (bool_value == INVALID_BOOL)
             {
                 GPHOTO2CPP_ERROR_LOG << "value '"
                                      << value
@@ -566,93 +652,66 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
         case GP2::GP_WIDGET_MENU: // Fall through.
         case GP2::GP_WIDGET_RADIO:
         {
-            const int num_choices = GP2::gp_widget_count_choices(child);
-            if (num_choices < GP2::OK)
+            auto ret = GP2::gp_widget_set_value(child, value.c_str());
+
+            if (ret != GP2::OK)
             {
-                GPHOTO2CPP_ERROR_LOG << "gp_widget_count_choices() returned "
-                                     << num_choices
-                                     << std::endl;
+                const int num_choices = GP2::gp_widget_count_choices(child);
+                if (num_choices < GP2::OK)
+                {
+                    GPHOTO2CPP_ERROR_LOG << "gp_widget_count_choices() returned "
+                                         << num_choices
+                                         << std::endl;
+                    return false;
+                }
+
+                GPHOTO2CPP_ERROR_LOG
+                    << property << " value '" << value << "' is invalid. "
+                    << "Please use one of the followng:\n";
+
+                for (int idx = 0; idx < num_choices; ++idx)
+                {
+                    const char * choice;
+                    auto ret = GP2::gp_widget_get_choice(child, idx, &choice);
+                    if (ret < GP2::OK)
+                    {
+                        continue;
+                    }
+                    std::cerr << "    " << choice << "\n";
+                }
+
                 return false;
             }
-
-//~            GPHOTO2CPP_DEBUG_LOG << property << " has num_choices: " << num_choices << std::endl;
-
-            bool choice_set = false;
-
-            // Try to set the value if it matches a valid choice.
-            for (int idx = 0; idx < num_choices; ++idx)
-            {
-                const char * choice;
-                auto ret = GP2::gp_widget_get_choice(child, idx, &choice);
-                if (ret < GP2::OK)
-                {
-                    continue;
-                }
-
-//~                GPHOTO2CPP_DEBUG_LOG << "    " << idx << ": " << choice << std::endl;
-
-                if (value == choice)
-                {
-                    GPHOTO2CPP_SAFE_CALL(
-                        GP2::gp_widget_set_value(child, value.c_str()),
-                        false
-                    );
-                    choice_set = true;
-                    break; // out of for loop.
-                }
-            }
-
-            if (choice_set)
-            {
-//~                GPHOTO2CPP_DEBUG_LOG << "choice_set: " << property << " to " << value << std::endl;
-                return true;
-            }
-
-            GPHOTO2CPP_DEBUG_LOG << "Trying to set " << property << " to " << value
-                << " with gp_widget_set_value()" << std::endl;
-
-            // Try to set the string directly.
-            GPHOTO2CPP_SAFE_CALL(
-                GP2::gp_widget_set_value(child, value.c_str()),
-                false
-            );
 
             return true;
         }
 
         default:
         {
-            GPHOTO2CPP_ERROR_LOG << "Widget Type '" << to_string(widget_type)
-                                 << "' does not support writes.";
+            GPHOTO2CPP_ERROR_LOG
+                << property << " has widget type '" << to_string(widget_type)
+                << "' does not support updates.";
+
             return false;
         }
-    } // switch
-
-    GPHOTO2CPP_DEBUG_LOG << "'" << property << "' widget type: " << to_string(widget_type) << std::endl;
-
-    if (child == widget.get())
-    {
-        GPHOTO2CPP_SAFE_CALL(
-            GP2::gp_camera_set_single_config(
-                camera.get(),
-                property.c_str(),
-                child,
-                get_context().get()
-            ),
-            false
-        );
     }
-    else
-    {
-        GPHOTO2CPP_SAFE_CALL(
-            GP2::gp_camera_set_config(
-                camera.get(),
-                widget.get(),
-                get_context().get()
-            ),
-            false
-        );
-    }
+
+    return false;
+}
+
+inline
+bool
+flush_properties(camera_ptr & camera)
+{
+    auto root = get_camera_to_root()[camera];
+    GPHOTO2CPP_SAFE_CALL(
+        GP2::gp_camera_set_config(
+            camera.get(),
+            root.get(),
+            get_context().get()
+        ),
+        false
+    );
 
     return true;
 }
