@@ -277,7 +277,7 @@ class EventSolver:
         solution.pop("type")
         for key, value in solution.items():
             if isinstance(value, astropy.time.Time):
-                solution[key] = value.to_datetime().astimezone(datetime.timezone.utc)
+                solution[key] = value.to_datetime(timezone=datetime.timezone.utc)
         return solution
 
     def _solve_lunar(self, params):

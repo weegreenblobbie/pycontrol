@@ -251,6 +251,10 @@ function update_cameras_ui(data)
 		row.appendChild(cell_shutter);
 		cameras_table_body.appendChild(row);
 	}
+    // Re-attach event listeners after rebuilding the table content
+    document.querySelectorAll('.editable_td').forEach(cell => {
+        cell.addEventListener('click', handle_editable_td_click);
+    });
 }
 
 function update_events_ui(events_data)
@@ -280,24 +284,18 @@ function update_events_ui(events_data)
 	}
 }
 
-// =========================================================================
-// === THIS FUNCTION IS UPDATED TO CREATE THE NEW 6-COLUMN TABLE LAYOUT  ===
-// =========================================================================
 function create_control_table_for_camera(camera_data)
 {
 	const table = document.createElement('table');
 	table.classList.add('control-table');
 
-	// --- Header Row (6 columns) ---
 	const head = table.createTHead();
 	const header_row = head.insertRow();
 
-    // Create the new dynamic first header with the camera name and number of events
-	const first_header = document.createElement('th');
-	first_header.textContent = `# of ${camera_data.num_events || 'N/A'}`;
+        const first_header = document.createElement('th');
+	first_header.textContent = `${camera_data.name} (# of ${camera_data.num_events || 'N/A'})`;
 	header_row.appendChild(first_header);
 
-    // Create the rest of the static headers
 	const other_headers = ["Event ID", "Offset (s)", "ETA", "Channel", "Value"];
 	other_headers.forEach(header_text =>
 	{
@@ -306,11 +304,9 @@ function create_control_table_for_camera(camera_data)
 		header_row.appendChild(th);
 	});
 
-	// --- Data Row (6 columns) ---
 	const data_body = table.createTBody();
 	const row = data_body.insertRow();
 
-    // Populate the 6 columns in the new order, starting with the event position
 	row.insertCell().textContent = camera_data.position || 'N/A';
 	row.insertCell().textContent = camera_data.event_id || 'N/A';
 	row.insertCell().textContent = camera_data.event_time_offset_s || 'N/A';
@@ -523,14 +519,7 @@ async function fetch_files_for_modal()
 			{
 				event_selection_modal.style.display = 'none';
 				const success = await populate_static_event_details(file_name);
-				if (success)
-				{
-					load_event_file_button.classList.add('loaded');
-				}
-				else
-				{
-					load_event_file_button.classList.remove('loaded');
-				}
+                                load_event_file_button.classList.toggle('loaded', success);
 			});
 			file_list_element.appendChild(list_item);
 		});
@@ -601,19 +590,46 @@ async function handle_run_sim_button_click()
 
 async function handle_sim_okay_click()
 {
-	const params = {
-		gps_latitude: parseFloat(sim_latitude_input.value),
-		gps_longitude: parseFloat(sim_longitude_input.value),
-		gps_altitude: parseFloat(sim_altitude_input.value),
-		event_id: sim_event_id_input.value,
-		event_time_offset: parseFloat(sim_time_offset_input.value)
-	};
+    const lat_str = sim_latitude_input.value.trim();
+    const lon_str = sim_longitude_input.value.trim();
+    const alt_str = sim_altitude_input.value.trim();
+    const offset_str = sim_time_offset_input.value.trim();
+    const event_id = sim_event_id_input.value.trim(); // Can be blank now
 
-	if (isNaN(params.gps_latitude) || isNaN(params.gps_longitude) || isNaN(params.gps_altitude))
-	{
-		alert("Please enter valid numbers for GPS coordinates/offset and a valid Event ID.");
-		return;
-	}
+    // 1. GPS coordinates are still required.
+    if (!lat_str || !lon_str || !alt_str) {
+        alert("Please provide values for GPS Latitude, Longitude, and Altitude.");
+        return;
+    }
+
+    const gps_latitude = parseFloat(lat_str);
+    const gps_longitude = parseFloat(lon_str);
+    const gps_altitude = parseFloat(alt_str);
+
+    if (isNaN(gps_latitude) || isNaN(gps_longitude) || isNaN(gps_altitude)) {
+        alert("Please ensure GPS Latitude, Longitude, and Altitude are valid numbers.");
+        return;
+    }
+
+    // 2. The offset is optional. If provided, it must be a valid number.
+    //    If blank, we'll send an empty string.
+    let event_time_offset = "";
+    if (offset_str !== '') {
+        event_time_offset = parseFloat(offset_str);
+        if (isNaN(event_time_offset)) {
+            alert("The Event Time Offset must be a valid number if provided.");
+            return;
+        }
+    }
+
+    // 3. Construct the final parameters to be sent.
+    const params = {
+        gps_latitude,
+        gps_longitude,
+        gps_altitude,
+        event_id, // Can be blank
+        event_time_offset // Can be blank
+    };
 
 	run_sim_modal.style.display = 'none';
 	calculating_modal.style.display = 'flex';
@@ -743,26 +759,6 @@ function handle_cancel_camera_sequence_click()
 	hide_camera_sequence_modal();
 }
 
-function handle_window_click(event)
-{
-	if (event.target === rename_modal)
-	{
-		rename_modal.style.display = 'none';
-	}
-	else if (event.target === event_selection_modal)
-	{
-		event_selection_modal.style.display = 'none';
-	}
-	else if (event.target === run_sim_modal)
-	{
-		run_sim_modal.style.display = 'none';
-	}
-	else if (event.target === camera_sequence_modal)
-	{
-		camera_sequence_modal.style.display = 'none';
-	}
-}
-
 // --- Main Dashboard Update Loop ---
 async function update_dashboard()
 {
@@ -874,7 +870,21 @@ document.addEventListener('DOMContentLoaded', function()
 		cancel_camera_sequence_button.addEventListener('click', handle_cancel_camera_sequence_click);
 	}
 
-	window.addEventListener('click', handle_window_click);
+        const all_modals = document.querySelectorAll('.modal');
+        all_modals.forEach(modal => {
+            let is_mouse_down_on_background = false;
+            modal.addEventListener('mousedown', (event) => {
+                if (event.target === modal) {
+                    is_mouse_down_on_background = true;
+                }
+            });
+            modal.addEventListener('mouseup', (event) => {
+                if (is_mouse_down_on_background && event.target === modal) {
+                    modal.style.display = 'none';
+                }
+                is_mouse_down_on_background = false;
+            });
+        });
 
 	update_run_sim_button_state();
 

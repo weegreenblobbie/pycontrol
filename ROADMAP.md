@@ -4,30 +4,17 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Cache read_property widgets.
-
-- Try reusing the widget cache when reconnecting a camera, are widgets tied to
-  the camera pointer or do they work with any camera pointer?
-  If it can't be reused, need to add a update_cache(old_ptr, new_ptr);
-
-- Add and test more camera channels:
-    z7.autofocus         manual
-    z7.capturetarget     memorycard
-    z7.date              now
-    z7.mode              manual
-    z7.quality           raw
--- convert all channels and values to lowercase
-
 - Run Sim button should work multiple times when Event Id is an empty string
 -- Also fix the integer intput widgest, no silly up/down buttons, allow one to type in
    and fix the issue if the mouse up event happens outside the diaglog, don't close it.
+-- convert all channels and values to lowercase
 
 - Internally convert all event ids to lowercase.
 
 - When I load a camera sequence, i expected the sequence table to get populated in about 1
   second.  Currently takes a bunch of time.
 
-- Display the top 3 camera sequuence events.
+- Display the top 10 camera sequuence events.
 
 - Persist the event and camera selection in a config file, so reloading the app
   auto loads the last selected event and sequence file.
@@ -37,6 +24,15 @@ Make it work
 
 - Add camera connection counter so one can observe if it's constantly reconnecting (see this
   with my own eyes, rebooting the pi fixed it.)
+
+
+- Add and test more camera channels:
+    z7.autofocus         manual
+    z7.capturetarget     memorycard
+    z7.date              now
+    z7.mode              manual
+    z7.quality           raw
+
 
 - (if necessary) Use pvlib to lookup altitude from gps lat, long
 
@@ -96,6 +92,16 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+
+* Cache read_property widgets.
+
+* Try reusing the widget cache when reconnecting a camera, are widgets tied to
+  the camera pointer or do they work with any camera pointer?
+  If it can't be reused, need to add a update_cache(old_ptr, new_ptr);
+
+  X - this is not how libgphoto2 works, see the gphoto2cpp diagram in the docs
+  folder.
 
 * Can no omit the Event Id in the Run Sim dialog, this computes the contact times for the
   real event!  Dialog still needs to javascript love to fix reuse case.

@@ -243,6 +243,13 @@ if __name__ == "__main__":
              C3="2026-08-12 18:32:17.3",
              C4="2026-08-12 19:22:45.5"),
 
+        dict(lat=40.918959, lon=-1.289364, alt=321.0,
+             C1="2026-08-12 17:35:58.6",
+             C2="2026-08-12 18:30:10.6",
+             MID="2026-08-12 18:31:01.5",
+             C3="2026-08-12 18:31:52.2",
+             C4="2026-08-12 19:22:42.7"),
+
         # 2024 American eclipse.
         # https://eclipse.gsfc.nasa.gov/SEpath/SEpath2001/SE2024Apr08Tpath.html
         # http://xjubier.free.fr/en/site_pages/solar_eclipses/TSE_2024_GoogleMapFull.html
