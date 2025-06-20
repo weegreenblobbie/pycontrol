@@ -808,22 +808,19 @@ dispatch()
         }
     }
 
-
     // Read any commands.
     if (_read_time <= _control_time)
     {
         _read_time = _control_time + 1000; // 1 Hz.
 
-        ABORT_ON_FAILURE(
-            _read_camera_renames(),
-            "aborting on failure",
-            result::failure
-        );
-        ABORT_ON_FAILURE(
-            _read_events(),
-            "aborting on failure",
-            result::failure
-        );
+        if (result::failure ==  _read_camera_renames())
+        {
+            ERROR_LOG << "_read_camera_renames() failed, ignoring" << std::endl;
+        }
+        if (result::failure == _read_events())
+        {
+            ERROR_LOG << "_read_events() failed, ignoring" << std::endl;
+        }
     }
 
     // Send out 1 Hz telemetry.
@@ -832,17 +829,15 @@ dispatch()
         _send_time = _control_time + 1000;  // 1 Hz.
         if (send_telemetry)
         {
-            ABORT_ON_FAILURE(
-                _send_detected_cameras(),
-                "aboriting on failure",
-                result::failure
-            );
+            if (result::failure == _send_detected_cameras())
+            {
+                ERROR_LOG << "_send_detected_cameras() failed, ignoring" << std::endl;
+            }
 
-            ABORT_ON_FAILURE(
-                _send_sequence_state(),
-                "_send_sequence_stateaborting on failure",
-                result::failure
-            );
+            if (result::failure == _send_sequence_state())
+            {
+                ERROR_LOG << "_send_sequence_state() failed, ignoring" << std::endl;
+            }
         }
     }
 

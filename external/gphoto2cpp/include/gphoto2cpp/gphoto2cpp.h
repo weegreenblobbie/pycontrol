@@ -737,7 +737,6 @@ write_config(camera_ptr & camera)
     // Quick return if noting to write.
     if (not GP2::gp_widget_changed(root.get()))
     {
-        GPHOTO2CPP_DEBUG_LOG << "nothing changed, skipping write_config()" << std::endl;
         return true;
     }
 
