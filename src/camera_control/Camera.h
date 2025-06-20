@@ -43,10 +43,9 @@ public:
     void reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port);
     void disconnect();
 
-    void fetch_settings();
-    void flush_settings();
-    const Info & read_settings() { return _info; }
-    result write_settings();
+    result read_config();
+    result write_config();
+    const Info & info() { return _info; }
     result trigger();
     result handle(const Event & event);
 
@@ -57,10 +56,6 @@ public:
 
 private:
 
-    bool                   _stale_shutter {true};
-    bool                   _stale_fstop   {true};
-    bool                   _stale_iso     {true};
-    bool                   _stale_quality {true};
     Info                   _info;
     gphoto2cpp::camera_ptr _camera;
 };

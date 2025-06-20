@@ -47,7 +47,7 @@ front() const
     ERROR_LOG << "Out of bounds idx: " << _idx << " size: " << _sequence.size()
               << std::endl;
 
-    static const auto no_event = Event("N/A", 0.0f, "N/A", Channel::trigger, "N/A");
+    static const auto no_event = Event("N/A", 0.0f, "N/A", Channel::fps, "N/A");
     return no_event;
 }
 

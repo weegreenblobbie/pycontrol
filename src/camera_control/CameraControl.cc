@@ -25,12 +25,7 @@ now()
     ).count();
 }
 
-
-// @brief Formats a time_point into an ISO 8601 string in UTC.
-// * Example output: "2025-06-08T14:07:09.123Z"
-// This implementation is compatible with C++11 and later.
-// * @param time_point The time_point to format.
-// @return A string containing the formatted time.
+/*
 std::string
 format_iso8601_utc(pycontrol::milliseconds ms_since_epoch)
 {
@@ -52,7 +47,7 @@ format_iso8601_utc(pycontrol::milliseconds ms_since_epoch)
 
     return ss.str();
 }
-
+*/
 
 } /* namespace */
 
@@ -206,7 +201,23 @@ _camera_scan()
                     continue;
                 }
 
-                const auto serial = gphoto2cpp::read_property(camera, "serialnumber");
+                if (not gphoto2cpp::read_config(camera))
+                {
+                    ERROR_LOG
+                        << "gphoto2cpp::read_config(camera) failed"
+                        << std::endl;
+                    continue;
+                };
+
+                std::string serial;
+                if (not gphoto2cpp::read_property(camera, "serialnumber", serial))
+                {
+                    ERROR_LOG
+                        << "gphoto2cpp::read_property(\"serialnumber\") failed"
+                        << std::endl;
+                    continue;
+
+                }
 
                 // Add new camera.
                 if (not _cameras.contains(serial))
@@ -220,7 +231,7 @@ _camera_scan()
                     _cameras[serial] = cam;
                     if (not _serial_to_id.contains(serial))
                     {
-                        const auto & id = cam->read_settings().desc;
+                        const auto & id = cam->info().desc;
                         _serial_to_id[serial] = id;
                         _id_to_serial[id] = serial;
                     }
@@ -246,7 +257,7 @@ _camera_scan()
         for (auto & pair : _cameras)
         {
             auto & cam = pair.second;
-            const auto & info = cam->read_settings();
+            const auto & info = cam->info();
             const auto & port = info.port;
             if (not detections.contains(port))
             {
@@ -261,11 +272,11 @@ _camera_scan()
         }
     }
 
-    // Always fetch camera settings to reflect the camera state.
+    // Always read the camera configuration to reflect the camera state.
     for (auto & pair : _cameras)
     {
         auto & cam = pair.second;
-        cam->fetch_settings();
+        cam->read_config();
     }
 }
 
@@ -278,7 +289,7 @@ _send_detected_cameras()
     _message << "num_cameras " << _cameras.size() << "\n";
     for (const auto & [serial, cam_ptr] : _cameras)
     {
-        const auto & info = cam_ptr->read_settings();
+        const auto & info = cam_ptr->info();
         const auto & entry = _serial_to_id.find(serial);
 
         const auto desc = entry != _serial_to_id.end() ?
@@ -329,7 +340,7 @@ _send_sequence_state()
     _message << "num_cameras " << _cameras.size() << "\n";
     for (const auto & [serial, cam_ptr] : _cameras)
     {
-        const auto & info = cam_ptr->read_settings();
+        const auto & info = cam_ptr->info();
         const auto & entry = _serial_to_id.find(serial);
 
         const auto name = entry != _serial_to_id.end() ?
@@ -593,7 +604,7 @@ _get_next_event_time() const
 
     for (const auto & [serial, cam_ptr] : _cameras)
     {
-        if (not cam_ptr->read_settings().connected)
+        if (not cam_ptr->info().connected)
         {
             continue;
         }
@@ -665,10 +676,10 @@ _dispatch_camera_events()
 
             event_time = _get_event_time(seq->front());
 
-            // Flush camera settings if the next event is trigger.
+            // Flush camera settings if the next event is a trigger.
             if (seq->front().channel == Channel::trigger)
             {
-                auto res2 = cam_ptr->write_settings();
+                auto res2 = cam_ptr->write_config();
                 if (res2 == result::failure)
                 {
                     ERROR_LOG << "camera->write-settings() failed" << std::endl;

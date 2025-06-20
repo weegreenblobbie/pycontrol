@@ -24,9 +24,7 @@ namespace GP2 {
 
 constexpr auto ERROR_UNKNOWN_PORT = GP_ERROR_UNKNOWN_PORT;
 constexpr auto OK = GP_OK;
-constexpr auto ERROR_BAD_PARAMETERS = GP_ERROR_BAD_PARAMETERS;
 }
-
 
 
 namespace gphoto2cpp
@@ -35,6 +33,7 @@ namespace gphoto2cpp
     using context_ptr = std::shared_ptr<GP2::GPContext>;
     using camera_ptr = std::shared_ptr<GP2::Camera>;
     using port_info_list_ptr = std::shared_ptr<GP2::GPPortInfoList>;
+    enum class LogLevel_t : unsigned int {debug, error};
 
     std::vector<std::string> auto_detect();
     context_ptr              get_context();
@@ -42,10 +41,12 @@ namespace gphoto2cpp
     cam_list_ptr             make_camera_list();
     port_info_list_ptr       make_port_info_list();
     camera_ptr               open_camera(const std::string & port);
-    std::string              read_property(
-                                 const camera_ptr & camera,
+
+    bool                     read_config(camera_ptr & camera);
+    bool                     read_property(
+                                 camera_ptr & camera,
                                  const std::string & property,
-                                 const std::string & default_="__ERROR__"
+                                 std::string & output
                              );
 
     bool                     write_property(
@@ -54,13 +55,13 @@ namespace gphoto2cpp
                                  const std::string & value
                              );
 
-    bool                     flush_properties(camera_ptr & camera);
+    bool                     write_config(camera_ptr & camera);
+
+    void                     reset_cache(camera_ptr & camera);
 
     bool                     trigger(camera_ptr & camera);
 
-    enum class LogLevel_t : unsigned int {debug, error};
-
-    bool set_log_level(LogLevel_t lvl);
+    bool                     set_log_level(LogLevel_t lvl);
 }
 
 
@@ -100,71 +101,15 @@ namespace gphoto2cpp
 namespace gphoto2cpp
 {
 
+/*
+ * Camera widget caches
+ */
 using child_widget_ptr = GP2::CameraWidget *;
 using widget_ptr = std::shared_ptr<GP2::CameraWidget>;
 
 using root_widget_ptr = widget_ptr;
 
-widget_ptr make_widget(GP2::CameraWidget * ptr);
-
-/*
-Each camera pointer is associated with a root widget, this root widget is
-allocated on demand by calling:
-
-    gp_camera_get_config(camera_ptr, &root_widget_ptr, context_ptr)
-
-It is the caller's responsibility to dispose of the root widget by calling
-
-    gp_widget_free(root_widget_ptr)
-
-to reclaim the memory.  The root widget builds a tree of child widgets for
-accessing all the properties of the camera.  There is a 1:1 mapping from
-camera_ptr to root_widget_ptr.
-
-Once the root widget is contructed, we can search for child widgets by name by
-calling:
-
-    gp_widget_get_child_by_name(root_widget_ptr, name, &child_widget_ptr)
-    gp_widget_get_child_by_label(root_widget_ptr, label, &child_widget_ptr)
-
-The child pointers returned by these functions are owned by the root widget, so
-their lifetime doesn't need to be managed by the caller.
-
-Now we can read and write camera properties using the child widgets and calling
-vaiious get/set functions depending on the type of widget it is:
-
-    gp_widget_get_value(child_widget_ptr, value)
-    gp_widget_set_value(child_widget_ptr, value)
-
-The gp_widget_set_value() call doesn't actually send the updated value to the
-camera yet, after updating 1 or more child widgets, we need to flush all the
-pending updates to the camera by calling:
-
-    gp_camera_set_config(camera_ptr, root_widget_ptr, context_ptr);
-
-and all the pending updates will be written to the camera.
-
-To speed up reading and writing camera properties, this header uses a cache
-to map the camera pointer to the root widget:
-
-    using camera_to_root_widget = std::map<camer_ptr, root_widget_ptr>;
-
-The camera_to_root_widget map is used to keep the root_widget_ptr alive.  Next,
-we also map the camera pointer to a property map:
-
-    std::map<camera_ptr, property_map>;
-
-Where:
-
-    using property_map = std::unordered_map<std::string, child_widget_ptr>;
-
-This allows us to get the property map from the camera_ptr in one lookup, then
-call the widget set value call as needed.
-
-If the property map isn't found, it means we haven't allocated a root widget
-yet, so on look up miss, a root widget is created and added to the corret map.
-
-*/
+root_widget_ptr make_root_widget(GP2::CameraWidget * ptr);
 
 using camera_to_root     = std::map<camera_ptr, root_widget_ptr>;
 using property_map       = std::unordered_map<std::string, child_widget_ptr>;
@@ -184,6 +129,28 @@ get_camera_to_property()
 {
     static auto _camera_to_property = camera_to_property();
     return _camera_to_property;
+}
+
+
+inline
+void
+reset_cache(camera_ptr & camera)
+{
+    auto & cam_to_root = get_camera_to_root();
+    auto itor1 = cam_to_root.find(camera);
+    if (itor1 != cam_to_root.end())
+    {
+        // Cache hit!  Must free the root widgit and clear the property map.
+        cam_to_root.erase(itor1);
+
+        // Discard the property cache.
+        auto & cam_to_prop = get_camera_to_property();
+        auto itor2 = cam_to_prop.find(camera);
+        if (itor2 != cam_to_prop.end())
+        {
+            cam_to_prop.erase(itor2);
+        }
+    }
 }
 
 
@@ -296,8 +263,8 @@ make_port_info_list()
 
 
 inline
-widget_ptr
-make_widget(GP2::CameraWidget * ptr)
+root_widget_ptr
+make_root_widget(GP2::CameraWidget * ptr)
 {
     return widget_ptr(ptr, [](GP2::CameraWidget * p){GP2::gp_widget_free(p);});
 }
@@ -351,54 +318,84 @@ open_camera(const std::string & port)
 inline
 int
 _lookup_widget(
-    GP2::CameraWidget * widget,
-    const char * key,
-    GP2::CameraWidget ** child)
+    const root_widget_ptr & widget,
+    const std::string & property,
+    child_widget_ptr * child)
 {
     int ret;
-    ret = GP2::gp_widget_get_child_by_name(widget, key, child);
+    ret = GP2::gp_widget_get_child_by_name(widget.get(), property.c_str(), child);
     if (ret < GP2::OK)
     {
-        ret = gp_widget_get_child_by_label(widget, key, child);
+        ret = gp_widget_get_child_by_label(widget.get(), property.c_str(), child);
     }
     return ret;
 }
 
 
 inline
-std::string
-read_property(const camera_ptr & camera, const std::string & property, const std::string & default_)
+bool
+read_config(camera_ptr & camera)
 {
-    GP2::CameraWidget * raw_widget {nullptr};
+    reset_cache(camera);
+
+    // Read the full camera configuration.
+    GP2::CameraWidget * raw_root {nullptr};
 
     GPHOTO2CPP_SAFE_CALL(
-        GP2::gp_camera_get_single_config(
+        GP2::gp_camera_get_config(
             camera.get(),
-            property.c_str(),
-            &raw_widget,
+            &raw_root,
             get_context().get()
         ),
-        default_
+        false
     );
 
-    // Wrap in std::shared_ptr.
-    auto widget = make_widget(raw_widget);
+    // Wrap in std::shared_ptr and store in the cache.
+    get_camera_to_root()[camera] = make_root_widget(raw_root);
 
-    GP2::CameraWidget * raw_child {nullptr};
+    return true;
+}
 
-    GPHOTO2CPP_SAFE_CALL(
-        _lookup_widget(
-            raw_widget,
-            property.c_str(),
-            &raw_child
-        ),
-        default_
-    );
+
+inline
+bool
+read_property(
+    camera_ptr & camera,
+    const std::string & property,
+    std::string & output)
+{
+    auto & cam_to_root = get_camera_to_root();
+    auto itor1 = cam_to_root.find(camera);
+    if (itor1 == cam_to_root.end())
+    {
+        GPHOTO2CPP_ERROR_LOG << "must call read_config() first!" << std::endl;
+        return false;
+    }
+    auto & root = itor1->second;
+    auto & cam_to_prop = get_camera_to_property()[camera];
+    auto itor2 = cam_to_prop.find(property);
+    if (itor2 == cam_to_prop.end())
+    {
+        // Cache miss, fetch the child widget from libgphoto2.
+        child_widget_ptr child {nullptr};
+
+        GPHOTO2CPP_SAFE_CALL(
+            _lookup_widget(
+                root,
+                property,
+                &child
+            ),
+            false
+        );
+        cam_to_prop[property] = child;
+    }
+
+    auto child = cam_to_prop[property];
 
     GP2::CameraWidgetType widget_type;
     GPHOTO2CPP_SAFE_CALL(
-        gp_widget_get_type(raw_child, &widget_type),
-        default_
+        gp_widget_get_type(child, &widget_type),
+        false
     );
 
     switch(widget_type)
@@ -410,20 +407,21 @@ read_property(const camera_ptr & camera, const std::string & property, const std
         {
             char * value {nullptr};
             GPHOTO2CPP_SAFE_CALL(
-                GP2::gp_widget_get_value(raw_child, &value),
-                default_
+                GP2::gp_widget_get_value(child, &value),
+                false
             );
             GPHOTO2CPP_CHECK_PTR(
                 value,
                 "gp_widget_get_value('" << property << "') failed",
-                default_
+                false
             );
             if (property == "serialnumber")
             {
                 // Strip off leading zeros.
                 while (*value == '0') ++value;
             }
-            return std::string(value);
+            output = std::string(value);
+            return true;
         }
         // int types
         case GP2::GP_WIDGET_DATE: // fall through
@@ -431,35 +429,38 @@ read_property(const camera_ptr & camera, const std::string & property, const std
         {
             int value {0};
             GPHOTO2CPP_SAFE_CALL(
-                GP2::gp_widget_get_value(raw_child, &value),
-                default_
+                GP2::gp_widget_get_value(child, &value),
+                false
             );
-            return std::to_string(value);
+            output = std::to_string(value);
+            return true;
         }
         // float types
         case GP2::GP_WIDGET_RANGE:
         {
             float value {0};
             GPHOTO2CPP_SAFE_CALL(
-                GP2::gp_widget_get_value(raw_child, &value),
-                default_
+                GP2::gp_widget_get_value(child, &value),
+                false
             );
 
             if (property == "availableshots")
             {
-                return std::to_string(static_cast<std::uint32_t>(value));
+                output = std::to_string(static_cast<std::uint32_t>(value));
+                return true;
             }
-            return std::to_string(value);
+            output = std::to_string(value);
+            return true;
         }
 
         default:
         {
             GPHOTO2CPP_ERROR_LOG << "widget has bad type " << widget_type << "\n";
-            return default_;
+            return false;
         }
     }
 
-    return default_;
+    return false;
 }
 
 
@@ -467,65 +468,45 @@ inline
 bool
 write_property(camera_ptr & camera, const std::string & property, const std::string & value)
 {
-    auto & cam_to_prop = get_camera_to_property();
-
-    auto prop_map_itor = cam_to_prop.find(camera);
-    if (prop_map_itor == cam_to_prop.end())
+    auto & cam_to_root = get_camera_to_root();
+    auto itor1 = cam_to_root.find(camera);
+    if (itor1 == cam_to_root.end())
     {
-        // Cache miss, we need to create the root widget.
-        GP2::CameraWidget * raw_root {nullptr};
-
-        GPHOTO2CPP_SAFE_CALL(
-            GP2::gp_camera_get_config(
-                camera.get(),
-                &raw_root,
-                get_context().get()
-            ),
-            false
-        );
-
-        // Wrap in std::shared_ptr for auto cleanup.
-        auto root = make_widget(raw_root);
-
-        // Add the root widget to the map for lifetime extention.
-        get_camera_to_root()[camera] = root;
-
-        // Add a new property_map.
-        cam_to_prop[camera] = property_map();
-
-        // Get a itorator to the new map.
-        prop_map_itor = cam_to_prop.find(camera);
+        GPHOTO2CPP_ERROR_LOG << "must call read_config() first!" << std::endl;
+        return false;
     }
 
-    auto & prop_map = prop_map_itor->second;
-
-    auto child_itor = prop_map.find(property);
-    if (child_itor == prop_map.end())
+    auto & root = itor1->second;
+    auto & cam_to_prop = get_camera_to_property()[camera];
+    auto itor2 = cam_to_prop.find(property);
+    if (itor2 == cam_to_prop.end())
     {
-        // Cache miss, we need to lookup the child widget using the root widget.
-        auto root = get_camera_to_root()[camera];
-
-        auto child = child_widget_ptr {nullptr};
+        // Cache miss, fetch the child widget from libgphoto2.
+        child_widget_ptr child {nullptr};
 
         GPHOTO2CPP_SAFE_CALL(
             _lookup_widget(
-                root.get(),
-                property.c_str(),
+                root,
+                property,
                 &child
             ),
             false
         );
-
-        // Add the child to the map.
-        prop_map[property] = child;
-        child_itor = prop_map.find(property);
+        cam_to_prop[property] = child;
     }
 
-    auto child = child_itor->second;
+    auto child = cam_to_prop[property];
 
     GP2::CameraWidgetType widget_type;
     GPHOTO2CPP_SAFE_CALL(
-        GP2::gp_widget_get_type(child, &widget_type),
+        gp_widget_get_type(child, &widget_type),
+        false
+    );
+
+    // Before writing a new value, clear the changed flag so we only read a
+    // changed status if the value we wrote changes the child.
+    GPHOTO2CPP_SAFE_CALL(
+        GP2::gp_widget_set_changed(child, 0),
         false
     );
 
@@ -541,21 +522,22 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
                 GP2::gp_widget_set_value(child, value.c_str()),
                 false
             );
+
+            // Propagate changed status to root widget.
+            if (GP2::gp_widget_changed(child))
+            {
+                GPHOTO2CPP_SAFE_CALL(
+                    GP2::gp_widget_set_changed(root.get(), 1),
+                    false
+                );
+            }
+
             return true;
         }
 
         // Float.
         case GP2::GP_WIDGET_RANGE:
         {
-            float min_ {0.0f};
-            float max_ {0.0f};
-            float step_ {0.0f};
-
-            GPHOTO2CPP_SAFE_CALL(
-                GP2::gp_widget_get_range(child, &min_, &max_, &step_),
-                false
-            );
-
             float value_f {0.0f};
 
             if (not str_as_type<float>(value, value_f))
@@ -567,22 +549,42 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
                 return false;
             };
 
-            // Range Check
-            if(value_f < min_ or value_f > max_)
+            auto ret = GP2::gp_widget_set_value(child, &value_f);
+
+            if (ret < GP2::OK)
             {
-                GPHOTO2CPP_ERROR_LOG << "value out of bounds: "
-                                     << min_ << " < "
-                                     << value_f << " < "
-                                     << max_
-                                     << " is false"
-                                     << std::endl;
+                float min_ {0.0f};
+                float max_ {0.0f};
+                float step_ {0.0f};
+
+                GPHOTO2CPP_SAFE_CALL(
+                    GP2::gp_widget_get_range(child, &min_, &max_, &step_),
+                    false
+                );
+
+                // Range Check
+                if(value_f < min_ or value_f > max_)
+                {
+                    GPHOTO2CPP_ERROR_LOG << "value out of bounds: "
+                                         << min_ << " < "
+                                         << value_f << " < "
+                                         << max_
+                                         << " is false"
+                                         << std::endl;
+                    return false;
+                }
+
                 return false;
             }
 
-            GPHOTO2CPP_SAFE_CALL(
-                GP2::gp_widget_set_value(child, &value_f),
-                false
-            );
+            // Propagate changed status to root widget.
+            if (GP2::gp_widget_changed(child))
+            {
+                GPHOTO2CPP_SAFE_CALL(
+                    GP2::gp_widget_set_changed(root.get(), 1),
+                    false
+                );
+            }
 
             return true;
         }
@@ -624,6 +626,15 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
                 false
             );
 
+            // Propagate changed status to root widget.
+            if (GP2::gp_widget_changed(child))
+            {
+                GPHOTO2CPP_SAFE_CALL(
+                    GP2::gp_widget_set_changed(root.get(), 1),
+                    false
+                );
+            }
+
             return true;
         }
 
@@ -645,6 +656,15 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
                 GP2::gp_widget_set_value(child, &right_now),
                 false
             );
+
+            // Propagate changed status to root widget.
+            if (GP2::gp_widget_changed(child))
+            {
+                GPHOTO2CPP_SAFE_CALL(
+                    GP2::gp_widget_set_changed(root.get(), 1),
+                    false
+                );
+            }
 
             return true;
         }
@@ -683,6 +703,15 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
                 return false;
             }
 
+            // Propagate changed status to root widget.
+            if (GP2::gp_widget_changed(child))
+            {
+                GPHOTO2CPP_SAFE_CALL(
+                    GP2::gp_widget_set_changed(root.get(), 1),
+                    false
+                );
+            }
+
             return true;
         }
 
@@ -701,15 +730,29 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
 
 inline
 bool
-flush_properties(camera_ptr & camera)
+write_config(camera_ptr & camera)
 {
     auto root = get_camera_to_root()[camera];
+
+    // Quick return if noting to write.
+    if (not GP2::gp_widget_changed(root.get()))
+    {
+        GPHOTO2CPP_DEBUG_LOG << "nothing changed, skipping write_config()" << std::endl;
+        return true;
+    }
+
     GPHOTO2CPP_SAFE_CALL(
         GP2::gp_camera_set_config(
             camera.get(),
             root.get(),
             get_context().get()
         ),
+        false
+    );
+
+    // Clear the changed status on the root widget.
+    GPHOTO2CPP_SAFE_CALL(
+        GP2::gp_widget_set_changed(root.get(), false),
         false
     );
 

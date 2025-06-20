@@ -11,22 +11,25 @@ Camera(
     const std::string & serial,
     const std::string & config_file)
 :
-    _stale_shutter{true},
-    _stale_fstop{true},
-    _stale_iso{true},
     _info{.connected = true, .serial = serial, .port = port, },
     _camera{camera}
 {
-    _info.desc = gphoto2cpp::read_property(_camera, "manufacturer") + " "
-               + gphoto2cpp::read_property(_camera, "cameramodel");
+    gphoto2cpp::read_config(_camera);
 
-    //gphoto2cpp::set_log_level(gphoto2cpp::LogLevel_t::debug);
+    std::string make;
+    std::string model;
+
+    gphoto2cpp::read_property(_camera, "manufacturer", make);
+    gphoto2cpp::read_property(_camera, "cameramodel", model);
+
+    _info.desc = make + " " + model;
 }
 
 
 void
 Camera::reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port)
 {
+    gphoto2cpp::reset_cache(camera);
     _camera.reset();
     _camera = camera;
     _info.port = port;
@@ -49,174 +52,95 @@ disconnect()
 }
 
 
-void
-Camera::fetch_settings()
+result
+Camera::read_config()
 {
-    if (not _info.connected) return;
+    if (not _info.connected) return result::success;
 
-    _info.battery_level = gphoto2cpp::read_property(_camera, "batterylevel");
-    _info.shutter = gphoto2cpp::read_property(_camera, "shutterspeed2");
-    if (_info.shutter == "__ERROR__")
+    if (not gphoto2cpp::read_config(_camera))
     {
         disconnect();
-        return;
+        return result::success;
     }
 
-    _info.mode = gphoto2cpp::read_property(_camera, "expprogram");
-    _info.fstop = gphoto2cpp::read_property(_camera, "f-number");
-    _info.iso = gphoto2cpp::read_property(_camera, "iso");
-    _info.quality = gphoto2cpp::read_property(_camera, "imagequality");
-    _info.num_photos = gphoto2cpp::read_property(_camera, "availableshots");
-
-    _stale_shutter = false;
-    _stale_fstop = false;
-    _stale_iso = false;
-    _stale_quality = false;
-}
-
-result
-Camera::write_settings()
-{
-    bool any_stale = _stale_shutter or _stale_fstop or _stale_iso or _stale_quality;
-
-    if (_stale_shutter)
-    {
-        ABORT_IF_NOT(
-            gphoto2cpp::write_property(
-                _camera,
-                "shutterspeed2",
-                _info.shutter
-            ),
-            "failed to write 'shutterspeed2': " << _info.shutter,
-            result::failure
-        );
-        ABORT_IF_NOT(
-            gphoto2cpp::write_property(
-                _camera,
-                "shutterspeed2",
-                _info.shutter
-            ),
-            "failed to write 'shutterspeed2': " << _info.shutter,
-            result::failure
-        );
-
-        _stale_shutter = false;
-    }
-
-    if (_stale_fstop)
-    {
-        ABORT_IF_NOT(
-            gphoto2cpp::write_property(
-                _camera,
-                "f-number",
-                _info.fstop
-            ),
-            "failed to write 'f-number': " << _info.fstop,
-            result::failure
-        );
-        ABORT_IF_NOT(
-            gphoto2cpp::write_property(
-                _camera,
-                "f-number",
-                _info.fstop
-            ),
-            "failed to write 'f-number': " << _info.fstop,
-            result::failure
-        );
-
-        _stale_fstop = false;
-    }
-
-    if (_stale_iso)
-    {
-        ABORT_IF_NOT(
-            gphoto2cpp::write_property(
-                _camera,
-                "iso",
-                _info.iso
-            ),
-            "failed to write 'iso': " << _info.iso,
-            result::failure
-        );
-        ABORT_IF_NOT(
-            gphoto2cpp::write_property(
-                _camera,
-                "iso",
-                _info.iso
-            ),
-            "failed to write 'iso': " << _info.iso,
-            result::failure
-        );
-
-        _stale_iso = false;
-    }
-
-    if (_stale_quality)
-    {
-        ABORT_IF_NOT(
-            gphoto2cpp::write_property(
-                _camera,
-                "imagequality",
-                _info.quality
-            ),
-            "failed to write 'imagequality': " << _info.quality,
-            result::failure
-        );
-        ABORT_IF_NOT(
-            gphoto2cpp::write_property(
-                _camera,
-                "imagequality",
-                _info.quality
-            ),
-            "failed to write 'imagequality': " << _info.quality,
-            result::failure
-        );
-        _stale_quality = false;
-    }
-
-    if (any_stale)
-    {
-        DEBUG_LOG << "flushing camera properties.\n";
-        ABORT_IF_NOT(
-            gphoto2cpp::flush_properties(_camera),
-            "failed to flush settings",
-            result::failure
-        );
-        ABORT_IF_NOT(
-            gphoto2cpp::flush_properties(_camera),
-            "failed to flush settings",
-            result::failure
-        );
-    }
-
-    return result::success;
-}
-
-
-result
-Camera::trigger()
-{
-    ABORT_IF(
-        _stale_shutter or _stale_fstop or _stale_iso or _stale_quality,
-        "Stale camera settings, please call write_settings() first",
+    // Battery can be read event if camera isn't turned on.
+    ABORT_IF_NOT(
+        gphoto2cpp::read_property(_camera, "batterylevel", _info.battery_level),
+        "reasing batterylevel failed",
         result::failure
     );
+
+    if (not gphoto2cpp::read_property(_camera, "shutterspeed2", _info.shutter))
+    {
+        disconnect();
+        return result::success;
+    }
 
     ABORT_IF_NOT(
-        gphoto2cpp::trigger(_camera),
-        "failed to trigger camera",
+        gphoto2cpp::read_property(_camera, "expprogram", _info.mode),
+        "reading mode failed",
+        result::failure
+    );
+    ABORT_IF_NOT(
+        gphoto2cpp::read_property(_camera, "f-number", _info.fstop),
+        "reading fstop failed",
+        result::failure
+    );
+    ABORT_IF_NOT(
+        gphoto2cpp::read_property(_camera, "iso", _info.iso),
+        "reading iso failed",
+        result::failure
+    );
+    ABORT_IF_NOT(
+        gphoto2cpp::read_property(_camera, "imagequality", _info.quality),
+        "reading quality failed",
+        result::failure
+    );
+    ABORT_IF_NOT(
+        gphoto2cpp::read_property(_camera, "availableshots", _info.num_photos),
+        "reading avialble shots failed",
         result::failure
     );
 
     return result::success;
 }
 
+result
+Camera::write_config()
+{
+    ABORT_IF_NOT(
+        gphoto2cpp::write_property(_camera, "shutterspeed2", _info.shutter),
+        "failed to write 'shutterspeed2': " << _info.shutter,
+        result::failure
+    );
+    ABORT_IF_NOT(
+        gphoto2cpp::write_property(_camera, "f-number", _info.fstop),
+        "failed to write 'f-number': " << _info.fstop,
+        result::failure
+    );
+    ABORT_IF_NOT(
+        gphoto2cpp::write_property(_camera, "iso", _info.iso),
+        "failed to write 'iso': " << _info.iso,
+        result::failure
+    );
+    ABORT_IF_NOT(
+        gphoto2cpp::write_property(_camera, "imagequality", _info.quality),
+        "failed to write 'imagequality': " << _info.quality,
+        result::failure
+    );
+    ABORT_IF_NOT(
+        gphoto2cpp::write_config(_camera),
+        "failed to flush settings",
+        result::failure
+    );
+
+    return result::success;
+}
 
 
 void
 Camera::set_shutter(const std::string & speed)
 {
-    _stale_shutter = _stale_shutter or _info.shutter != speed;
     _info.shutter = speed;
 }
 
@@ -224,7 +148,6 @@ Camera::set_shutter(const std::string & speed)
 void
 Camera::set_fstop(const std::string & fstop)
 {
-    _stale_fstop = _stale_fstop or _info.fstop != fstop;
     _info.fstop = fstop;
 }
 
@@ -232,14 +155,12 @@ Camera::set_fstop(const std::string & fstop)
 void
 Camera::set_iso(const std::string & iso)
 {
-    _stale_iso = _stale_iso or _info.iso != iso;
     _info.iso = iso;
 }
 
 void
 Camera::set_quality(const std::string & quality)
 {
-    _stale_quality = _stale_quality or _info.quality != quality;
     _info.quality = quality;
 }
 
@@ -276,12 +197,7 @@ Camera::handle(const Event & event)
         }
         case Channel::trigger:
         {
-            ABORT_IF_NOT(
-                 gphoto2cpp::trigger(_camera),
-                 "failed to trgger camera",
-                 result::failure
-            );
-            break;
+            return trigger();
         }
     }
 
@@ -289,4 +205,17 @@ Camera::handle(const Event & event)
 }
 
 
+result
+Camera::trigger()
+{
+    ABORT_IF_NOT(
+        gphoto2cpp::trigger(_camera),
+        "failed to trigger camera",
+        result::failure
+    );
+
+    return result::success;
 }
+
+
+} /* namespace */
