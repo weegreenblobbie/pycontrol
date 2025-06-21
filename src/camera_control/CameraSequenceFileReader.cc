@@ -184,7 +184,6 @@ read_file(const std::string & file_path)
     clear();
 
     std::ifstream file(file_path);
-
     ABORT_IF_NOT(file.is_open(), "Could not open file " << file_path, result::failure);
 
     std::string line;
@@ -192,46 +191,51 @@ read_file(const std::string & file_path)
     while (std::getline(file, line))
     {
         line_number++;
+
+        // Strip comments from the line first.
+        size_t comment_pos = line.find('#');
+        if (comment_pos != std::string::npos)
+        {
+            line = line.substr(0, comment_pos);
+        }
+
         if (_is_ignorable_line(line))
         {
             continue;
         }
 
         std::istringstream iss(line);
-        std::string event_id_str, event_time_offset_str, camera_channel_str, channel_value_str;
+        std::string event_id_str;
+        std::string event_time_offset_str;
+        std::string camera_channel_str;
+        std::string channel_value_str;
         milliseconds event_time_offset_ms = 0;
 
         if (not (iss >> event_id_str
                      >> event_time_offset_str
-                     >> camera_channel_str
-                     >> channel_value_str))
+                     >> camera_channel_str))
         {
             ERROR_LOG << file_path << "(" << line_number << "): "
-                      << "Parse Error: Incorrect number or format of columns."
+                      << "Parse Error: Line does not contain the required first 3 columns."
                       << std::endl;
             clear();
             return result::failure;
         }
 
-        std::string end_of_line_content;
+        // The rest of the line is the value.
+        // First, consume the whitespace separating the 3rd and 4th columns.
+//        iss >> std::ws;
 
-        if (iss >> end_of_line_content)
-        {
-            if (_strip(end_of_line_content)[0] != '#')
-            {
-                ERROR_LOG << file_path << "(" << line_number << "): "
-                      << "Parse Error: More than 4 columns detected!"
-                      << std::endl;
-                clear();
-                return result::failure;
-            }
-        }
+        // Then, use std::getline to read the entire remainder of the line into
+        // the value string.
+        std::getline(iss, channel_value_str);
+
+        // Trim any leading and tailing whitespace.
+        channel_value_str = _strip(channel_value_str);
 
         // Parse event_time_offset_str, valid formats:
-        //    signed ints => 1  -10  100
-        //    hour:minute:seconds =>   1:15.2   1:23:43.123    -1:15.5
-
-        // If no ':' present, assume it's just an int.
+        //   signed ints => 1  -10  100
+        //   hour:minute:seconds =>   1:15.2   1:23:43.123   -1:15.5
         if (event_time_offset_str.find(':') == std::string::npos)
         {
             float seconds = 0;

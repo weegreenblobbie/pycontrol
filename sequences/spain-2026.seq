@@ -1,9 +1,11 @@
+C2     -10   z7.quality       JPEG fine
 C2     -10   z7.iso           1000
 C2     -10   z7.shutter_speed 1/1000
 C2     -10   z7.fstop         f/10
 
 C2     -9    z7.trigger     1
 
+C2     -8    z7.quality      NEF (RAW)
 C2     -8   z7.iso           800
 C2     -8   z7.shutter_speed 1/800
 C2     -8   z7.fstop         f/8

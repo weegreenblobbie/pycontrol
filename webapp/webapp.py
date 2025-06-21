@@ -406,7 +406,7 @@ def api_camera_sequence_list():
     Returns a filelist of saved camera sequence files in the raspberry pi.
     """
     filelist = glob.glob("../sequences/*.seq")
-    filelist = [os.path.basename(x) for x in filelist]
+    filelist = sorted([os.path.basename(x) for x in filelist])
     return (
         flask.jsonify(filelist),
         200

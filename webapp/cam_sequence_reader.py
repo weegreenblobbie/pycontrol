@@ -122,7 +122,7 @@ class CameraSequenceReader:
                     channel = lines[idx].split()[-1]
                     idx += 1
 
-                    value = lines[idx].split()[-1]
+                    value = " ".join(lines[idx].split()[1:])
                     idx += 1
 
                     # If the event isn't defined (caused by the event not being

@@ -4,10 +4,9 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Run Sim button should work multiple times when Event Id is an empty string
--- Also fix the integer intput widgest, no silly up/down buttons, allow one to type in
-   and fix the issue if the mouse up event happens outside the diaglog, don't close it.
--- convert all channels and values to lowercase
+- Loading a camera sequence that fails, is not fed back to UI
+
+- Convert all channels and values to lowercase
 
 - Internally convert all event ids to lowercase.
 
@@ -25,7 +24,6 @@ Make it work
 - Add camera connection counter so one can observe if it's constantly reconnecting (see this
   with my own eyes, rebooting the pi fixed it.)
 
-
 - Add and test more camera channels:
     z7.autofocus         manual
     z7.capturetarget     memorycard
@@ -35,11 +33,6 @@ Make it work
 
 
 - (if necessary) Use pvlib to lookup altitude from gps lat, long
-
-- See if I can speed up scan_cameras() & gphoto2cpp.h.
--- remove as many memory allocations as possible.
--- cache choices for setting widget values using a hash map in write_property() to
-   change it from a O(N) operation to O(1)
 
 - Implement and test these workflows:
     - pick event, clear any camera schedule
@@ -93,10 +86,18 @@ MAke it work well for others
 Past Items Completed
 ====================
 
+* Run Sim button should work multiple times when Event Id is an empty string
+** Also fix the integer intput widgest, no silly up/down buttons, allow one to type in
+   and fix the issue if the mouse up event happens outside the diaglog, don't close it.
 
 * Cache read_property widgets.
 
-* Try reusing the widget cache when reconnecting a camera, are widgets tied to
+* See if I can speed up scan_cameras() & gphoto2cpp.h.
+** remove as many memory allocations as possible.
+** cache choices for setting widget values using a hash map in write_property() to
+   change it from a O(N) operation to O(1)
+
+X Try reusing the widget cache when reconnecting a camera, are widgets tied to
   the camera pointer or do they work with any camera pointer?
   If it can't be reused, need to add a update_cache(old_ptr, new_ptr);
 

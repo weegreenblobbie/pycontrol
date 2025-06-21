@@ -118,7 +118,7 @@ TEST_CASE("CameraSequenceFileReader: Ignores Comments and Blank Lines", "[Camera
         event_1 1.0 camA.iso 100      # End of o line comments.
 
             # Another comment
-           event_2 2.0 camB.quality JPEG
+           event_2 2.0 camB.quality JPEG fine
 
         event_3 3.0 camC.fps 29.97  # Also an ignored comment.
 
@@ -134,6 +134,10 @@ TEST_CASE("CameraSequenceFileReader: Ignores Comments and Blank Lines", "[Camera
     REQUIRE(entries[0].event_id == "event_1");
     REQUIRE(entries[1].event_id == "event_2");
     REQUIRE(entries[2].event_id == "event_3");
+
+    REQUIRE(entries[0].channel_value == "100");
+    REQUIRE(entries[1].channel_value == "JPEG fine");
+    REQUIRE(entries[2].channel_value == "29.97");
 
     cleanup_test_file(test_filename);
 }
