@@ -183,7 +183,8 @@ td pre {
     background-color: #45a049;
 }
 
-#file_list {
+/* --- UPDATED: Style for File Selection Lists in Modals --- */
+.file-list-modal {
     list-style-type: none;
     padding: 0;
     margin-top: 15px;
@@ -194,18 +195,18 @@ td pre {
     background-color: #fff;
 }
 
-#file_list li {
+.file-list-modal li {
     padding: 10px;
     cursor: pointer;
     border-bottom: 1px solid #eee;
     transition: background-color 0.2s ease;
 }
 
-#file_list li:last-child {
+.file-list-modal li:last-child {
     border-bottom: none;
 }
 
-#file_list li:hover {
+.file-list-modal li:hover {
     background-color: #f0f0f0;
 }
 

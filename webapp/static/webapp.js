@@ -63,9 +63,8 @@ const calculating_modal = document.getElementById('calculating_modal');
 const load_camera_sequence_button = document.getElementById('load_camera_sequence_button');
 const camera_sequence_modal = document.getElementById('camera_sequence_modal');
 const camera_sequence_modal_close_button = document.getElementById('camera_sequence_modal_close_button');
-const camera_sequence_file_select = document.getElementById('camera_sequence_file_select');
-const confirm_camera_sequence_button = document.getElementById('confirm_camera_sequence_button');
-const cancel_camera_sequence_button = document.getElementById('cancel_camera_sequence_button');
+// *** THIS LINE WAS MISSING AND HAS BEEN ADDED ***
+const camera_sequence_file_list = document.getElementById('camera_sequence_file_list');
 const camera_control_state_value = document.getElementById('camera_control_state_value');
 const control_tables_container = document.getElementById('control_tables_container');
 
@@ -187,71 +186,21 @@ function update_cameras_ui(data)
 	for (let camera_info of data.detected)
 	{
 		const row = document.createElement('tr');
-		const cell_connected = document.createElement('td');
-		const cell_serial = document.createElement('td');
-		const cell_desc = document.createElement('td');
-		const cell_battery = document.createElement('td');
-		const cell_port = document.createElement('td');
-		const cell_available_shots = document.createElement('td');
-		const cell_quality = document.createElement('td');
-		const cell_mode = document.createElement('td');
-		const cell_iso = document.createElement('td');
-		const cell_fstop = document.createElement('td');
-		const cell_shutter = document.createElement('td');
-
-		cell_serial.textContent = camera_info.serial || "N/A";
-		cell_desc.textContent = camera_info.desc || "N/A";
-		cell_battery.textContent = "N/A";
-		cell_port.textContent = "N/A";
-		cell_available_shots.textContent = "N/A";
-		cell_quality.textContent = "N/A";
-		cell_mode.textContent = "N/A";
-		cell_iso.textContent = "N/A";
-		cell_fstop.textContent = "N/A";
-		cell_shutter.textContent = "N/A";
-
-		cell_desc.classList.add('editable_td');
-		cell_desc.addEventListener('click', handle_editable_td_click);
-		cell_desc.dataset.serial = camera_info.serial;
-
-		const svg_connected = document.createElement('img');
-		svg_connected.width = "70";
-		svg_connected.height = "50";
-
-		if (camera_info.connected == "0" || !camera_info.connected)
-		{
-			svg_connected.src = "/static/cam-disconnected.svg";
-			svg_connected.alt = "Camera Disconnected";
-		}
-		else
-		{
-			svg_connected.src = "/static/cam-connected.svg";
-			svg_connected.alt = "Camera Connected";
-			cell_battery.textContent = camera_info.batt || "N/A";
-			cell_port.textContent = camera_info.port || "N/A";
-			cell_available_shots.textContent = camera_info.num_photos || "N/A";
-			cell_quality.textContent = camera_info.quality || "N/A";
-			cell_mode.textContent = camera_info.mode || "N/A";
-			cell_iso.textContent = camera_info.iso || "N/A";
-			cell_fstop.textContent = camera_info.fstop || "N/A";
-			cell_shutter.textContent = camera_info.shutter || "N/A";
-		}
-
-		cell_connected.appendChild(svg_connected);
-		row.appendChild(cell_connected);
-		row.appendChild(cell_serial);
-		row.appendChild(cell_desc);
-		row.appendChild(cell_battery);
-		row.appendChild(cell_port);
-		row.appendChild(cell_available_shots);
-		row.appendChild(cell_quality);
-		row.appendChild(cell_mode);
-		row.appendChild(cell_iso);
-		row.appendChild(cell_fstop);
-		row.appendChild(cell_shutter);
+        row.innerHTML = `
+            <td><img src="${(camera_info.connected == "0" || !camera_info.connected) ? '/static/cam-disconnected.svg' : '/static/cam-connected.svg'}" width="70" height="50" alt="Camera connection status"></td>
+            <td>${camera_info.serial || "N/A"}</td>
+            <td class="editable_td" data-serial="${camera_info.serial}">${camera_info.desc || "N/A"}</td>
+            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.batt || "N/A") : "N/A"}</td>
+            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.port || "N/A") : "N/A"}</td>
+            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.num_photos || "N/A") : "N/A"}</td>
+            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.quality || "N/A") : "N/A"}</td>
+            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.mode || "N/A") : "N/A"}</td>
+            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.iso || "N/A") : "N/A"}</td>
+            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.fstop || "N/A") : "N/A"}</td>
+            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.shutter || "N/A") : "N/A"}</td>
+        `;
 		cameras_table_body.appendChild(row);
 	}
-    // Re-attach event listeners after rebuilding the table content
     document.querySelectorAll('.editable_td').forEach(cell => {
         cell.addEventListener('click', handle_editable_td_click);
     });
@@ -292,7 +241,7 @@ function create_control_table_for_camera(camera_data)
 	const head = table.createTHead();
 	const header_row = head.insertRow();
 
-        const first_header = document.createElement('th');
+	const first_header = document.createElement('th');
 	first_header.textContent = `${camera_data.name} (# of ${camera_data.num_events || 'N/A'})`;
 	header_row.appendChild(first_header);
 
@@ -519,7 +468,7 @@ async function fetch_files_for_modal()
 			{
 				event_selection_modal.style.display = 'none';
 				const success = await populate_static_event_details(file_name);
-                                load_event_file_button.classList.toggle('loaded', success);
+                load_event_file_button.classList.toggle('loaded', success);
 			});
 			file_list_element.appendChild(list_item);
 		});
@@ -554,10 +503,9 @@ async function handle_run_sim_button_click()
 		calculating_modal.style.display = 'flex';
 		try
 		{
-			const result = await fetch_data('/api/run_sim/stop');
+			await fetch_data('/api/run_sim/stop');
 			is_sim_running = false;
 			update_run_sim_button_state();
-			console.log('Simulation stop signal sent. Backend response:', result);
 		}
 		catch (error)
 		{
@@ -594,9 +542,8 @@ async function handle_sim_okay_click()
     const lon_str = sim_longitude_input.value.trim();
     const alt_str = sim_altitude_input.value.trim();
     const offset_str = sim_time_offset_input.value.trim();
-    const event_id = sim_event_id_input.value.trim(); // Can be blank now
+    const event_id = sim_event_id_input.value.trim();
 
-    // 1. GPS coordinates are still required.
     if (!lat_str || !lon_str || !alt_str) {
         alert("Please provide values for GPS Latitude, Longitude, and Altitude.");
         return;
@@ -611,8 +558,6 @@ async function handle_sim_okay_click()
         return;
     }
 
-    // 2. The offset is optional. If provided, it must be a valid number.
-    //    If blank, we'll send an empty string.
     let event_time_offset = "";
     if (offset_str !== '') {
         event_time_offset = parseFloat(offset_str);
@@ -622,13 +567,12 @@ async function handle_sim_okay_click()
         }
     }
 
-    // 3. Construct the final parameters to be sent.
     const params = {
         gps_latitude,
         gps_longitude,
         gps_altitude,
-        event_id, // Can be blank
-        event_time_offset // Can be blank
+        event_id,
+        event_time_offset
     };
 
 	run_sim_modal.style.display = 'none';
@@ -637,10 +581,9 @@ async function handle_sim_okay_click()
 	try
 	{
 		const query_params = new URLSearchParams(params).toString();
-		const result = await fetch_data(`/api/run_sim?${query_params}`);
+		await fetch_data(`/api/run_sim?${query_params}`);
 		is_sim_running = true;
 		update_run_sim_button_state();
-		console.log('Simulation start signal sent with params. Backend response:', params, result);
 	}
 	catch (error)
 	{
@@ -677,25 +620,41 @@ function hide_camera_sequence_modal()
 	camera_sequence_modal.style.display = 'none';
 }
 
+// =========================================================================
+// === THIS FUNCTION IS UPDATED TO POPULATE A CLICKABLE LIST             ===
+// =========================================================================
 function populate_camera_sequence_modal(files_array)
 {
-	camera_sequence_file_select.innerHTML = '';
+	camera_sequence_file_list.innerHTML = '';
 	if (files_array && files_array.length > 0)
 	{
 		files_array.forEach(file_name =>
 		{
-			const option = document.createElement('option');
-			option.value = file_name;
-			option.textContent = file_name;
-			camera_sequence_file_select.appendChild(option);
+			const li = document.createElement('li');
+			li.textContent = file_name;
+			li.addEventListener('click', async () => {
+                const selected_file_name = file_name;
+                hide_camera_sequence_modal();
+                calculating_modal.style.display = 'flex';
+                try {
+                    await fetch_data('/api/camera_sequence_load', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ filename: selected_file_name })
+                    });
+                    load_camera_sequence_button.classList.add('loaded');
+                } catch (error) {
+                    load_camera_sequence_button.classList.remove('loaded');
+                } finally {
+                    calculating_modal.style.display = 'none';
+                }
+            });
+			camera_sequence_file_list.appendChild(li);
 		});
 	}
 	else
 	{
-		const option = document.createElement('option');
-		option.value = "";
-		option.textContent = "No sequence files found.";
-		camera_sequence_file_select.appendChild(option);
+		camera_sequence_file_list.innerHTML = '<li>No sequence files found.</li>';
 	}
 }
 
@@ -703,7 +662,7 @@ async function handle_load_camera_sequence_click()
 {
 	try
 	{
-		camera_sequence_file_select.innerHTML = '<option value="">Loading...</option>';
+		camera_sequence_file_list.innerHTML = '<li>Loading...</li>';
 		show_camera_sequence_modal();
 		const file_list = await fetch_data('/api/camera_sequence_list');
 		populate_camera_sequence_modal(file_list);
@@ -713,50 +672,6 @@ async function handle_load_camera_sequence_click()
 		console.error('Error fetching camera sequence list:', error);
 		populate_camera_sequence_modal([]);
 	}
-}
-
-function handle_camera_sequence_modal_close_click()
-{
-	hide_camera_sequence_modal();
-}
-
-async function handle_confirm_camera_sequence_click()
-{
-	const selected_file_name = camera_sequence_file_select.value;
-
-	if (!selected_file_name)
-	{
-		alert('Please select a camera sequence file.');
-		return;
-	}
-
-	calculating_modal.style.display = 'flex';
-	hide_camera_sequence_modal();
-
-	try
-	{
-		await fetch_data('/api/camera_sequence_load', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: selected_file_name })
-        });
-		console.log(`Camera sequence file "${selected_file_name}" loaded successfully.`);
-		load_camera_sequence_button.classList.add('loaded');
-	}
-	catch (error)
-	{
-		console.error(`Error loading camera sequence file "${selected_file_name}":`, error);
-		load_camera_sequence_button.classList.remove('loaded');
-	}
-	finally
-	{
-		calculating_modal.style.display = 'none';
-	}
-}
-
-function handle_cancel_camera_sequence_click()
-{
-	hide_camera_sequence_modal();
 }
 
 // --- Main Dashboard Update Loop ---
@@ -793,98 +708,62 @@ async function update_dashboard()
 // --- DOM Ready - Initial Setup ---
 document.addEventListener('DOMContentLoaded', function()
 {
-	const rename_modal_close_button = rename_modal.querySelector('.close_button');
-	const event_modal_close_button = event_selection_modal.querySelector('.close_button');
+	// All getElementById calls are now at the top of the file
 
-	if (rename_modal_close_button)
-	{
-		rename_modal_close_button.addEventListener('click', handle_rename_modal_close_button_click);
-	}
-	if (cancel_rename_button)
-	{
-		cancel_rename_button.addEventListener('click', handle_cancel_rename_click);
-	}
-	if (save_rename_button)
-	{
-		save_rename_button.addEventListener('click', handle_save_rename_click);
-	}
-	if (rename_input)
-	{
-		rename_input.addEventListener('keypress', handle_rename_input_keypress);
-	}
+	// Rename Modal Listeners
+	if (rename_modal) {
+        rename_modal.querySelector('.close_button').addEventListener('click', handle_rename_modal_close_button_click);
+        cancel_rename_button.addEventListener('click', handle_cancel_rename_click);
+        save_rename_button.addEventListener('click', handle_save_rename_click);
+        rename_input.addEventListener('keypress', handle_rename_input_keypress);
+    }
 
-	if (load_event_file_button)
-	{
-		load_event_file_button.addEventListener('click', () =>
-		{
+    // Event File Modal Listeners
+	if (load_event_file_button) {
+		load_event_file_button.addEventListener('click', () => {
 			fetch_files_for_modal();
 			event_selection_modal.style.display = 'flex';
 		});
 	}
 
-	if (event_modal_close_button)
-	{
-		event_modal_close_button.addEventListener('click', () =>
-		{
-			event_selection_modal.style.display = 'none';
-		});
-	}
+    // Run Sim Modal Listeners
+	if (run_sim_button) run_sim_button.addEventListener('click', handle_run_sim_button_click);
+	if (sim_okay_button) sim_okay_button.addEventListener('click', handle_sim_okay_click);
+	if (sim_cancel_button) sim_cancel_button.addEventListener('click', handle_sim_cancel_click);
+    [sim_latitude_input, sim_longitude_input, sim_altitude_input, sim_event_id_input, sim_time_offset_input].forEach(input => {
+        if(input) input.addEventListener('keypress', handle_sim_input_keypress);
+    });
 
-	if (run_sim_button)
-	{
-		run_sim_button.addEventListener('click', handle_run_sim_button_click);
-	}
-	if (run_sim_modal_close_button)
-	{
-		run_sim_modal_close_button.addEventListener('click', handle_sim_cancel_click);
-	}
-	if (sim_okay_button)
-	{
-		sim_okay_button.addEventListener('click', handle_sim_okay_click);
-	}
-	if (sim_cancel_button)
-	{
-		sim_cancel_button.addEventListener('click', handle_sim_cancel_click);
-	}
-
-	if (sim_latitude_input) sim_latitude_input.addEventListener('keypress', handle_sim_input_keypress);
-	if (sim_longitude_input) sim_longitude_input.addEventListener('keypress', handle_sim_input_keypress);
-	if (sim_altitude_input) sim_altitude_input.addEventListener('keypress', handle_sim_input_keypress);
-	if (sim_event_id_input) sim_event_id_input.addEventListener('keypress', handle_sim_input_keypress);
-	if (sim_time_offset_input) sim_time_offset_input.addEventListener('keypress', handle_sim_input_keypress);
-
+    // Camera Sequence Modal Listeners
 	if (load_camera_sequence_button)
 	{
 		load_camera_sequence_button.addEventListener('click', handle_load_camera_sequence_click);
 	}
-	if (camera_sequence_modal_close_button)
-	{
-		camera_sequence_modal_close_button.addEventListener('click', handle_camera_sequence_modal_close_click);
-	}
-	if (confirm_camera_sequence_button)
-	{
-		confirm_camera_sequence_button.addEventListener('click', handle_confirm_camera_sequence_click);
-	}
-	if (cancel_camera_sequence_button)
-	{
-		cancel_camera_sequence_button.addEventListener('click', handle_cancel_camera_sequence_click);
-	}
 
-        const all_modals = document.querySelectorAll('.modal');
-        all_modals.forEach(modal => {
-            let is_mouse_down_on_background = false;
-            modal.addEventListener('mousedown', (event) => {
-                if (event.target === modal) {
-                    is_mouse_down_on_background = true;
-                }
+    // Robust modal closing logic for all modals
+    const all_modals = document.querySelectorAll('.modal');
+    all_modals.forEach(modal => {
+        let is_mouse_down_on_background = false;
+
+        const close_button = modal.querySelector('.close_button');
+        if (close_button) {
+            close_button.addEventListener('click', () => {
+                modal.style.display = 'none';
             });
-            modal.addEventListener('mouseup', (event) => {
-                if (is_mouse_down_on_background && event.target === modal) {
-                    modal.style.display = 'none';
-                }
-                is_mouse_down_on_background = false;
-            });
+        }
+
+        modal.addEventListener('mousedown', (event) => {
+            if (event.target === modal) {
+                is_mouse_down_on_background = true;
+            }
         });
+        modal.addEventListener('mouseup', (event) => {
+            if (is_mouse_down_on_background && event.target === modal) {
+                modal.style.display = 'none';
+            }
+            is_mouse_down_on_background = false;
+        });
+    });
 
 	update_run_sim_button_state();
 
