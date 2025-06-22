@@ -241,7 +241,10 @@ class EventSolver:
             if timestamp is not None:
                 solution[key] += params["sim_time_offset"]
 
-        return solution
+        out = dict()
+        for key, value in solution.items():
+            out[key.lower()] = value
+        return out
 
 
     def _solve_custom(self, params):

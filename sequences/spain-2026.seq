@@ -1,57 +1,43 @@
-C2     -10   z7.quality       JPEG Fine
-C2     -10   z7.iso           1000
-C2     -10   z7.shutter_speed 1/1000
-C2     -10   z7.fstop         f/10
+c2     -11   z7.quality       tiff
 
-C2     -9    z7.trigger       1
+c2     -10   z7.quality       jpeg fine
+c2     -10   z7.iso           1000
+c2     -10   z7.shutter_speed 1/1000
+c2     -10   z7.fstop         f/10
 
-C2     -8    z7.quality       NEF (Raw)
-C2     -8    z7.iso           800
-C2     -8    z7.shutter_speed 1/800
-C2     -8    z7.fstop         f/8
+c2     -9    z7.trigger       1
 
-C2     -7    z7.trigger       1
+c2     -8    z7.quality       NEF (Raw)
+c2     -8    z7.iso           800
+c2     -8    z7.shutter_speed 1/800
+c2     -8    z7.fstop         f/8
 
-C2     -6    z7.quality       JPEG Fine
-C2     -6    z7.iso           400
-C2     -6    z7.shutter_speed 1/400
-C2     -6    z7.fstop         f/4
+c2     -7    z7.trigger       1
 
-C2     -5    z7.trigger       1
+c2     -6    z7.quality       JPEG fine
+c2     -6    z7.iso           400
+c2     -6    z7.shutter_speed 1/400
+c2     -6    z7.fstop         f/4
 
-C2     -4    z7.quality       NEF (Raw)
-C2     -4    z7.iso           1000
-C2     -4    z7.shutter_speed 1/1000
-C2     -4    z7.fstop         f/10
+c2     -5    z7.trigger       1
 
-C2     -3    z7.trigger       1
+c2     -4    z7.quality       NEF (Raw)
+c2     -4    z7.iso           1000
+c2     -4    z7.shutter_speed 1/1000
+c2     -4    z7.fstop         f/10
 
-C2     -2    z7.quality       JPEG Fine
-C2     -2    z7.iso           800
-C2     -2    z7.shutter_speed 1/800
-C2     -2    z7.fstop         f/8
+c2     -3    z7.trigger       1
 
-C2     -1    z7.trigger       1
+c2     -2    z7.quality       JPEG Fine
+c2     -2    z7.iso           800
+c2     -2    z7.shutter_speed 1/800
+c2     -2    z7.fstop         f/8
 
-C2      0    z7.quality       NEF (Raw)
-C2      0    z7.iso           400
-C2      0    z7.shutter_speed 1/400
-C2      0    z7.fstop         f/4
+c2     -1    z7.trigger       1
 
-C2      1    z7.trigger       1
+c2      0    z7.quality       NEF (Raw)
+c2      0    z7.iso           400
+c2      0    z7.shutter_speed 1/400
+c2      0    z7.fstop         f/4
 
-
-#~    JPEG Basic
-#~    JPEG Basic*
-#~    JPEG Normal
-#~    JPEG Normal*
-#~    JPEG Fine
-#~    JPEG Fine*
-#~    TIFF
-#~    NEF (Raw)
-#~    NEF+Basic
-#~    NEF+Basic*
-#~    NEF+Normal
-#~    NEF+Normal*
-#~    NEF+Fine
-#~    NEF+Fine*
+c2      1    z7.trigger       1

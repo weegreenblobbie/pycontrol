@@ -4,16 +4,18 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
+- sequence load should be same dialog as event load
+
+- When control state != executig, allow manual manipulation of the camera settings
+-- easy to view what choices a field has
+-- add capture button to manually take a photo with current settings
+
 - Loading a camera sequence that fails, is not fed back to UI
-
-- Convert all channels and values to lowercase
-
-- Internally convert all event ids to lowercase.
 
 - When I load a camera sequence, i expected the sequence table to get populated in about 1
   second.  Currently takes a bunch of time.
 
-- Display the top 10 camera sequuence events.
+- Display the top 10 camera sequence events.
 
 - Persist the event and camera selection in a config file, so reloading the app
   auto loads the last selected event and sequence file.
@@ -29,10 +31,6 @@ Make it work
     z7.capturetarget     memorycard
     z7.date              now
     z7.mode              manual
-    z7.quality           raw
-
-
-- (if necessary) Use pvlib to lookup altitude from gps lat, long
 
 - Implement and test these workflows:
     - pick event, clear any camera schedule
@@ -52,6 +50,10 @@ Make it work
     - override time or event
 
 - Auto start app on rpi boot
+
+- Connect phone to WPA2 secure, ad-hoc, wireless network provided by the pi
+
+- Upload event and sequnce files using the webapp.
 
 
 Make it work well
@@ -85,6 +87,10 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Convert all channels and values to lowercase
+* Internally map lowecase choice maps to camera case.
+* Internally convert all event ids to lowercase.
 
 * Run Sim button should work multiple times when Event Id is an empty string
 ** Also fix the integer intput widgest, no silly up/down buttons, allow one to type in

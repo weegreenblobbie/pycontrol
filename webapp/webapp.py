@@ -301,7 +301,7 @@ def api_run_sim():
     gps_latitude = flask.request.args.get('gps_latitude', type=float)
     gps_longitude = flask.request.args.get('gps_longitude', type=float)
     gps_altitude = flask.request.args.get('gps_altitude', type=float)
-    event_id = flask.request.args.get('event_id', default="", type=str)
+    event_id = flask.request.args.get('event_id', default="", type=str).lower()
     event_time_offset = flask.request.args.get('event_time_offset', default=None, type=float)
 
     if any(p is None for p in [gps_latitude, gps_longitude, gps_altitude]):

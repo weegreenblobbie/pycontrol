@@ -129,7 +129,7 @@ class CameraInfoReader:
                         tokens = lines[idx].split()
                         idx += 1
                         key = tokens[0]
-                        value = " ".join(tokens[1:])
+                        value = " ".join(tokens[1:]).upper()
                         if value != "__ERROR__":
                             cam[key] = value
 

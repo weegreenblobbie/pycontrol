@@ -1,9 +1,10 @@
-#include <fstream>
-#include <sstream>
-#include <iostream>
 #include <algorithm>
+#include <cctype>
+#include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <iterator>
+#include <sstream>
 
 #include <common/io.h>
 #include <common/str_utils.h>
@@ -212,8 +213,8 @@ read_file(const std::string & file_path)
         milliseconds event_time_offset_ms = 0;
 
         if (not (iss >> event_id_str
-                     >> event_time_offset_str
-                     >> camera_channel_str))
+                      >> event_time_offset_str
+                      >> camera_channel_str))
         {
             ERROR_LOG << file_path << "(" << line_number << "): "
                       << "Parse Error: Line does not contain the required first 3 columns."
@@ -222,9 +223,10 @@ read_file(const std::string & file_path)
             return result::failure;
         }
 
-        // The rest of the line is the value.
-        // First, consume the whitespace separating the 3rd and 4th columns.
-//        iss >> std::ws;
+        // --- NEW: Convert the first 3 strings to lowercase ---
+        std::transform(event_id_str.begin(), event_id_str.end(), event_id_str.begin(), ::tolower);
+        std::transform(event_time_offset_str.begin(), event_time_offset_str.end(), event_time_offset_str.begin(), ::tolower);
+        std::transform(camera_channel_str.begin(), camera_channel_str.end(), camera_channel_str.begin(), ::tolower);
 
         // Then, use std::getline to read the entire remainder of the line into
         // the value string.
@@ -233,9 +235,12 @@ read_file(const std::string & file_path)
         // Trim any leading and tailing whitespace.
         channel_value_str = _strip(channel_value_str);
 
-        // Parse event_time_offset_str, valid formats:
-        //   signed ints => 1  -10  100
-        //   hour:minute:seconds =>   1:15.2   1:23:43.123   -1:15.5
+        // --- NEW: Convert the final value string to lowercase ---
+        std::transform(channel_value_str.begin(), channel_value_str.end(), channel_value_str.begin(), ::tolower);
+
+
+        // Parse event_time_offset_str...
+        // (The rest of your function remains exactly the same)
         if (event_time_offset_str.find(':') == std::string::npos)
         {
             float seconds = 0;
@@ -265,10 +270,7 @@ read_file(const std::string & file_path)
             }
         }
 
-        // Parse channel.
-        //
-        // camera_id '.' channel_name
-        //
+        // Parse channel...
         size_t dot_pos = camera_channel_str.find('.');
         if (dot_pos == std::string::npos ||
             dot_pos == 0 ||

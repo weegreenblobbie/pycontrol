@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -10,7 +11,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include <ctime> // For syncing the camera time to system time.
+#include <ctime>
+#include <cctype>
 
 #include <gphoto2/gphoto2-port-log.h>
 
@@ -107,6 +109,38 @@ namespace gphoto2cpp
 {
 
 /*
+ * Case insensitive map.  This is used so users of this library don't have to
+ * get a property case string exactly correct.  Instead, use this map to look up
+ * the proper case that the camera uses.
+ */
+class CaseInsensitiveMap
+{
+public:
+    // Type alias for the map's iterator for convenience.
+    using iterator = std::unordered_map<std::string, std::string>::iterator;
+    using const_iterator = std::unordered_map<std::string, std::string>::const_iterator;
+    void insert(const std::string& value)
+    {
+        std::string key = value;
+        std::transform(key.begin(), key.end(), key.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+        _map[key] = value;
+    }
+    iterator find(const std::string& key) { return _map.find(key); }
+    iterator begin() { return _map.begin(); }
+    iterator end() { return _map.end(); }
+
+    const_iterator find(const std::string& key) const { return _map.find(key); }
+    const_iterator begin() const { return _map.begin(); }
+    const_iterator end() const { return _map.end(); }
+
+    bool empty() const { return _map.empty(); }
+
+private:
+    std::unordered_map<std::string, std::string> _map;
+};
+
+/*
  * Camera widget caches
  */
 using child_widget_ptr = GP2::CameraWidget *;
@@ -119,7 +153,7 @@ root_widget_ptr make_root_widget(GP2::CameraWidget * ptr);
 using camera_to_root     = std::map<camera_ptr, root_widget_ptr>;
 using property_map       = std::unordered_map<std::string, child_widget_ptr>;
 using camera_to_property = std::map<camera_ptr, property_map>;
-using choice_set         = std::unordered_set<std::string>;
+using choice_set         = CaseInsensitiveMap;
 using choice_map         = std::unordered_map<std::string, choice_set>;
 using camera_to_choice   = std::map<camera_ptr, choice_map>;
 
@@ -489,7 +523,7 @@ read_property(
 
 
 inline
-const std::unordered_set<std::string> &
+const CaseInsensitiveMap &
 _read_choices(const camera_ptr & camera, const std::string & property)
 {
     auto & cam_to_choices = _get_camera_to_choice();
@@ -562,7 +596,7 @@ _read_choices(const camera_ptr & camera, const std::string & property)
                     {
                         continue;
                     }
-                    ch_set.emplace(choice);
+                    ch_set.insert(std::string(choice));
                 }
                 break;
             }
@@ -600,7 +634,7 @@ read_choices(const camera_ptr & camera, const std::string & property)
     {
         for (const auto & choice : itor2->second)
         {
-            out.insert(choice);
+            out.insert(choice.first);
         }
     }
 
@@ -816,9 +850,9 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
         case GP2::GP_WIDGET_MENU: // Fall through.
         case GP2::GP_WIDGET_RADIO:
         {
-            const auto & unordered_choices = _read_choices(camera, property);
-            const auto & itor = unordered_choices.find(value);
-            if (itor == unordered_choices.end())
+            const auto & map = _read_choices(camera, property);
+            const auto & itor = map.find(value);
+            if (itor == map.end())
             {
                 GPHOTO2CPP_ERROR_LOG
                     << property << " value '" << value << "' is invalid. "
@@ -832,7 +866,7 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
             }
 
             GPHOTO2CPP_SAFE_CALL(
-                GP2::gp_widget_set_value(child, value.c_str()),
+                GP2::gp_widget_set_value(child, itor->second.c_str()),
                 false
             );
 
