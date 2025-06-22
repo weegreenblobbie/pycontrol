@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <ctime> // For syncing the camera time to system time.
@@ -42,12 +43,16 @@ namespace gphoto2cpp
     port_info_list_ptr       make_port_info_list();
     camera_ptr               open_camera(const std::string & port);
 
-    bool                     read_config(camera_ptr & camera);
+    bool                     read_config(const camera_ptr & camera);
     bool                     read_property(
-                                 camera_ptr & camera,
+                                 const camera_ptr & camera,
                                  const std::string & property,
                                  std::string & output
                              );
+
+    std::set<std::string>    read_choices(
+                                 const camera_ptr & camera,
+                                 const std::string & property);
 
     bool                     write_property(
                                  camera_ptr & camera,
@@ -57,9 +62,9 @@ namespace gphoto2cpp
 
     bool                     write_config(camera_ptr & camera);
 
-    void                     reset_cache(camera_ptr & camera);
+    void                     reset_cache(const camera_ptr & camera);
 
-    bool                     trigger(camera_ptr & camera);
+    bool                     trigger(const camera_ptr & camera);
 
     bool                     set_log_level(LogLevel_t lvl);
 }
@@ -114,10 +119,13 @@ root_widget_ptr make_root_widget(GP2::CameraWidget * ptr);
 using camera_to_root     = std::map<camera_ptr, root_widget_ptr>;
 using property_map       = std::unordered_map<std::string, child_widget_ptr>;
 using camera_to_property = std::map<camera_ptr, property_map>;
+using choice_set         = std::unordered_set<std::string>;
+using choice_map         = std::unordered_map<std::string, choice_set>;
+using camera_to_choice   = std::map<camera_ptr, choice_map>;
 
 inline
 camera_to_root &
-get_camera_to_root()
+_get_camera_to_root()
 {
     static auto _camera_to_root = camera_to_root();
     return _camera_to_root;
@@ -125,10 +133,18 @@ get_camera_to_root()
 
 inline
 camera_to_property &
-get_camera_to_property()
+_get_camera_to_property()
 {
     static auto _camera_to_property = camera_to_property();
     return _camera_to_property;
+}
+
+inline
+camera_to_choice &
+_get_camera_to_choice()
+{
+    static auto _camera_to_choice = camera_to_choice();
+    return _camera_to_choice;
 }
 
 
@@ -136,19 +152,27 @@ inline
 void
 reset_cache(camera_ptr & camera)
 {
-    auto & cam_to_root = get_camera_to_root();
-    auto itor1 = cam_to_root.find(camera);
+    auto & cam_to_root = _get_camera_to_root();
+    const auto itor1 = cam_to_root.find(camera);
     if (itor1 != cam_to_root.end())
     {
         // Cache hit!  Must free the root widgit and clear the property map.
         cam_to_root.erase(itor1);
 
         // Discard the property cache.
-        auto & cam_to_prop = get_camera_to_property();
+        auto & cam_to_prop = _get_camera_to_property();
         auto itor2 = cam_to_prop.find(camera);
         if (itor2 != cam_to_prop.end())
         {
             cam_to_prop.erase(itor2);
+        }
+
+        // Discard the choice cache.
+        auto & cam_to_choice = _get_camera_to_choice();
+        auto itor3 = cam_to_choice.find(camera);
+        if (itor3 != cam_to_choice.end())
+        {
+            cam_to_choice.erase(itor3);
         }
     }
 }
@@ -351,7 +375,7 @@ read_config(camera_ptr & camera)
     );
 
     // Wrap in std::shared_ptr and store in the cache.
-    get_camera_to_root()[camera] = make_root_widget(raw_root);
+    _get_camera_to_root()[camera] = make_root_widget(raw_root);
 
     return true;
 }
@@ -360,11 +384,11 @@ read_config(camera_ptr & camera)
 inline
 bool
 read_property(
-    camera_ptr & camera,
+    const camera_ptr & camera,
     const std::string & property,
     std::string & output)
 {
-    auto & cam_to_root = get_camera_to_root();
+    auto & cam_to_root = _get_camera_to_root();
     auto itor1 = cam_to_root.find(camera);
     if (itor1 == cam_to_root.end())
     {
@@ -372,7 +396,7 @@ read_property(
         return false;
     }
     auto & root = itor1->second;
-    auto & cam_to_prop = get_camera_to_property()[camera];
+    auto & cam_to_prop = _get_camera_to_property()[camera];
     auto itor2 = cam_to_prop.find(property);
     if (itor2 == cam_to_prop.end())
     {
@@ -465,10 +489,130 @@ read_property(
 
 
 inline
+const std::unordered_set<std::string> &
+_read_choices(const camera_ptr & camera, const std::string & property)
+{
+    auto & cam_to_choices = _get_camera_to_choice();
+    auto itor1 = cam_to_choices.find(camera);
+    // Cache miss.
+    if (itor1 == cam_to_choices.end())
+    {
+        cam_to_choices[camera] = choice_map();
+        itor1 = cam_to_choices.find(camera);
+    }
+
+    auto & ch_map = itor1->second;
+    auto itor2 = ch_map.find(property);
+    // Cache miss.
+    if (itor2 == ch_map.end())
+    {
+        ch_map[property] = choice_set();
+        itor2 = ch_map.find(property);
+    }
+
+    auto & ch_set = itor2->second;
+
+    // Cache miss.
+    if (ch_set.empty())
+    {
+        // Call read_property() so the child widget pointer is fetched if it was
+        // missing in the cache.
+        std::string temp;
+        if (not read_property(camera, property, temp))
+        {
+            GPHOTO2CPP_ERROR_LOG
+                << "Failed to read_property(\"" << property << "\")"
+                << std::endl;
+            return ch_set;
+        }
+
+        auto & prop_to_child = _get_camera_to_property()[camera];
+        auto & child = prop_to_child[property];
+
+        // Grab the widget type and read the choices if it's a Window or Radio
+        // widget.
+        GP2::CameraWidgetType widget_type;
+        if (GP2::OK !=  gp_widget_get_type(child, &widget_type))
+        {
+            GPHOTO2CPP_ERROR_LOG
+                << "gp_widget_get_type(\"" << property << "\") failed"
+                << std::endl;
+            return ch_set;
+        }
+
+        switch(widget_type)
+        {
+            case GP2::GP_WIDGET_MENU: // Fall through.
+            case GP2::GP_WIDGET_RADIO:
+            {
+                const int num_choices = GP2::gp_widget_count_choices(child);
+                if (num_choices < GP2::OK)
+                {
+                    GPHOTO2CPP_ERROR_LOG << "gp_widget_count_choices() returned "
+                                         << num_choices
+                                         << std::endl;
+                    break;
+                }
+
+                for (int idx = 0; idx < num_choices; ++idx)
+                {
+                    const char * choice;
+                    auto ret = GP2::gp_widget_get_choice(child, idx, &choice);
+                    if (ret < GP2::OK)
+                    {
+                        continue;
+                    }
+                    ch_set.emplace(choice);
+                }
+                break;
+            }
+            default:
+            {
+                GPHOTO2CPP_ERROR_LOG
+                    << "Property \"" << property << "\" is not a Menu or Radio "
+                    << "widget, no choices to read."
+                    << std::endl;
+                break;
+            }
+        }
+    }
+
+    return ch_set;
+}
+
+
+inline
+std::set<std::string>
+read_choices(const camera_ptr & camera, const std::string & property)
+{
+    auto & cam_to_choices = _get_camera_to_choice();
+    auto itor = cam_to_choices.find(camera);
+    if (itor == cam_to_choices.end())
+    {
+        _read_choices(camera, property);
+        itor = cam_to_choices.find(camera);
+    }
+    const auto & ch_map = itor->second;
+
+    auto out = std::set<std::string>();
+    auto itor2 = ch_map.find(property);
+    if (itor2 != ch_map.end())
+    {
+        for (const auto & choice : itor2->second)
+        {
+            out.insert(choice);
+        }
+    }
+
+    return out;
+}
+
+
+inline
 bool
 write_property(camera_ptr & camera, const std::string & property, const std::string & value)
 {
-    auto & cam_to_root = get_camera_to_root();
+    auto & cam_to_root = _get_camera_to_root();
     auto itor1 = cam_to_root.find(camera);
     if (itor1 == cam_to_root.end())
     {
@@ -477,7 +621,7 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
     }
 
     auto & root = itor1->second;
-    auto & cam_to_prop = get_camera_to_property()[camera];
+    auto & cam_to_prop = _get_camera_to_property()[camera];
     auto itor2 = cam_to_prop.find(property);
     if (itor2 == cam_to_prop.end())
     {
@@ -672,36 +816,25 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
         case GP2::GP_WIDGET_MENU: // Fall through.
         case GP2::GP_WIDGET_RADIO:
         {
-            auto ret = GP2::gp_widget_set_value(child, value.c_str());
-
-            if (ret != GP2::OK)
+            const auto & unordered_choices = _read_choices(camera, property);
+            const auto & itor = unordered_choices.find(value);
+            if (itor == unordered_choices.end())
             {
-                const int num_choices = GP2::gp_widget_count_choices(child);
-                if (num_choices < GP2::OK)
-                {
-                    GPHOTO2CPP_ERROR_LOG << "gp_widget_count_choices() returned "
-                                         << num_choices
-                                         << std::endl;
-                    return false;
-                }
-
                 GPHOTO2CPP_ERROR_LOG
                     << property << " value '" << value << "' is invalid. "
                     << "Please use one of the followng:\n";
 
-                for (int idx = 0; idx < num_choices; ++idx)
+                for (const auto & choice : read_choices(camera, property))
                 {
-                    const char * choice;
-                    auto ret = GP2::gp_widget_get_choice(child, idx, &choice);
-                    if (ret < GP2::OK)
-                    {
-                        continue;
-                    }
                     std::cerr << "    " << choice << "\n";
                 }
-
                 return false;
             }
+
+            GPHOTO2CPP_SAFE_CALL(
+                GP2::gp_widget_set_value(child, value.c_str()),
+                false
+            );
 
             // Propagate changed status to root widget.
             if (GP2::gp_widget_changed(child))
@@ -732,7 +865,7 @@ inline
 bool
 write_config(camera_ptr & camera)
 {
-    auto root = get_camera_to_root()[camera];
+    auto root = _get_camera_to_root()[camera];
 
     // Quick return if noting to write.
     if (not GP2::gp_widget_changed(root.get()))
