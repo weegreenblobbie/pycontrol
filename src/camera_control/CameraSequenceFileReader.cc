@@ -223,7 +223,7 @@ read_file(const std::string & file_path)
             return result::failure;
         }
 
-        // --- NEW: Convert the first 3 strings to lowercase ---
+        // Convert the first 3 strings to lowercase.
         std::transform(event_id_str.begin(), event_id_str.end(), event_id_str.begin(), ::tolower);
         std::transform(event_time_offset_str.begin(), event_time_offset_str.end(), event_time_offset_str.begin(), ::tolower);
         std::transform(camera_channel_str.begin(), camera_channel_str.end(), camera_channel_str.begin(), ::tolower);
@@ -235,7 +235,7 @@ read_file(const std::string & file_path)
         // Trim any leading and tailing whitespace.
         channel_value_str = _strip(channel_value_str);
 
-        // --- NEW: Convert the final value string to lowercase ---
+        // Convert the final value string to lowercase.
         std::transform(channel_value_str.begin(), channel_value_str.end(), channel_value_str.begin(), ::tolower);
 
 

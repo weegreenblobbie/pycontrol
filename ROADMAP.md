@@ -4,7 +4,15 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- sequence load should be same dialog as event load
+- CameraControl commanding is currently kind of ad hock, each type of command on
+  it's own port, unify this:
+  CameraControl listents for commands on a single port
+  cammands must specify a uniue sequence ids so if the command has aleady been
+  processed can be ignored
+  commands must specify a command type, followed by command parameters so based on
+  the type, CameraControl can process it.
+  Add a reandme in docs to document the commands.
+
 
 - When control state != executig, allow manual manipulation of the camera settings
 -- easy to view what choices a field has

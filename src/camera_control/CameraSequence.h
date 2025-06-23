@@ -13,14 +13,16 @@ public:
 
     const Event & front() const;
     void pop();
-    unsigned int pos() const;
+    std::size_t pos() const;
     void reset() {_idx = 0;}
     bool empty() const;
     std::size_t size() const;
 
+    const Event & peek(const std::size_t & offset) const { return _sequence[_idx + offset]; }
+
 private:
     std::vector<Event> _sequence {};
-    unsigned int _idx {0};
+    std::size_t _idx {0};
 };
 
 } /* namespace */

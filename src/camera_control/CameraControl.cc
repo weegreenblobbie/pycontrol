@@ -1,7 +1,7 @@
 #include <chrono>
-//~#include <format>  // If I had a full c++20 supported g++ on the Raspberry PI.
-#include <iomanip>    // Required for std::put_time and std::setw
-#include <ctime>      // Required for std::time_t, std::tm, and std::gmtime
+#include <iomanip>
+
+#include <ctime>
 
 
 #include <gphoto2cpp/gphoto2cpp.h>
@@ -61,10 +61,8 @@ namespace pycontrol
 //
 //     # comments start with '#' and the rest of the line is ignored.
 //     udp_ip            239.192.168.1  # The UDP IP address the telemetry is sent to.
-//     cam_info_port     10018          # Output UDP port for detected camera info.
-//     cam_rename_port   10019          # Input UDP port camera rename packets arrive on.
-//     event_port        10020          # Input UDP port for reading event packets on.
-//     seq_state_port    10021          # Output UDP port for sending camera sequence state.
+//     command_port      10017          # Reads command messages on this port.
+//     telem_port        10018          # Writes telemetry messages on this port.
 //     period            50             # 20 Hz or 50 ms dispatch period.
 //     camera_aliases    filename       # A file to persistently map camera serial numbers to short names.
 //
@@ -81,10 +79,8 @@ CameraControl::init(const std::string & config_file)
     _control_period = 0;
 
     std::string udp_ip = "";
-    auto info_port = std::uint16_t {0};
-    auto rename_port = std::uint16_t {0};
-    auto event_port = std::uint16_t {0};
-    auto seq_port = std::uint16_t {0};
+    auto command_port = std::uint16_t {0};
+    auto telem_port = std::uint16_t {0};
 
     for (const auto & pair : config_pairs)
     {
@@ -93,37 +89,19 @@ CameraControl::init(const std::string & config_file)
             udp_ip = pair.value;
         }
         else
-        if (pair.key == "cam_info_port")
+        if (pair.key == "command_port")
         {
             ABORT_ON_FAILURE(
-                as_type<std::uint16_t>(pair.value, info_port),
+                as_type<std::uint16_t>(pair.value, command_port),
                 "as_type<std::uint16_t>(" << pair.value <<") failed",
                 result::failure
             );
         }
         else
-        if (pair.key == "cam_rename_port")
+        if (pair.key == "telem_port")
         {
             ABORT_ON_FAILURE(
-                as_type<std::uint16_t>(pair.value, rename_port),
-                "as_type<std::uint16_t>(" << pair.value <<") failed",
-                result::failure
-            );
-        }
-        else
-        if (pair.key == "event_update_port")
-        {
-            ABORT_ON_FAILURE(
-                as_type<std::uint16_t>(pair.value, event_port),
-                "as_type<std::uint16_t>(" << pair.value <<") failed",
-                result::failure
-            );
-        }
-        else
-        if (pair.key == "seq_state_port")
-        {
-            ABORT_ON_FAILURE(
-                as_type<std::uint16_t>(pair.value, seq_port),
+                as_type<std::uint16_t>(pair.value, telem_port),
                 "as_type<std::uint16_t>(" << pair.value <<") failed",
                 result::failure
             );
@@ -154,28 +132,19 @@ CameraControl::init(const std::string & config_file)
     }
 
     ABORT_IF_NOT(udp_ip.starts_with("239."), "Please use a local multicast IP address", result::failure);
-    ABORT_IF(info_port < 1024, "cam_info_port too low, pick a higher port", result::failure);
-    ABORT_IF(rename_port < 1024, "cam_rename_port too low, pick a higher port", result::failure);
-    ABORT_IF(event_port < 1024, "event_update_port too low, pick a higher port", result::failure);
-    ABORT_IF(seq_port < 1024, "seq_state_port too low, pick a higher port", result::failure);
+    ABORT_IF(command_port < 1024, "command_port too low, pick a higher port", result::failure);
+    ABORT_IF(telem_port < 1024, "telem_port too low, pick a higher port", result::failure);
     ABORT_IF(_control_period < 10, "100+ Hz is probably too fast", result::failure);
 
-    INFO_LOG << "init():            udp_ip: " << udp_ip << "\n";
-    INFO_LOG << "init():     cam_info_port: " << info_port << "\n";
-    INFO_LOG << "init():   cam_rename_port: " << rename_port << "\n";
-    INFO_LOG << "init(): event_update_port: " << event_port << "\n";
-    INFO_LOG << "init():    seq_state_port: " << seq_port << "\n";
-    INFO_LOG << "init():    control_period: " << _control_period << " ms\n";
+    INFO_LOG << "init():         udp_ip: " << udp_ip << "\n";
+    INFO_LOG << "init():   command_port: " << command_port << "\n";
+    INFO_LOG << "init():     telem_port: " << telem_port << "\n";
+    INFO_LOG << "init(): control_period: " << _control_period << " ms\n";
 
-    ABORT_ON_FAILURE(_cam_info_socket.init(udp_ip, info_port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_command_socket.init(udp_ip, command_port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_command_socket.bind(), "UdpSocket::bind() failed", result::failure);
 
-    ABORT_ON_FAILURE(_cam_rename_socket.init(udp_ip, rename_port), "UpdSocket::init() failed", result::failure);
-    ABORT_ON_FAILURE(_cam_rename_socket.bind(), "UdpSocket::bind() failed", result::failure);
-
-    ABORT_ON_FAILURE(_event_socket.init(udp_ip, event_port), "UpdSocket::init() failed", result::failure);
-    ABORT_ON_FAILURE(_event_socket.bind(), "UdpSocket::bind() failed", result::failure);
-
-    ABORT_ON_FAILURE(_seq_state_socket.init(udp_ip, seq_port), "UpdSocket::init() failed", result::failure);
+    ABORT_ON_FAILURE(_telem_socket.init(udp_ip, telem_port), "UpdSocket::init() failed", result::failure);
 
     return result::success;
 }
@@ -283,117 +252,149 @@ _camera_scan()
 
 result
 CameraControl::
-_send_detected_cameras()
+_send_telemetry()
 {
-    _message.seekp(0, std::ios::beg);
-    _message << "num_cameras " << _cameras.size() << "\n";
-    for (const auto & [serial, cam_ptr] : _cameras)
-    {
-        const auto & info = cam_ptr->info();
-        const auto & entry = _serial_to_id.find(serial);
+    _telem_message.seekp(0, std::ios::beg);
 
-        const auto desc = entry != _serial_to_id.end() ?
-                          entry->second :
-                          info.desc;
-
-        _message << "connected " << info.connected << "\n"
-                 << "serial " << info.serial << "\n"
-                 << "port " << info.port << "\n"
-                 << "desc " << desc << "\n"
-                 << "mode " << info.mode << "\n"
-                 << "shutter " << info.shutter << "\n"
-                 << "fstop " << info.fstop << "\n"
-                 << "iso " << info.iso << "\n"
-                 << "quality " << info.quality << "\n"
-                 << "batt " << info.battery_level << "\n"
-                 << "num_photos " << info.num_photos << "\n";
-    }
-    // Mark the end of the stream and rewind before sending.
-    _message << '\0';
-    _message.seekp(0, std::ios::beg);
-
-    ABORT_ON_FAILURE(
-        _cam_info_socket.send(_message.str()),
-        "UdpSocket::send() failed",
-        result::failure
-    );
-
-    return result::success;
-}
-
-
-result
-CameraControl::
-_send_sequence_state()
-{
-    _message.seekp(0, std::ios::beg);
-    _message << "state ";
+    //-------------------------------------------------------------------------
+    // state
+    //
+    _telem_message << "{\"state\":\"";
     switch(_state)
     {
-        case State::init: { _message << "init"; break;}
-        case State::scan: { _message << "scan"; break;}
-        case State::monitor: { _message << "monitor"; break;}
-        case State::execute_ready: { _message << "execute_ready"; break;}
-        case State::executing: { _message << "executing"; break;}
+        case State::init: { _telem_message << "init"; break;}
+        case State::scan: { _telem_message << "scan"; break;}
+        case State::monitor: { _telem_message << "monitor"; break;}
+        case State::execute_ready: { _telem_message << "execute_ready"; break;}
+        case State::executing: { _telem_message << "executing"; break;}
     }
-    _message << "\n";
-    _message << "num_cameras " << _cameras.size() << "\n";
-    for (const auto & [serial, cam_ptr] : _cameras)
+    _telem_message << "\",";
+
+    //-------------------------------------------------------------------------
+    // command_response
+    //
+    _telem_message << "\"command_response\":" << _command_response << ",";
+
+    //-------------------------------------------------------------------------
+    // detected_cameras
+    //
+    _telem_message << "\"detected_cameras\":[";
     {
-        const auto & info = cam_ptr->info();
-        const auto & entry = _serial_to_id.find(serial);
-
-        const auto name = entry != _serial_to_id.end() ?
-                          entry->second :
-                          info.desc;
-
-        _message << "connected " << info.connected << "\n"
-                 << "name " << name << "\n";
-
-        const auto seq_itor = _sequence_map.find(name);
-
-        bool have_sequence = false;
-
-        if (seq_itor != _sequence_map.end())
+        std::size_t idx = 0;
+        for (const auto & [serial, cam_ptr] : _cameras)
         {
-            const auto & seq = *seq_itor->second;
-            if (not seq.empty())
+            _telem_message << "{";
+
+            const auto & info = cam_ptr->info();
+            const auto & entry = _serial_to_id.find(serial);
+
+            const auto desc = entry != _serial_to_id.end() ?
+                              entry->second :
+                              info.desc;
+
+            // TODO: cam_ptr->to_json(desc);
+
+            _telem_message
+                << "\"connected\":"  << info.connected     << ","
+                << "\"serial\":\""   << info.serial        << "\","
+                << "\"port\":\""     << info.port          << "\","
+                << "\"desc\":\""     << desc               << "\","
+                << "\"mode\":\""     << info.mode          << "\","
+                << "\"shutter\":\""  << info.shutter       << "\","
+                << "\"fstop\":\":\"" << info.fstop         << "\","
+                << "\"iso\":\""      << info.iso           << "\","
+                << "\"quality\":\""  << info.quality       << "\","
+                << "\"batt\":\""     << info.battery_level << "\","
+                << "\"num_photos\":" << info.num_photos    << "}";
+
+            if (++idx < _cameras.size()) _telem_message << ",";
+        }
+    }
+    _telem_message << "],";
+
+    //-------------------------------------------------------------------------
+    // events
+    //
+    _telem_message << "\"events\":{";
+    {
+        std::size_t idx = 0;
+        for (const auto & [event_id, timestamp] : _event_map)
+        {
+            _telem_message << "\"" << event_id << "\":" << timestamp;
+            if (++idx < _event_map.size()) _telem_message << ",";
+        }
+    }
+    _telem_message << "},";
+
+    //-------------------------------------------------------------------------
+    // sequence
+    //
+    _telem_message << "\"sequence\":\"" << _sequence_filename << "\",";
+
+    //-------------------------------------------------------------------------
+    // sequence_state
+    //
+    _telem_message << "\"sequence_state\":[";
+    {
+        std::size_t idx = 0;
+        for (const auto & [cam_id, sequence] : _sequence_map)
+        {
+            _telem_message
+                << "{\"num_events\":" << sequence->size() << ","
+                << "\"" << cam_id << "\":";
+
+            if (sequence->empty())
             {
-                have_sequence = true;
-                const auto & event = seq.front();
+                _telem_message << "[]";
+                continue;
+            }
+            _telem_message << "[";
+
+            const std::size_t num = sequence->pos() + 10 > sequence->size() ?
+                sequence->size() - sequence->pos() :
+                10;
+
+            for (std::size_t j = 0; j < num; ++j)
+            {
+                const auto & event = sequence->peek(j);
                 const auto event_time = _get_event_time(event);
 
-                const auto eta_ms = event_time == MAX_TIME ?
-                    MAX_TIME :
-                    (event_time - _control_time);
+                const auto eta = event_time == MAX_TIME ?
+                    "N/A" :
+                    convert_milliseconds_to_hms(event_time - _control_time);
 
-                _message << "num_events " << seq.size() << "\n"
-                         << "position " << seq.pos() << "\n"
-                         << "event_id " << event.event_id << "\n"
-                         << "event_time_offset " << convert_milliseconds_to_hms(event.event_time_offset_ms) << "\n"
-                         << "eta " << eta_ms << "\n"
-                         << "channel " << name << "." << to_string(event.channel) << "\n"
-                         << "value " << event.channel_value << "\n";
+                _telem_message
+                    << "{"
+                    << "\"pos\":" << sequence->pos() + j << ","
+                    << "\"event_id\":\"" << event.event_id << "\","
+                    << "\"event_time_offset\":\"" << convert_milliseconds_to_hms(event.event_time_offset_ms) << "\","
+                    << "\"eta\"" << eta << "\","
+                    << "\"channel\":\"" << cam_id << "." << to_string(event.channel) << "\","
+                    << "\"value\":\"" << event.channel_value
+                    << "}";
+
+                if (j + 1 >= sequence->size())
+                {
+                    break;
+                }
+                _telem_message << ",";
+            }
+            _telem_message << "]";
+
+            if (++idx < sequence->size())
+            {
+                _telem_message << ",";
             }
         }
-
-        if (not have_sequence)
-        {
-            _message << "num_events 0\n"
-                     << "position 0\n"
-                     << "event_id none\n"
-                     << "event_time_offset none\n"
-                     << "eta none\n"
-                     << "channel none\n"
-                     << "value none\n";
-        }
     }
+    _telem_message << "]}";
+
     // Mark the end of the stream and rewind before sending.
-    _message << '\0';
-    _message.seekp(0, std::ios::beg);
+    _telem_message << '\0';
+    _telem_message.seekp(0, std::ios::beg);
 
     ABORT_ON_FAILURE(
-        _seq_state_socket.send(_message.str()),
+        _telem_socket.send(_telem_message.str()),
         "UdpSocket::send() failed",
         result::failure
     );
@@ -401,143 +402,118 @@ _send_sequence_state()
     return result::success;
 }
 
-
 result
 CameraControl::
-_read_camera_renames()
+_read_command()
 {
     ABORT_ON_FAILURE(
-        _cam_rename_socket.read(_buffer),
+        _command_socket.read(_command_buffer),
         "UdpSocket::read() failed",
         result::failure
     );
 
     // No message avialable.
-    if (_buffer.empty() or _buffer.size() == 0)
+    if (_command_buffer.empty() or _command_buffer.size() == 0)
     {
         return result::success;
     }
 
-    // TODO: remove memory allocation?
-    auto tokens = split(_buffer);
+    std::uint32_t cmd_id = 0;
+    std::string command;
 
-    if (tokens.size() == 2)
+    std::istringstream iss(_command_buffer);
+    if (not (iss >> cmd_id >> command))
     {
-        const auto & serial = tokens[0];
-        const auto & id = tokens[1];
-
-        INFO_LOG << "mapping serial " << serial << " to " << id << "\n";
-        _serial_to_id[serial] = id;
-        _id_to_serial[id] = serial;
-    }
-    else
-    {
-        ERROR_LOG << "Got bad camera rename message: '" << _buffer << "'" << std::endl;
+        ERROR_LOG << "failed to parse command '" << _command_buffer << "'" << std::endl;
+        _command_response = "null";
         return result::failure;
     }
 
-    return result::success;
-}
-
-
-result
-CameraControl::
-_read_events()
-{
-    ABORT_ON_FAILURE(
-        _event_socket.read(_buffer),
-        "UdpSocket::read() failed",
-        result::failure
-    );
-
-    // No message avialable.
-    if (_buffer.empty())
+    // Nothing new to process.
+    if (cmd_id <= _command_id)
     {
         return result::success;
     }
 
-    // Parse the message sent from event_solver.py.
-    //     uint32 packt_id
-    //     string sequence filename
-    //     bool   reset
-    //     str int64  event_id timestamp
-    //
-    std::stringstream ss(_buffer);
+    _command_id = cmd_id;
 
-    std::uint32_t packet_id {0};
-    ABORT_IF_NOT(
-        ss >> packet_id,
-        "Bad event message, failed to read 'packet_id'",
-        result::failure
-    );
+    std::ostringstream oss("{\"id\":");
+    oss << _command_id << "\"success\":";
 
-    // If we've already processed this packet, skip it.
-    if (packet_id == _event_packet_id)
+    //-------------------------------------------------------------------------
+    // set_camera_id
+    if (command == "set_camera_id")
     {
-        return result::success;
+        std::string serial;
+        std::string cam_id;
+        if (not (iss >> serial >> cam_id))
+        {
+            oss << "false,\"message\":\""
+                << "Got bad camera rename message: '" << _command_buffer << "'\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not _serial_to_id.contains(serial))
+        {
+            oss << "false,\"message\":\"serial \"" << serial << "\" does not exist\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (_id_to_serial.contains(cam_id))
+        {
+            oss << "false,\"message\":\"id \"" << cam_id << "\" already exists\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        INFO_LOG << "mapping serial " << serial << " to " << cam_id << "\n";
+
+        _serial_to_id[serial] = cam_id;
+        _id_to_serial[cam_id] = serial;
     }
-
-    _event_packet_id = packet_id;
-
-    // Parse the reset of the message;
-
-    auto sequence_fn = std::string(128, '\0');
-    auto reset       = bool{false};
-    auto event_id    = std::string(16, '\0');
-    auto timestamp   = milliseconds{0};
-
-    ABORT_IF_NOT(
-        ss >> sequence_fn,
-        "Bad event message, failed to read the sequence filename",
-        result::failure
-    );
-
-    // If the sequence is none, nothing to do.
-    if (sequence_fn == "none")
-    {
-        return result::success;
-    }
-
-    ABORT_IF_NOT(
-        ss >> reset,
-        "Bad event message, failed to read the bool reset",
-        result::failure
-    );
-
-    // Clear the event map on reset, as there will likely be a large change.
-    if (reset)
+    else if (command == "set_events")
     {
         _event_map.clear();
-    }
-
-    // Read event_id timestamp pairs, abort the loop on failure.
-    while (true)
-    {
-        // The message may or may not contain event_id timestamp entries, abort
-        // processing if no event_id is present or we're done reading.
-        if (not (ss >> event_id))
+        while (true)
         {
-            break;
+            std::string event_id;
+            milliseconds timestamp;
+            if (not (iss >> event_id >> timestamp))
+            {
+                break;
+            }
+            _event_map[event_id] = timestamp;
         }
-        ABORT_IF_NOT(
-            ss >> timestamp,
-            "Bad event message, failed to read the timestamp, msg: '"
-            << _buffer << "'",
-            result::failure
-        );
-        _event_map[event_id] = timestamp;
-    }
 
-    // If the camera sequence changed, reread the file and remake the camera
-    // sequences.
-    if (_sequence_filename != sequence_fn)
+        if (_event_map.empty())
+        {
+            oss << "false,\"message\":\"failed to parse events from '" << _command_buffer << "'\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+    }
+    else if (command == "load_sequence")
     {
+        std::string sequence_fn;
+        if (not (std::getline(iss, sequence_fn)))
+        {
+            oss << "false,\"message\":\"failed to parse command '" << _command_buffer << "'\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+        strip(sequence_fn, ' ');
+
+        // Load the camer sequence file.
         auto seq_reader = CameraSequenceFileReader();
-        ABORT_ON_FAILURE(
-            seq_reader.read_file(sequence_fn),
-            "Failed to read camera sequence '" << sequence_fn << "'",
-            result::failure
-        );
+        if (result::failure == seq_reader.read_file(sequence_fn))
+        {
+            oss << "false,\"message\":\"failed to parse camera sequence file '"
+                << sequence_fn << "'}";
+            _command_response = oss.str();
+            return result::success;
+        }
         _sequence_filename = sequence_fn;
 
         _sequence_map.clear();
@@ -548,23 +524,59 @@ _read_events()
         for (const auto & id : cam_ids)
         {
             auto cam_seq = std::make_shared<CameraSequence>();
-            ABORT_IF_NOT(
-                cam_seq,
-                "Failed to make CameraSequence",
-                result::failure
-            );
-            ABORT_ON_FAILURE(
-                cam_seq->load(id, event_seq),
-                "CameraSequence.load() failed",
-                result::failure
-            );
+            if (not cam_seq)
+            {
+                oss << "false,\"message\":\"failed to allocate CameraSequence\"}";
+                _command_response = oss.str();
+                return result::success;
+            }
+            if (result::failure == cam_seq->load(id, event_seq))
+            {
+                oss << "false,\"message\":\"CameraSequence.load() failed\"}";
+                _command_response = oss.str();
+                return result::success;
+            }
             _sequence_map[id] = cam_seq;
         }
+
+        command = "reset_sequence";
+    }
+    else if (command == "read_choices")
+    {
+        std::string serial;
+        std::string property;
+        if (not (iss >> serial >> property))
+        {
+            oss << "false,\"message\":\""
+                << "Failed to parse read_choices command: '" << _command_buffer << "'\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not _cameras.contains(serial))
+        {
+            oss << "false,\"message\":\"serial '" << serial << "' does not exist\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        auto choice_vec = _cameras[serial]->read_choices(property);
+
+        oss << "true,\"data\":[";
+        std::size_t idx = 0;
+        for (const auto & choice : choice_vec)
+        {
+            oss << "\"" << choice << "\"";
+            if (++idx < choice_vec.size()) oss << ",";
+        }
+        oss << "]}";
+        _command_response = oss.str();
+        return result::success;
     }
 
-    // If reset was requested, we reset the camera sequences and pop off events
-    // that are in the past.
-    if (reset)
+    // Note breaking up the if else chain so we can reset the sequence when a
+    // sequence file is loaded.
+    if (command == "reset_sequence")
     {
         for (auto & [id, cam_seq] : _sequence_map)
         {
@@ -581,6 +593,8 @@ _read_events()
         }
     }
 
+    oss << "true}";
+    _command_response = oss.str();
     return result::success;
 }
 
@@ -697,7 +711,6 @@ CameraControl::
 dispatch()
 {
     auto next_state = CameraControl::State::init;
-    bool send_telemetry = false;
     bool scan_cameras = false;
 
     _control_time = now();
@@ -715,7 +728,6 @@ dispatch()
         case CameraControl::State::scan:
         {
             scan_cameras = true;
-            send_telemetry = true;
             next_state = CameraControl::State::monitor;
             break;
         }
@@ -723,7 +735,6 @@ dispatch()
         case CameraControl::State::monitor:
         {
             scan_cameras = true;
-            send_telemetry = true;
 
             // Transition to the next state if we have an event time for any
             // currently connected camera.
@@ -743,7 +754,6 @@ dispatch()
         case CameraControl::State::execute_ready:
         {
             scan_cameras = true;
-            send_telemetry = true;
 
             const auto next_event_time = _get_next_event_time();
 
@@ -761,7 +771,6 @@ dispatch()
         case CameraControl::State::executing:
         {
             scan_cameras = false;
-            send_telemetry = true;
 
             ABORT_ON_FAILURE(
                 _dispatch_camera_events(),
@@ -801,7 +810,7 @@ dispatch()
     // Scan for camera changes.
     if (_scan_time <= _control_time)
     {
-        _scan_time = _control_time + 2000;  // 0.5 Hz.
+        _scan_time = _control_time + 1000;  // 1 Hz.
         if (scan_cameras)
         {
             _camera_scan();
@@ -813,13 +822,9 @@ dispatch()
     {
         _read_time = _control_time + 1000; // 1 Hz.
 
-        if (result::failure ==  _read_camera_renames())
+        if (result::failure == _read_command())
         {
-            ERROR_LOG << "_read_camera_renames() failed, ignoring" << std::endl;
-        }
-        if (result::failure == _read_events())
-        {
-            ERROR_LOG << "_read_events() failed, ignoring" << std::endl;
+            ERROR_LOG << "_read_command() failed, ignoring" << std::endl;
         }
     }
 
@@ -827,17 +832,9 @@ dispatch()
     if (_send_time <= _control_time)
     {
         _send_time = _control_time + 1000;  // 1 Hz.
-        if (send_telemetry)
+        if (result::failure == _send_telemetry())
         {
-            if (result::failure == _send_detected_cameras())
-            {
-                ERROR_LOG << "_send_detected_cameras() failed, ignoring" << std::endl;
-            }
-
-            if (result::failure == _send_sequence_state())
-            {
-                ERROR_LOG << "_send_sequence_state() failed, ignoring" << std::endl;
-            }
+            ERROR_LOG << "_send_telemetry() failed, ignoring" << std::endl;
         }
     }
 

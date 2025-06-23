@@ -43,6 +43,9 @@ public:
     void reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port);
     void disconnect();
 
+
+    std::vector<std::string> read_choices(const std::string & property) const;
+
     result read_config();
     result write_config();
     const Info & info() { return _info; }

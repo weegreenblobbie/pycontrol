@@ -28,7 +28,7 @@ load(const std::string & camera_id, const std::vector<Event> & sequence)
     return result::success;
 }
 
-unsigned int
+std::size_t
 CameraSequence::
 pos() const
 {
@@ -71,5 +71,6 @@ size() const
 {
     return _sequence.size();
 }
+
 
 } /* namespace */

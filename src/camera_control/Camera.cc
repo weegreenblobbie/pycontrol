@@ -52,6 +52,18 @@ disconnect()
 }
 
 
+std::vector<std::string>
+Camera::
+read_choices(const std::string & property) const
+{
+    std::vector<std::string> out;
+    for (auto & choice : gphoto2cpp::read_choices(_camera, property))
+    {
+        out.emplace_back(choice);
+    }
+    return out;
+}
+
 result
 Camera::read_config()
 {
