@@ -47,8 +47,8 @@ disconnect()
     _info.mode =
     _info.fstop =
     _info.iso =
-    _info.quality =
-    _info.num_photos = "__ERROR__";
+    _info.quality = "__ERROR__";
+    _info.num_photos = "-1";
 }
 
 
@@ -210,6 +210,12 @@ Camera::handle(const Event & event)
         case Channel::trigger:
         {
             return trigger();
+        }
+        case Channel::null:
+        {
+            ERROR_LOG << "Got Channel::null!" << std::endl;
+            return result::failure;
+            break;
         }
     }
 

@@ -171,7 +171,9 @@ function update_cameras_ui(data)
 {
 	cameras_table_body.innerHTML = "";
 
-	if (!data || data.num_cameras == 0 || !data.detected)
+	const num_cameras = data.length;
+
+	if (!data || num_cameras == 0)
 	{
 		const row = document.createElement('tr');
 		const cell = document.createElement('td');
@@ -183,21 +185,21 @@ function update_cameras_ui(data)
 		return;
 	}
 
-	for (let camera_info of data.detected)
+	for (let cam of data)
 	{
 		const row = document.createElement('tr');
         row.innerHTML = `
-            <td><img src="${(camera_info.connected == "0" || !camera_info.connected) ? '/static/cam-disconnected.svg' : '/static/cam-connected.svg'}" width="70" height="50" alt="Camera connection status"></td>
-            <td>${camera_info.serial || "N/A"}</td>
-            <td class="editable_td" data-serial="${camera_info.serial}">${camera_info.desc || "N/A"}</td>
-            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.batt || "N/A") : "N/A"}</td>
-            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.port || "N/A") : "N/A"}</td>
-            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.num_photos || "N/A") : "N/A"}</td>
-            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.quality || "N/A") : "N/A"}</td>
-            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.mode || "N/A") : "N/A"}</td>
-            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.iso || "N/A") : "N/A"}</td>
-            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.fstop || "N/A") : "N/A"}</td>
-            <td>${(camera_info.connected != "0" && camera_info.connected) ? (camera_info.shutter || "N/A") : "N/A"}</td>
+            <td><img src="${(cam.connected == "0" || !cam.connected) ? '/static/cam-disconnected.svg' : '/static/cam-connected.svg'}" width="70" height="50" alt="Camera connection status"></td>
+            <td>${cam.serial || "N/A"}</td>
+            <td class="editable_td" data-serial="${cam.serial}">${cam.desc || "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? (cam.batt || "N/A") : "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? (cam.port || "N/A") : "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? (cam.num_photos || "N/A") : "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? (cam.quality || "N/A") : "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? (cam.mode || "N/A") : "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? (cam.iso || "N/A") : "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? (cam.fstop || "N/A") : "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? (cam.shutter || "N/A") : "N/A"}</td>
         `;
 		cameras_table_body.appendChild(row);
 	}
@@ -242,10 +244,10 @@ function create_control_table_for_camera(camera_data)
 	const header_row = head.insertRow();
 
 	const first_header = document.createElement('th');
-	first_header.textContent = `${camera_data.name} (# of ${camera_data.num_events || 'N/A'})`;
+	first_header.textContent = `${camera_data.id} (# of ${camera_data.num_events || 'N/A'})`;
 	header_row.appendChild(first_header);
 
-	const other_headers = ["Event ID", "Offset (s)", "ETA", "Channel", "Value"];
+	const other_headers = ["ETA", "Event ID", "Offset (HH:MM:SS.sss)", "Channel", "Value"];
 	other_headers.forEach(header_text =>
 	{
 		const th = document.createElement('th');
@@ -254,31 +256,35 @@ function create_control_table_for_camera(camera_data)
 	});
 
 	const data_body = table.createTBody();
-	const row = data_body.insertRow();
 
-	row.insertCell().textContent = camera_data.position || 'N/A';
-	row.insertCell().textContent = camera_data.event_id || 'N/A';
-	row.insertCell().textContent = camera_data.event_time_offset_s || 'N/A';
-	row.insertCell().textContent = camera_data.eta || 'N/A';
-	row.insertCell().textContent = camera_data.channel || 'N/A';
-	row.insertCell().textContent = camera_data.value || 'N/A';
+	camera_data.events.forEach(event_obj =>
+    {
+        const row = data_body.insertRow();
+
+        row.insertCell().textContent = event_obj.pos || 'N/A';
+        row.insertCell().textContent = event_obj.eta || 'N/A';
+        row.insertCell().textContent = event_obj.event_id || 'N/A';
+        row.insertCell().textContent = event_obj.event_time_offset || 'N/A';
+        row.insertCell().textContent = event_obj.channel || 'N/A';
+        row.insertCell().textContent = event_obj.value || 'N/A';
+    });
 
 	return table;
 }
 
-function update_camera_control_ui(control_data)
+function update_camera_control_ui(camera_control)
 {
-	if (!control_data || !control_data.state || control_data.state === "idle" || !control_data.cameras)
+	if (!camera_control || !camera_control.state)
 	{
-		camera_control_state_value.textContent = 'idle';
+		camera_control_state_value.textContent = 'unknown';
 		control_tables_container.innerHTML = '';
 		return;
 	}
 
-	camera_control_state_value.textContent = control_data.state;
+	camera_control_state_value.textContent = camera_control.state;
 
 	control_tables_container.innerHTML = '';
-	control_data.cameras.forEach(camera =>
+	camera_control.sequence_state.forEach(camera =>
 	{
 		const camera_table = create_control_table_for_camera(camera);
 		control_tables_container.appendChild(camera_table);
@@ -425,6 +431,8 @@ async function populate_static_event_details(file_name)
 
 		if (event_data.events && Array.isArray(event_data.events))
 		{
+		    //update_event_table_row('Events', '', '');
+
 			event_data.events.forEach(event_id =>
 			{
 				update_event_table_row(event_id, 'N/A', 'Loading...');
@@ -433,7 +441,7 @@ async function populate_static_event_details(file_name)
 		else
 		{
 			console.warn("Event data missing 'events' list or malformed:", event_data);
-			update_event_table_row('Events', 'No events defined or format error', '');
+			//update_event_table_row('Events', 'No events defined or format error', '');
 		}
 		return true;
 	}
@@ -679,23 +687,23 @@ async function update_dashboard()
 {
 	try
 	{
-		const dashboard_data = await fetch_data('/api/dashboard_update');
+		const data = await fetch_data('/api/dashboard_update');
 
-		if (dashboard_data.gps)
+		if (data.gps)
 		{
-			update_gps_ui(dashboard_data.gps);
+			update_gps_ui(data.gps);
 		}
-		if (dashboard_data.cameras)
+		if (data.detected_cameras)
 		{
-			update_cameras_ui(dashboard_data.cameras);
+			update_cameras_ui(data.detected_cameras);
 		}
-		if (dashboard_data.events && event_row_map.size > 0)
+		if (data.events && event_row_map.size > 0)
 		{
-			update_events_ui(dashboard_data.events);
+			update_events_ui(data.events);
 		}
-		if (dashboard_data.camera_control)
+		if (data.camera_control)
 		{
-			update_camera_control_ui(dashboard_data.camera_control);
+			update_camera_control_ui(data.camera_control);
 		}
 	}
 	catch (error)

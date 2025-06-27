@@ -295,13 +295,14 @@ _send_telemetry()
             // TODO: cam_ptr->to_json(desc);
 
             _telem_message
+                << std::boolalpha
                 << "\"connected\":"  << info.connected     << ","
                 << "\"serial\":\""   << info.serial        << "\","
                 << "\"port\":\""     << info.port          << "\","
                 << "\"desc\":\""     << desc               << "\","
                 << "\"mode\":\""     << info.mode          << "\","
                 << "\"shutter\":\""  << info.shutter       << "\","
-                << "\"fstop\":\":\"" << info.fstop         << "\","
+                << "\"fstop\":\""    << info.fstop         << "\","
                 << "\"iso\":\""      << info.iso           << "\","
                 << "\"quality\":\""  << info.quality       << "\","
                 << "\"batt\":\""     << info.battery_level << "\","
@@ -341,22 +342,20 @@ _send_telemetry()
         {
             _telem_message
                 << "{\"num_events\":" << sequence->size() << ","
-                << "\"" << cam_id << "\":";
+                << "\"id\":\"" << cam_id << "\","
+                << "\"events\":[";
 
-            if (sequence->empty())
+            auto itor = sequence->begin();
+            auto pos = sequence->pos();
+            int count = 0;
+            bool erase_comma = false;
+            while (itor < sequence->end())
             {
-                _telem_message << "[]";
-                continue;
-            }
-            _telem_message << "[";
-
-            const std::size_t num = sequence->pos() + 10 > sequence->size() ?
-                sequence->size() - sequence->pos() :
-                10;
-
-            for (std::size_t j = 0; j < num; ++j)
-            {
-                const auto & event = sequence->peek(j);
+                if (++count > 10)
+                {
+                    break;
+                }
+                const auto & event = *itor;
                 const auto event_time = _get_event_time(event);
 
                 const auto eta = event_time == MAX_TIME ?
@@ -365,26 +364,31 @@ _send_telemetry()
 
                 _telem_message
                     << "{"
-                    << "\"pos\":" << sequence->pos() + j << ","
+                    << "\"pos\":" << pos++ << ","
                     << "\"event_id\":\"" << event.event_id << "\","
                     << "\"event_time_offset\":\"" << convert_milliseconds_to_hms(event.event_time_offset_ms) << "\","
-                    << "\"eta\"" << eta << "\","
+                    << "\"eta\":\"" << eta << "\","
                     << "\"channel\":\"" << cam_id << "." << to_string(event.channel) << "\","
-                    << "\"value\":\"" << event.channel_value
+                    << "\"value\":\"" << event.channel_value << "\""
                     << "}";
 
-                if (j + 1 >= sequence->size())
-                {
-                    break;
-                }
+                erase_comma = true;
                 _telem_message << ",";
-            }
-            _telem_message << "]";
 
-            if (++idx < sequence->size())
-            {
-                _telem_message << ",";
+                ++itor;
             }
+            // Overwrite the trailing comma.
+            if (erase_comma)
+            {
+                auto last_pos = _telem_message.tellp() - std::streamoff(1);
+                _telem_message.seekp(last_pos);
+            }
+            _telem_message << "]}";
+        }
+
+        if (++idx < _sequence_map.size())
+        {
+            _telem_message << ",";
         }
     }
     _telem_message << "]}";
@@ -430,18 +434,19 @@ _read_command()
     }
 
     // Nothing new to process.
-    if (cmd_id <= _command_id)
+    if (cmd_id == _command_id)
     {
         return result::success;
     }
 
     _command_id = cmd_id;
 
-    std::ostringstream oss("{\"id\":");
-    oss << _command_id << "\"success\":";
+    std::ostringstream oss;
+    oss << "{\"id\":" << _command_id << ",\"success\":";
 
     //-------------------------------------------------------------------------
     // set_camera_id
+    //
     if (command == "set_camera_id")
     {
         std::string serial;
@@ -473,6 +478,9 @@ _read_command()
         _serial_to_id[serial] = cam_id;
         _id_to_serial[cam_id] = serial;
     }
+    //-------------------------------------------------------------------------
+    // set_events
+    //
     else if (command == "set_events")
     {
         _event_map.clear();
@@ -494,6 +502,9 @@ _read_command()
             return result::success;
         }
     }
+    //-------------------------------------------------------------------------
+    // load_sequence
+    //
     else if (command == "load_sequence")
     {
         std::string sequence_fn;
@@ -515,7 +526,6 @@ _read_command()
             return result::success;
         }
         _sequence_filename = sequence_fn;
-
         _sequence_map.clear();
 
         const auto & event_seq = seq_reader.get_events();
@@ -541,6 +551,9 @@ _read_command()
 
         command = "reset_sequence";
     }
+    //-------------------------------------------------------------------------
+    // read_choices
+    //
     else if (command == "read_choices")
     {
         std::string serial;
@@ -573,7 +586,16 @@ _read_command()
         _command_response = oss.str();
         return result::success;
     }
+    else if (command != "reset_sequence")
+    {
+        oss << "false,\"message\":\"Unknown command: '" << command << "'\"}";
+        _command_response = oss.str();
+        return result::success;
+    }
 
+    //-------------------------------------------------------------------------
+    // reset_sequence
+    //
     // Note breaking up the if else chain so we can reset the sequence when a
     // sequence file is loaded.
     if (command == "reset_sequence")
@@ -820,7 +842,7 @@ dispatch()
     // Read any commands.
     if (_read_time <= _control_time)
     {
-        _read_time = _control_time + 1000; // 1 Hz.
+        _read_time = _control_time + 250; // 4 Hz.
 
         if (result::failure == _read_command())
         {
@@ -828,10 +850,17 @@ dispatch()
         }
     }
 
-    // Send out 1 Hz telemetry.
+    // Send out 4 Hz telemetry.
     if (_send_time <= _control_time)
     {
-        _send_time = _control_time + 1000;  // 1 Hz.
+        if (scan_cameras)
+        {
+            _send_time = _control_time + 1000;  // 1 Hz.
+        }
+        else
+        {
+            _send_time = _control_time + 250;  // 4 Hz.
+        }
         if (result::failure == _send_telemetry())
         {
             ERROR_LOG << "_send_telemetry() failed, ignoring" << std::endl;

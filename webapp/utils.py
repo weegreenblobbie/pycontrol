@@ -30,7 +30,7 @@ def write_kv_config(filename, mapping):
     for k, v in mapping.items():
         data.append([k, v])
     with open(filename, "w") as fout:
-        fout.write(tabulate.tabulate(data) + "\n")
+        fout.write(tabulate.tabulate(data, tablefmt="plain") + "\n")
 
 
 def send_udp_message(message, target_port, target_ip):

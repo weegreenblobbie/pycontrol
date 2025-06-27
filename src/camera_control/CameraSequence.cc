@@ -1,6 +1,7 @@
 #include <common/io.h>
 #include <camera_control/CameraSequence.h>
 
+
 namespace pycontrol
 {
 
@@ -9,7 +10,6 @@ CameraSequence::
 load(const std::string & camera_id, const std::vector<Event> & sequence)
 {
     _sequence.clear();
-    reset();
 
     for (const auto & event : sequence)
     {
@@ -25,52 +25,75 @@ load(const std::string & camera_id, const std::vector<Event> & sequence)
         result::failure
     );
 
+    reset();
+
     return result::success;
 }
 
-std::size_t
-CameraSequence::
-pos() const
-{
-    return _idx + 1;
-}
 
-const Event &
-CameraSequence::
-front() const
-{
-    if (_idx < _sequence.size())
-    {
-        return _sequence[_idx];
-    }
 
-    ERROR_LOG << "Out of bounds idx: " << _idx << " size: " << _sequence.size()
-              << std::endl;
+//~static const Event null_event {
+//~    "N/A",
+//~    MAX_TIME,
+//~    "N/A",
+//~    Channel::null,
+//~    "N/A"
+//~};
 
-    static const auto no_event = Event("N/A", 0.0f, "N/A", Channel::fps, "N/A");
-    return no_event;
-}
+//~const Event &
+//~CameraSequence::
+//~front() const
+//~{
+//~    if (_idx < _sequence.size())
+//~    {
+//~        return _sequence[_idx];
+//~    }
 
-void
-CameraSequence::
-pop()
-{
-    ++_idx;
-}
+//~    ERROR_LOG << "Out of bounds idx: " << _idx << " size: " << _sequence.size()
+//~              << std::endl;
 
-bool
-CameraSequence::
-empty() const
-{
-    return _sequence.empty() or _idx >= _sequence.size();
-}
+//~    return null_event;
+//~}
 
-std::size_t
-CameraSequence::
-size() const
-{
-    return _sequence.size();
-}
+//~void
+//~CameraSequence::
+//~pop()
+//~{
+//~    ++_pos;
+//~}
+
+//~bool
+//~CameraSequence::
+//~empty() const
+//~{
+//~    return _sequence.empty() or _idx >= _sequence.size();
+//~}
+
+//~std::size_t
+//~CameraSequence::
+//~size() const
+//~{
+//~    return _sequence.size();
+//~}
+
+//~const Event &
+//~CameraSequence::
+//~peek(const std::size_t & offset) const
+//~{
+//~    if (empty())
+//~    {
+//~        ERROR_LOG << "CameraSequences is empty!" << std::endl;
+//~        return null_event;
+//~    }
+
+//~    if (_idx + offset >= size())
+//~    {
+//~        ERROR_LOG << "CameraSequences pos + offset out of bounds!" << std::endl;
+//~        return null_event;
+//~    }
+
+//~    return _sequence[_idx + offset];
+//~}
 
 
 } /* namespace */

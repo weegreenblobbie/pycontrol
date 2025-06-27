@@ -30,7 +30,7 @@ public:
         std::string iso;
         std::string quality;
         std::string battery_level;
-        std::string num_photos {"__ERROR__"};
+        std::string num_photos {"-1"};
     };
 
     Camera(

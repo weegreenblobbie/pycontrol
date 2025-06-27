@@ -10,10 +10,9 @@ import time
 
 # These imports can remain at the top level
 import date_utils as du
-from cam_info_reader import CameraInfoReader
+from camera_control_io import CameraControlIo
 from event_solver import EventSolver
 from gps_reader import GpsReader
-from cam_sequence_reader import CameraSequenceReader
 
 # These dataclasses are also fine at the top level as they define data structures
 @dataclasses.dataclass(kw_only=True)
@@ -31,7 +30,7 @@ class RunSim:
     event_time_offset: float = 0.0
     sim_time_offset: datetime.timedelta = datetime.timedelta(seconds=0.0)
 
-# --- The Main Application Class ---
+
 class PyControlApp:
     def __init__(self, config_path):
         """
@@ -39,35 +38,36 @@ class PyControlApp:
         """
         print("Initializing PyControlApp...")
         self._gps_reader = GpsReader()
-        self._cam_reader = CameraInfoReader(config_path)
-        self._seq_reader = CameraSequenceReader(config_path)
-        self._event_solver = EventSolver(config_path)
-
+        self._cam_io = CameraControlIo(config_path)
+        self._event_solver = EventSolver(self._cam_io)
         self._run_sim = RunSim()
         self._run_sim_lock = threading.Lock()
-
         self._gps_reader.start()
-        self._cam_reader.start()
-        self._seq_reader.start()
+        self._cam_io.start()
         self._event_solver.start()
         print("All reader/solver threads started.")
 
-    # =========================================================================
-    # --- Public Methods (The API for our Flask routes) ---
-    # =========================================================================
-
     def get_dashboard_data(self):
         """Gathers all data needed for the main dashboard update."""
+        telem = self._cam_io.read()
+        detected_cameras = telem.pop("detected_cameras", [])
+        #events = telem.pop("events", dict())
+        events = self._read_events(self._event_solver.read())
+        camera_control = dict(
+            state = telem.pop("state", "unknown"),
+            sequence = telem.pop("sequence", ""),
+            sequence_state = telem.pop("sequence_state", []),
+        )
         return {
             "gps": self._gps_reader.read(),
-            "cameras": self._cam_reader.read(),
-            "events": self._read_events(),
-            "camera_control": self._seq_reader.read(),
+            "detected_cameras": detected_cameras,
+            "events": events,
+            "camera_control": camera_control,
         }
 
-    def update_camera_description(self, serial, description):
+    def set_camera_id(self, serial, cam_id):
         """Public method to update a camera's description."""
-        self._cam_reader.update_description(serial, description)
+        self._cam_io.set_camera_id(serial, cam_id)
 
     def load_event_file(self, filename):
         """Loads an event file and triggers an update."""
@@ -76,7 +76,7 @@ class PyControlApp:
             all_lines = fin.readlines()
 
         date_ = None
-        data = dict(event=dict())
+        data = dict(event_map=dict())
         event_ids = None
         for line in all_lines:
             line = line.strip()
@@ -88,32 +88,34 @@ class PyControlApp:
                 data["type"] = values[0]
             elif key == "date":
                 date_ = du.make_datetime(values[0])
-            elif key == "events":
+            elif key == "event_ids":
                 event_ids = values
-                data["events"] = values
+                data["event_ids"] = values
             elif event_ids and key in event_ids:
-                data["event"][key] = du.make_datetime(values[0])
+                data["event_map"][key] = du.make_datetime(values[0])
+
+        app.logger.info(f"event data: {data}")
 
         self._update_and_trigger(
-            data["type"], date_, data["events"], data.get("event", {})
+            type = data["type"],
+            datetime = date_,
+            event_ids = data["event_ids"],
+            event_map = data.get("event_map", {}),
         )
-        data.pop("event")
+
         return data
 
-    def load_camera_sequence(self, filename):
+    def load_sequence(self, filename):
         """Public method to load a camera sequence and re-trigger the solver."""
         full_path = os.path.abspath(os.path.join("..", "sequences", filename))
         if not os.path.isfile(full_path):
             raise FileNotFoundError(f"Sequence file not found: {filename}")
 
-        self._event_solver.load_camera_sequence(full_path)
+        self._cam_io.load_sequence(full_path)
 
         # Re-trigger the solver with existing params after loading a new sequence
         params = self._event_solver.params()
-        if params.get("type"):
-            self._update_and_trigger(
-                params["type"], params["datetime"], params["event_ids"], params["event"]
-            )
+        self._update_and_trigger(**params)
 
     def start_simulation(self, gps_latitude, gps_longitude, gps_altitude, event_id, event_time_offset):
         """Starts a simulation. Returns (status_str, message_str)."""
@@ -127,6 +129,7 @@ class PyControlApp:
         solution = self._event_solver.simulate_trigger(gps_latitude, gps_longitude, gps_altitude)
 
         sim_time_offset = datetime.timedelta(seconds=0)
+
         if event_id:
             event_time = solution.get(event_id)
             if event_time is None:
@@ -152,7 +155,7 @@ class PyControlApp:
             )
 
         params = self._event_solver.params()
-        self._update_and_trigger(params["type"], params["datetime"], params["event_ids"], params["event"])
+        self._update_and_trigger(**params)
 
         return "success", "Simulation started."
 
@@ -160,18 +163,17 @@ class PyControlApp:
         """Stops the current simulation."""
         with self._run_sim_lock:
             self._run_sim = RunSim()
-
         params = self._event_solver.params()
-        self._update_and_trigger(params["type"], params["datetime"], params["event_ids"], params["event"])
+        self._update_and_trigger(**params)
+        self._cam_io.reset_sequence()
         return "success", "Simulation stopped."
 
-    def _read_events(self):
+    def _read_events(self, event_map):
         """Internal method to get and format event data from the solver."""
-        events = self._event_solver.read()
-        all_events = self._event_solver.event_ids()
-        out = {}
-        for event_id in all_events:
-            event_time = events.get(event_id, EventSolver.COMPUTING)
+        event_ids = self._event_solver.event_ids()
+        out = dict()
+        for event_id in event_ids:
+            event_time = event_map.get(event_id, EventSolver.COMPUTING)
             if event_time == EventSolver.COMPUTING:
                 out[event_id] = (event_time, "")
             elif event_time is None:
@@ -183,7 +185,7 @@ class PyControlApp:
                 raise ValueError(f"Unknown event_time type: {event_time}")
         return out
 
-    def _update_and_trigger(self, type_, date_, event_ids, event_map):
+    def _update_and_trigger(self, **kwargs):
         """Internal method to update the event solver with new data."""
         gps = self._gps_reader.read()
         latitude = gps["lat"]
@@ -202,14 +204,14 @@ class PyControlApp:
             altitude = sim_pos.altitude + (sim_offset.altitude - altitude)
 
         self._event_solver.update_and_trigger(
-            type=type_,
-            datetime=date_,
-            lat=latitude,
-            long=longitude,
-            altitude=altitude,
-            event_ids=event_ids,
-            event=event_map,
-            sim_time_offset=sim_time_offset,
+            type = kwargs["type"],
+            datetime = kwargs["datetime"],
+            lat = latitude,
+            long = longitude,
+            altitude = altitude,
+            event_ids = kwargs["event_ids"],
+            event_map = kwargs["event_map"],
+            sim_time_offset = sim_time_offset,
         )
 
 #------------------------------------------------------------------------------
@@ -245,12 +247,12 @@ def api_camera_update_description():
         return make_response("error", "Request must be JSON", 400)
     data = flask.request.get_json()
     serial = data.get('serial')
-    new_description = data.get('description')
-    if not serial or new_description is None:
+    cam_id = data.get('description')
+    if not serial or cam_id is None:
         return make_response("error", "Missing serial or description", 400)
 
     # Correctly call the public method
-    pycontrol_app.update_camera_description(serial, new_description)
+    pycontrol_app.set_camera_id(serial, cam_id)
     return make_response("success", "Description updated")
 
 
@@ -267,13 +269,13 @@ def api_event_load():
     if not filename:
         return make_response("error", "Filename not provided", 400)
 
-    try:
-        data = pycontrol_app.load_event_file(filename)
-        app.logger.info(f"loaded event {filename}")
-        return flask.jsonify(data), 200
-    except Exception as e:
-        app.logger.error(f"Failed to load event file {filename}: {e}")
-        return make_response("error", f"Failed to load event file: {e}", 500)
+#~    try:
+    data = pycontrol_app.load_event_file(filename)
+    app.logger.info(f"loaded event {filename}")
+    return flask.jsonify(data), 200
+#~    except Exception as e:
+#~        app.logger.error(f"Failed to load event file {filename}: {e}")
+#~        return make_response("error", f"Failed to load event file: {e}", 500)
 
 
 @app.route('/api/run_sim/defaults')
@@ -334,7 +336,7 @@ def api_camera_sequence_load():
 
     try:
         # Correctly call the public method
-        pycontrol_app.load_camera_sequence(filename)
+        pycontrol_app.load_sequence(filename)
         return make_response("success", f"Camera Sequence loaded: {filename}", 200)
     except FileNotFoundError as e:
         return make_response("error", str(e), 404)

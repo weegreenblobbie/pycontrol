@@ -13,6 +13,8 @@ Make it work
   the type, CameraControl can process it.
   Add a reandme in docs to document the commands.
 
+- Use https://github.com/nlohmann/json/tree/develop for sending telem in JSON format
+
 
 - When control state != executig, allow manual manipulation of the camera settings
 -- easy to view what choices a field has

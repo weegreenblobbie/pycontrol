@@ -9,7 +9,7 @@ import astropy.time
 
 from solar_eclipse_contact_times import find_contact_times as solar_contact_times
 import date_utils as du
-import udp_socket
+
 import utils
 
 
@@ -64,23 +64,15 @@ class EventSolver:
 
     COMPUTING = "Computing ..."
 
-    def __init__(self, camera_control_config):
+    def __init__(self, camera_io):
 
-        config = utils.read_kv_config(camera_control_config)
-        self._udp_ip = config["udp_ip"]
-        self._event_update_port = int(config["event_update_port"])
-
+        self._cam_io = camera_io
         self._params = dict()
         self._solution = dict()
         self._lock = threading.Lock()
         self._event = threading.Event()
         self._thread = None
         self._solution = dict()
-        self._reset = False
-        self._camera_sequence = "none"
-        # Use unique message counters so camera control can easily detect
-        # duplicate messages.
-        self._packet_id = ctypes.c_uint32(0)
 
     def start(self):
         assert self._thread is None
@@ -114,42 +106,31 @@ class EventSolver:
             return
 
         solution = self._solve(params)
-        reset = False
-        sequence = "none"
-        packet_id = 0
 
         with self._lock:
-            packet_id = self._packet_id.value
-            reset = self._reset
-            sequence = self._camera_sequence
             self._solution = solution
-            self._reset = False
-            self._packet_id.value += 1
+
+        if not solution:
+            return
 
         # Notify camera_control of solution.
-        msg = (
-            f"{packet_id}\n"
-            f"{sequence}\n"
-            f"{int(reset)}\n"
-        )
-        for k, v in solution.items():
-            if v is None or isinstance(v, str):
+        event_map = dict()
+        for event_id, timestamp in solution.items():
+            if timestamp is None or isinstance(timestamp, str):
                 continue
             else:
                 # Convert seconds from unix epoch seconds to milliseconds,
                 # rounding to the nearest milisecond.
-                timestamp = int(v.timestamp() * 1000.0 + 0.5)
-                msg += f"{k} {timestamp:d}\n"
+                event_map[event_id] = int(timestamp.timestamp() * 1000.0 + 0.5)
 
-        # Notify camera control, send 3 times to improve reliability.
-        for _ in range(3):
-            udp_socket.send_message(msg, self._udp_ip, self._event_update_port)
-            time.sleep(0.200)
+        if not event_map:
+            return
 
+        response = self._cam_io.set_events(event_map)
 
-    def load_camera_sequence(self, filename):
-        with self._lock:
-            self._camera_sequence = filename
+        if not response or not response["success"]:
+            print(f"Failed to set events: {response}")
+            raise RuntimeError(repr(response))
 
     def read(self):
         """
@@ -157,8 +138,8 @@ class EventSolver:
         Safe for Flask app to call.
         """
         with self._lock:
-            out = copy.deepcopy(self._solution)
-        return out
+            solution = copy.deepcopy(self._solution)
+        return solution
 
     def event_ids(self):
         return self.params().get("event_ids", [])
@@ -167,10 +148,10 @@ class EventSolver:
         """
         Returns the configured event ids.
         """
-        out = None
+        params = None
         with self._lock:
-            out = copy.deepcopy(self._params)
-        return out
+            params = copy.deepcopy(self._params)
+        return params
 
     def simulate_trigger(self, lat, long, alt):
         """
@@ -196,7 +177,7 @@ class EventSolver:
         assert "altitude" in new_params
         assert "datetime" in new_params
         assert "event_ids" in new_params
-        assert "event" in new_params
+        assert "event_map" in new_params
         assert "sim_time_offset" in new_params
 
         new_params = copy.deepcopy(new_params)
@@ -204,7 +185,6 @@ class EventSolver:
         with self._lock:
             self._params = new_params
             self._solution = dict()
-            self._reset = True
             # Immediately wake up the worker thread.
             self._event.set()
 
@@ -259,7 +239,7 @@ class EventSolver:
         """
         solution = dict()
         for event_id in params["event_ids"]:
-            solution[event_id] = params["event"][event_id]
+            solution[event_id] = params["event_map"][event_id]
 
         return solution
 
@@ -269,7 +249,7 @@ class EventSolver:
         """
         Computes the contact time for a total solar eclipse.
 
-        C1, C2, MID, C3, C4.
+        c1, c2, mid, c3, c4
         """
         solution = solar_contact_times(
             astropy.time.Time(date_, scale="utc"),
@@ -287,6 +267,6 @@ class EventSolver:
         """
         TODO: implement.
         """
-        return dict(P1=None, U1=None, U2=None, MID=None, U3=None, U4=None, P4=None)
+        return dict(p1=None, u1=None, u2=None, mid=None, u3=None, u4=None, p4=None)
 
 

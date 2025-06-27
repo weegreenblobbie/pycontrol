@@ -1,6 +1,6 @@
 type custom
 date 2026-08-13
-events e1 mid e2
+event_ids e1 mid e2
 e1  2026-08-13T05:00:00.000Z
 mid 2026-08-13T07:00:00.000Z
 e2  2026-08-13T09:00:00.000Z

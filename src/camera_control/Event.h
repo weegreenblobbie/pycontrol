@@ -17,6 +17,8 @@ enum class Channel: unsigned int
     quality,
     shutter_speed,
     trigger,
+
+    null
 };
 
 inline
@@ -31,6 +33,7 @@ to_string(Channel ch)
         case Channel::quality:       return "quality";
         case Channel::shutter_speed: return "shutter_speed";
         case Channel::trigger:       return "trigger";
+        case Channel::null:          return "null";
     }
     return "to_string(Channel) error";
 }

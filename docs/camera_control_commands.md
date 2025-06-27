@@ -67,7 +67,8 @@ javascript or python, a pretty printed example:
     "sequence_state": [
         {
             "num_events": 20,
-            "z7": [
+            "id": "z7",
+            "events": [
                 {
                     "pos": 1,
                     "event_id", "c2",
@@ -88,7 +89,8 @@ javascript or python, a pretty printed example:
         },
         {
             "num_events": 30,
-            "z8": [
+            "id": "z8",
+            "events": [
                 {
                     "pos": 1,
                     "event_id", "c2",
@@ -118,20 +120,18 @@ Command: Rename camera
 We use a short hand camera id to uniquely reference an attached camera to the
 system that is used in camera sequence files.  When a new camera is first detected,
 the description on the camera will be composed of the camera's make + model, for
-example: `Nikon Corporation Z6_II`.  Using this command, the UI can allow a user
+example: `Nikon Corporation Z 7`.  Using this command, the UI can allow a user
 to set a simplier camera id and use the camera id in their sequence files.
 
 ```
-[sequenc id: int]\n
-set_camera_id\n
-[serial:str] [id:str]\n
+[sequenc id: int]
+set_camera_id
+[serial:str] [id:str]
 ```
 
 For example:
 ```
-1
-set_camera_id
-3006513 z7
+1 set_camera_id 3006513 z7
 ```
 
 CameraControl should respond with:
@@ -152,20 +152,14 @@ When the event solver calculates a solution, it should notify CameraControl of t
 events using this command message format.
 
 ```
-[sequenc id: int]\n
-set_events\n
+[sequenc id: int]
+set_events
 [[event id:str] [timestamp: milliseconds since UNIX EPOCH (UTC)]\n]+
 ```
 
 For example:
 ```
-2
-set_events
-c1 1750627393194
-c2 1750627397194
-mid 1750627397254
-c3 1750627397314
-c4 1750627401314
+2 set_events c1 1750627393194 c2 1750627397194 mid 1750627397254 c3 1750627397314 c4 1750627401314
 ```
 
 CameraControl should respond with:
@@ -179,16 +173,14 @@ Command: load camera sequence file
 To load a camera sequence file use:
 
 ```
-[sequenc id: int]\n
-load_sequence\n
-[filename: str]\n
+[sequenc id: int]
+load_sequence
+[filename: str]
 ```
 
 For example:
 ```
-3
-load_sequnce
-sequences/spain-2026.seq
+3 load_sequnce sequences/spain-2026.seq
 ```
 
 CameraControl should respond with:
@@ -202,7 +194,6 @@ is returned:
 {"id":3,"success":false,"message":"Failed to load sequences/spain-2026.seq\nsequences/spain-2026.seq(16): bad event_id 'u1'"}
 ```
 
-
 Command: Reset camera sequence
 ------------------------------
 
@@ -212,14 +203,12 @@ command should be sent to CameraControl to reset the camera sequence such that t
 next event hasn't happend yet.
 
 ```
-[sequence id: int]\n
-reset_sequence\n
+[sequence id: int] reset_sequence
 ```
 
 For example:
 ```
-4
-reset_sequence
+4 reset_sequence
 ```
 
 The successful response would be:
@@ -235,16 +224,14 @@ drop down list to choose from, for example, for setting the image quality.  The
 command format:
 
 ```
-[sequence id: int]\n
-read_choices\n
-[serial: str] [property:str]\n
+[sequence id: int]
+read_choices
+[serial: str] [property:str]
 ```
 
 For example:
 ```
-5
-read_choices
-3006513 imagequality
+5 read_choices 3006513 imagequality
 ```
 
 The successful response would be:
