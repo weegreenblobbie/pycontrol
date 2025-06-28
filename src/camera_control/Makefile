@@ -41,6 +41,10 @@ CAMERA_CONTROL_BIN_OBJS := $(CAMERA_CONTROL_BIN_SRC:.cc=.o)
 
 UNIT_TEST_BIN_SRC := $(wildcard *_uto.cc)
 UNIT_TEST_BIN_OBJS := $(UNIT_TEST_BIN_SRC:.cc=.o)
+UNIT_TEST_BIN_OBJS += Camera.o
+UNIT_TEST_BIN_OBJS += CameraControl.o
+UNIT_TEST_BIN_OBJS += CameraSequence.o
+UNIT_TEST_BIN_OBJS += CameraSequenceFileReader.o
 
 %.o: %.cc
 	@echo "$(BUILD_COLOR)Building$(RESET) $<"
@@ -50,9 +54,9 @@ $(CAMERA_CONTROL_BIN): $(CAMERA_CONTROL_BIN_OBJS) ../common/libcommon.a
 	@echo "$(LINK_COLOR)Linking$(RESET) $@"
 	$(SILENT)$(CXX) -o $(CAMERA_CONTROL_BIN) $(CAMERA_CONTROL_BIN_OBJS) $(LINKFLAGS) $(LIBS)
 
-$(UNIT_TEST_BIN): $(ALL_SOURCE) $(UNIT_TEST_BIN_OBJS) CameraSequenceFileReader.o ../common/libcommon.a
+$(UNIT_TEST_BIN): $(ALL_SOURCE) $(UNIT_TEST_BIN_OBJS) ../common/libcommon.a
 	@echo "$(LINK_COLOR)Linking$(RESET) $@"
-	$(SILENT)$(CXX) -o $(UNIT_TEST_BIN) $(UNIT_TEST_BIN_OBJS) CameraSequenceFileReader.o $(LINKFLAGS) $(LIBS)
+	$(SILENT)$(CXX) -o $(UNIT_TEST_BIN) $(UNIT_TEST_BIN_OBJS) $(LINKFLAGS) $(LIBS)
 
 test: $(UNIT_TEST_BIN)
 	./$(UNIT_TEST_BIN)

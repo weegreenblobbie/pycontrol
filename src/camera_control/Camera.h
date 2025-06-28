@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-#include <interface/gphoto2cpp.h>
+#include <interface/GPhoto2Cpp.h>
 
 #include <common/types.h>
 #include <camera_control/Event.h>

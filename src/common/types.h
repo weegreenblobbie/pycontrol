@@ -2,8 +2,11 @@
 
 #include <cstdint>
 #include <limits>
+#include <map>
+#include <set>
 #include <string>
 #include <vector>
+
 
 namespace pycontrol
 {
@@ -25,7 +28,8 @@ struct KeyValuePair
 
 using kv_pair_vec = std::vector<KeyValuePair>;
 using str_vec = std::vector<std::string>;
-
+using str_set = std::set<std::string>;
+using map_str = std::map<std::string, std::string>;
 
 struct result
 {

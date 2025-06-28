@@ -1,6 +1,6 @@
 #pragma once
 
-#include <interface/gphoto2cpp.h>
+#include <interface/GPhoto2Cpp.h>
 
 namespace pycontrol
 {

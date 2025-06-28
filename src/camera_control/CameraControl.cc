@@ -10,7 +10,7 @@
 #include <camera_control/CameraSequenceFileReader.h>
 
 #include <interface/UdpSocket.h>
-#include <interface/gphoto2cpp.h>
+#include <interface/GPhoto2Cpp.h>
 
 
 namespace
