@@ -9,15 +9,21 @@
 
 #include <common/io.h>
 #include <common/types.h>
-#include <common/UdpSocket.h>
 
 namespace pycontrol
 {
 
 // Forwards.
+namespace interface
+{
+    class UdpSocket;
+    class GPhoto2Cpp;
+}
+
 class Camera;
 class CameraSequence;
 struct Event;
+
 
 class CameraControl
 {
@@ -32,10 +38,14 @@ public:
         executing,
     };
 
-    result init(const std::string & config_file);
-    result dispatch();
+    CameraControl(
+        interface::UdpSocket & cmd_socket,
+        interface::UdpSocket & telem_socket,
+        interface::GPhoto2Cpp & gp2cpp,
+        const kv_pair_vec & cam_to_ids
+    );
 
-    CameraControl() {}
+    result dispatch();
 
     const milliseconds & control_time() const { return _control_time; }
     const milliseconds & control_period() const { return _control_period; }
@@ -69,8 +79,6 @@ private:
     std::string       _command_buffer = std::string(1024, '\0');
     std::string       _command_response = "{\"id\":0,\"success\":true}";
     std::stringstream _telem_message = std::stringstream(std::string(4096, '\0'));
-    UdpSocket         _command_socket;
-    UdpSocket         _telem_socket;
 
     milliseconds      _control_time {0};
     milliseconds      _control_period {0};
@@ -83,6 +91,9 @@ private:
     event_map         _event_map {};
     sequence_map      _sequence_map {};
 
+    interface::UdpSocket &     _command_socket;
+    interface::UdpSocket &     _telem_socket;
+    interface::GPhoto2Cpp &    _gp2cpp;
 };
 
 

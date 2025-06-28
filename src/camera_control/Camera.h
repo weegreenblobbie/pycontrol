@@ -1,11 +1,9 @@
 #pragma once
 
-#include <cstdint>
-#include <memory>
 #include <vector>
 #include <string>
 
-#include <gphoto2cpp/gphoto2cpp.h>
+#include <interface/gphoto2cpp.h>
 
 #include <common/types.h>
 #include <camera_control/Event.h>
@@ -20,37 +18,40 @@ public:
 
     struct Info
     {
-        bool        connected;
-        std::string serial;
-        std::string port;
-        std::string desc;
-        std::string mode;     // manual, A, S, P, etc.
-        std::string shutter;
-        std::string fstop;
-        std::string iso;
-        std::string quality;
-        std::string battery_level;
+        bool        connected {false};
+        std::string serial {"N/A"};
+        std::string port {"N/A"};
+        std::string desc {"N/A"};
+        std::string mode {"N/A"};
+        std::string shutter {"N/A"};
+        std::string fstop {"N/A"};
+        std::string iso {"N/A"};
+        std::string quality {"N/A"};
+        std::string battery_level {"N/A"};
         std::string num_photos {"-1"};
     };
 
     Camera(
+        interface::GPhoto2Cpp & gp2cpp,
         gphoto2cpp::camera_ptr & camera,
         const std::string & port,
         const std::string & serial,
         const std::string & config_file
     );
 
+    const Info & info() { return _info; }
+
     void reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port);
     void disconnect();
 
+    result handle(const Event & event);
 
-    std::vector<std::string> read_choices(const std::string & property) const;
+    std::vector<std::string>
+    read_choices(const std::string & property) const;
 
     result read_config();
     result write_config();
-    const Info & info() { return _info; }
     result trigger();
-    result handle(const Event & event);
 
     void set_shutter(const std::string & speed);
     void set_fstop(const std::string & fstop);
@@ -59,6 +60,7 @@ public:
 
 private:
 
+    interface::GPhoto2Cpp & _gp2cpp;
     Info                   _info;
     gphoto2cpp::camera_ptr _camera;
 };

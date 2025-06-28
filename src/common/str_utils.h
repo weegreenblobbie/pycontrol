@@ -11,15 +11,6 @@
 namespace pycontrol
 {
 
-struct KeyValuePair
-{
-    std::string key;
-    std::string value;
-};
-
-using kv_pair_vec = std::vector<KeyValuePair>;
-using str_vec = std::vector<std::string>;
-
 result read_config(const std::string & config_file, kv_pair_vec & output);
 str_vec split(const std::string & str, const std::string & sep="");
 void lstrip(std::string &str, char tok);

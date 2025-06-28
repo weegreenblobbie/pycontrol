@@ -120,7 +120,7 @@ send(const std::string & msg)
 
 result
 UdpSocket::
-read(std::string & msg)
+recv(std::string & msg)
 {
     ABORT_IF_NOT(_bound, "Must call bind() first!", result::failure);
 
@@ -171,5 +171,4 @@ read(std::string & msg)
 }
 
 
-
-}
+} /* namespace pycontrol */

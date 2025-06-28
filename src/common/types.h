@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <vector>
 
 namespace pycontrol
 {
@@ -14,6 +15,16 @@ using UsbPort = std::string;
 using milliseconds = std::int64_t;
 
 constexpr milliseconds MAX_TIME = std::numeric_limits<milliseconds>::max();
+
+
+struct KeyValuePair
+{
+    std::string key;
+    std::string value;
+};
+
+using kv_pair_vec = std::vector<KeyValuePair>;
+using str_vec = std::vector<std::string>;
 
 
 struct result

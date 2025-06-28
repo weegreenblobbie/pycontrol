@@ -3,14 +3,14 @@
 
 #include <ctime>
 
-
-#include <gphoto2cpp/gphoto2cpp.h>
-
+#include <common/str_utils.h>
 #include <camera_control/Camera.h>
 #include <camera_control/CameraControl.h>
 #include <camera_control/CameraSequence.h>
 #include <camera_control/CameraSequenceFileReader.h>
-#include <common/str_utils.h>
+
+#include <interface/UdpSocket.h>
+#include <interface/gphoto2cpp.h>
 
 
 namespace
@@ -55,105 +55,30 @@ format_iso8601_utc(pycontrol::milliseconds ms_since_epoch)
 namespace pycontrol
 {
 
-//-----------------------------------------------------------------------------
-// Reads the input config files and update settings found theirin.  All settings
-// are key value pair strings.  Here's a complete example with default values:
-//
-//     # comments start with '#' and the rest of the line is ignored.
-//     udp_ip            239.192.168.1  # The UDP IP address the telemetry is sent to.
-//     command_port      10017          # Reads command messages on this port.
-//     telem_port        10018          # Writes telemetry messages on this port.
-//     period            50             # 20 Hz or 50 ms dispatch period.
-//     camera_aliases    filename       # A file to persistently map camera serial numbers to short names.
-//
-//-----------------------------------------------------------------------------
-result
-CameraControl::init(const std::string & config_file)
+
+CameraControl::
+CameraControl(
+    interface::UdpSocket & cmd_socket,
+    interface::UdpSocket & telem_socket,
+    interface::GPhoto2Cpp & gp2cpp,
+    const kv_pair_vec & cam_to_ids) : _command_socket(cmd_socket),
+                                      _telem_socket(telem_socket),
+                                      _gp2cpp(gp2cpp)
+
 {
-    //-------------------------------------------------------------------------
-    // Read in the config file.
-    //-------------------------------------------------------------------------
-    kv_pair_vec config_pairs;
-    ABORT_IF(read_config(config_file, config_pairs), "failed", result::failure);
-
-    _control_period = 0;
-
-    std::string udp_ip = "";
-    auto command_port = std::uint16_t {0};
-    auto telem_port = std::uint16_t {0};
-
-    for (const auto & pair : config_pairs)
+    for (const auto & [serial, id] : cam_to_ids)
     {
-        if (pair.key == "udp_ip")
-        {
-            udp_ip = pair.value;
-        }
-        else
-        if (pair.key == "command_port")
-        {
-            ABORT_ON_FAILURE(
-                as_type<std::uint16_t>(pair.value, command_port),
-                "as_type<std::uint16_t>(" << pair.value <<") failed",
-                result::failure
-            );
-        }
-        else
-        if (pair.key == "telem_port")
-        {
-            ABORT_ON_FAILURE(
-                as_type<std::uint16_t>(pair.value, telem_port),
-                "as_type<std::uint16_t>(" << pair.value <<") failed",
-                result::failure
-            );
-        }
-        else
-        if (pair.key == "period")
-        {
-            ABORT_ON_FAILURE(
-                as_type<milliseconds>(pair.value, _control_period),
-                "as_type<std::uint64_t>(" << pair.value <<") failed",
-                result::failure
-            );
-        }
-        else
-        if (pair.key == "camera_aliases")
-        {
-            kv_pair_vec data;
-            ABORT_ON_FAILURE(read_config(pair.value, data), "Failed to read camera_aliases", result::failure);
-            for (const auto & pair : data)
-            {
-                const auto & serial = pair.key;
-                const auto & id = pair.value;
-                INFO_LOG << "init(): mapping camera alias: " << serial << " to " << id << "\n";
-                _serial_to_id[serial] = id;
-                _id_to_serial[id] = serial;
-            }
-        }
+        INFO_LOG << "init(): mapping camera alias: " << serial << " to " << id << "\n";
+        _serial_to_id[serial] = id;
+        _id_to_serial[id] = serial;
     }
-
-    ABORT_IF_NOT(udp_ip.starts_with("239."), "Please use a local multicast IP address", result::failure);
-    ABORT_IF(command_port < 1024, "command_port too low, pick a higher port", result::failure);
-    ABORT_IF(telem_port < 1024, "telem_port too low, pick a higher port", result::failure);
-    ABORT_IF(_control_period < 10, "100+ Hz is probably too fast", result::failure);
-
-    INFO_LOG << "init():         udp_ip: " << udp_ip << "\n";
-    INFO_LOG << "init():   command_port: " << command_port << "\n";
-    INFO_LOG << "init():     telem_port: " << telem_port << "\n";
-    INFO_LOG << "init(): control_period: " << _control_period << " ms\n";
-
-    ABORT_ON_FAILURE(_command_socket.init(udp_ip, command_port), "UpdSocket::init() failed", result::failure);
-    ABORT_ON_FAILURE(_command_socket.bind(), "UdpSocket::bind() failed", result::failure);
-
-    ABORT_ON_FAILURE(_telem_socket.init(udp_ip, telem_port), "UpdSocket::init() failed", result::failure);
-
-    return result::success;
 }
 
 void
 CameraControl::
 _camera_scan()
 {
-    const auto new_detections = gphoto2cpp::auto_detect();
+    const auto new_detections = _gp2cpp.auto_detect();
     const auto detections = port_set(new_detections.begin(), new_detections.end());
     const bool cameras_changed = detections != _current_ports;
     if (cameras_changed)
@@ -163,14 +88,14 @@ _camera_scan()
         {
             if (not _current_ports.contains(port))
             {
-                auto camera = gphoto2cpp::open_camera(port);
+                auto camera = _gp2cpp.open_camera(port);
                 if (not camera)
                 {
-                    INFO_LOG << "open_camera() failed, ignoring" << std::endl;
+                    INFO_LOG << "gphoto2cpp::open_camera() failed, ignoring" << std::endl;
                     continue;
                 }
 
-                if (not gphoto2cpp::read_config(camera))
+                if (not _gp2cpp.read_config(camera))
                 {
                     ERROR_LOG
                         << "gphoto2cpp::read_config(camera) failed"
@@ -179,7 +104,7 @@ _camera_scan()
                 };
 
                 std::string serial;
-                if (not gphoto2cpp::read_property(camera, "serialnumber", serial))
+                if (not _gp2cpp.read_property(camera, "serialnumber", serial))
                 {
                     ERROR_LOG
                         << "gphoto2cpp::read_property(\"serialnumber\") failed"
@@ -192,6 +117,7 @@ _camera_scan()
                 if (not _cameras.contains(serial))
                 {
                     auto cam = std::make_shared<Camera>(
+                        _gp2cpp,
                         camera,
                         port,
                         serial,
@@ -242,10 +168,9 @@ _camera_scan()
     }
 
     // Always read the camera configuration to reflect the camera state.
-    for (auto & pair : _cameras)
+    for (auto & [_, camera] : _cameras)
     {
-        auto & cam = pair.second;
-        cam->read_config();
+        camera->read_config();
     }
 }
 
@@ -411,7 +336,7 @@ CameraControl::
 _read_command()
 {
     ABORT_ON_FAILURE(
-        _command_socket.read(_command_buffer),
+        _command_socket.recv(_command_buffer),
         "UdpSocket::read() failed",
         result::failure
     );
@@ -871,4 +796,4 @@ dispatch()
 }
 
 
-}
+} /* namespace pycontrol */

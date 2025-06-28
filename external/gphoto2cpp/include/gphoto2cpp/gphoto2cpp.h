@@ -184,7 +184,7 @@ _get_camera_to_choice()
 
 inline
 void
-reset_cache(camera_ptr & camera)
+reset_cache(const camera_ptr & camera)
 {
     auto & cam_to_root = _get_camera_to_root();
     const auto itor1 = cam_to_root.find(camera);
@@ -392,7 +392,7 @@ _lookup_widget(
 
 inline
 bool
-read_config(camera_ptr & camera)
+read_config(const camera_ptr & camera)
 {
     reset_cache(camera);
 
@@ -928,7 +928,7 @@ write_config(camera_ptr & camera)
 
 inline
 bool
-trigger(camera_ptr & camera)
+trigger(const camera_ptr & camera)
 {
     GPHOTO2CPP_SAFE_CALL(
         GP2::gp_camera_trigger_capture(

@@ -6,21 +6,24 @@ namespace pycontrol
 
 Camera::
 Camera(
+    interface::GPhoto2Cpp & gp2cpp,
     gphoto2cpp::camera_ptr & camera,
     const std::string & port,
     const std::string & serial,
     const std::string & config_file)
 :
+    _gp2cpp(gp2cpp),
     _info{.connected = true, .serial = serial, .port = port, },
     _camera{camera}
 {
-    gphoto2cpp::read_config(_camera);
+    // Expensive read, reads all the camera's configuration.
+    _gp2cpp.read_config(_camera);
 
     std::string make;
     std::string model;
 
-    gphoto2cpp::read_property(_camera, "manufacturer", make);
-    gphoto2cpp::read_property(_camera, "cameramodel", model);
+    _gp2cpp.read_property(_camera, "manufacturer", make);
+    _gp2cpp.read_property(_camera, "cameramodel", model);
 
     _info.desc = make + " " + model;
 }
@@ -29,7 +32,7 @@ Camera(
 void
 Camera::reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port)
 {
-    gphoto2cpp::reset_cache(camera);
+    _gp2cpp.reset_cache(camera);
     _camera.reset();
     _camera = camera;
     _info.port = port;
@@ -41,14 +44,7 @@ void
 Camera::
 disconnect()
 {
-    _info.connected = false;
-    _info.battery_level =
-    _info.shutter =
-    _info.mode =
-    _info.fstop =
-    _info.iso =
-    _info.quality = "__ERROR__";
-    _info.num_photos = "-1";
+    _info = Info();
 }
 
 
@@ -57,7 +53,7 @@ Camera::
 read_choices(const std::string & property) const
 {
     std::vector<std::string> out;
-    for (auto & choice : gphoto2cpp::read_choices(_camera, property))
+    for (auto & choice : _gp2cpp.read_choices(_camera, property))
     {
         out.emplace_back(choice);
     }
@@ -69,7 +65,7 @@ Camera::read_config()
 {
     if (not _info.connected) return result::success;
 
-    if (not gphoto2cpp::read_config(_camera))
+    if (not _gp2cpp.read_config(_camera))
     {
         disconnect();
         return result::success;
@@ -77,39 +73,39 @@ Camera::read_config()
 
     // Battery can be read event if camera isn't turned on.
     ABORT_IF_NOT(
-        gphoto2cpp::read_property(_camera, "batterylevel", _info.battery_level),
+        _gp2cpp.read_property(_camera, "batterylevel", _info.battery_level),
         "reasing batterylevel failed",
         result::failure
     );
 
-    if (not gphoto2cpp::read_property(_camera, "shutterspeed2", _info.shutter))
+    if (not _gp2cpp.read_property(_camera, "shutterspeed2", _info.shutter))
     {
         disconnect();
         return result::success;
     }
 
     ABORT_IF_NOT(
-        gphoto2cpp::read_property(_camera, "expprogram", _info.mode),
+        _gp2cpp.read_property(_camera, "expprogram", _info.mode),
         "reading mode failed",
         result::failure
     );
     ABORT_IF_NOT(
-        gphoto2cpp::read_property(_camera, "f-number", _info.fstop),
+        _gp2cpp.read_property(_camera, "f-number", _info.fstop),
         "reading fstop failed",
         result::failure
     );
     ABORT_IF_NOT(
-        gphoto2cpp::read_property(_camera, "iso", _info.iso),
+        _gp2cpp.read_property(_camera, "iso", _info.iso),
         "reading iso failed",
         result::failure
     );
     ABORT_IF_NOT(
-        gphoto2cpp::read_property(_camera, "imagequality", _info.quality),
+        _gp2cpp.read_property(_camera, "imagequality", _info.quality),
         "reading quality failed",
         result::failure
     );
     ABORT_IF_NOT(
-        gphoto2cpp::read_property(_camera, "availableshots", _info.num_photos),
+        _gp2cpp.read_property(_camera, "availableshots", _info.num_photos),
         "reading avialble shots failed",
         result::failure
     );
@@ -121,27 +117,27 @@ result
 Camera::write_config()
 {
     ABORT_IF_NOT(
-        gphoto2cpp::write_property(_camera, "shutterspeed2", _info.shutter),
+        _gp2cpp.write_property(_camera, "shutterspeed2", _info.shutter),
         "failed to write 'shutterspeed2': " << _info.shutter,
         result::failure
     );
     ABORT_IF_NOT(
-        gphoto2cpp::write_property(_camera, "f-number", _info.fstop),
+        _gp2cpp.write_property(_camera, "f-number", _info.fstop),
         "failed to write 'f-number': " << _info.fstop,
         result::failure
     );
     ABORT_IF_NOT(
-        gphoto2cpp::write_property(_camera, "iso", _info.iso),
+        _gp2cpp.write_property(_camera, "iso", _info.iso),
         "failed to write 'iso': " << _info.iso,
         result::failure
     );
     ABORT_IF_NOT(
-        gphoto2cpp::write_property(_camera, "imagequality", _info.quality),
+        _gp2cpp.write_property(_camera, "imagequality", _info.quality),
         "failed to write 'imagequality': " << _info.quality,
         result::failure
     );
     ABORT_IF_NOT(
-        gphoto2cpp::write_config(_camera),
+        _gp2cpp.write_config(_camera),
         "failed to flush settings",
         result::failure
     );
@@ -227,7 +223,7 @@ result
 Camera::trigger()
 {
     ABORT_IF_NOT(
-        gphoto2cpp::trigger(_camera),
+        _gp2cpp.trigger(_camera),
         "failed to trigger camera",
         result::failure
     );
@@ -236,4 +232,4 @@ Camera::trigger()
 }
 
 
-} /* namespace */
+} /* namespace pycontrol */
