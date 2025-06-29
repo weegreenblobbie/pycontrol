@@ -39,7 +39,7 @@ public:
     open_camera(const std::string & port) = 0;
 
     virtual
-    std::set<std::string>
+    std::vector<std::string>
     read_choices(
         const gphoto2cpp::camera_ptr & camera,
         const std::string & property) = 0;

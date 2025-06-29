@@ -18,6 +18,7 @@ namespace interface
 {
     class UdpSocket;
     class GPhoto2Cpp;
+    class WallClock;
 }
 
 class Camera;
@@ -42,6 +43,7 @@ public:
         interface::UdpSocket & cmd_socket,
         interface::UdpSocket & telem_socket,
         interface::GPhoto2Cpp & gp2cpp,
+        interface::WallClock & clock,
         const kv_pair_vec & cam_to_ids
     );
 
@@ -94,6 +96,7 @@ private:
     interface::UdpSocket &     _command_socket;
     interface::UdpSocket &     _telem_socket;
     interface::GPhoto2Cpp &    _gp2cpp;
+    interface::WallClock &     _clock;
 };
 
 

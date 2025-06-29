@@ -1,8 +1,9 @@
 #include <camera_control/Camera.h>
 #include <camera_control/CameraControl.h>
 #include <camera_control/GPhoto2Cpp.h>
-#include <common/str_utils.h>
+#include <camera_control/WallClock.h>
 #include <common/UdpSocket.h>
+#include <common/str_utils.h>
 
 
 #include <cactus_rt/rt.h>
@@ -166,14 +167,19 @@ int main(int argc, char ** argv)
     UdpSocket telem_socket;
     ABORT_ON_FAILURE(telem_socket.init(cfg.udp_ip, cfg.command_port), "failure", 1);
 
+    auto clock = WallClock();
+
     GPhoto2Cpp gp2cpp;
 
-    CameraControl cc(command_socket, telem_socket, gp2cpp, cfg.camera_to_ids);
+    CameraControl cc(
+        command_socket, telem_socket, gp2cpp, clock, cfg.camera_to_ids);
 
     // Construct the Runtime config.
     Thread::Config config;
 
-    config.period_ns = cfg.control_period * 1'000'000;
+    constexpr auto milli_to_nano = 1'000'000;
+
+    config.period_ns = cfg.control_period * milli_to_nano;
     config.cpu_affinity = std::vector<std::size_t>{2};
     config.SetFifoScheduler(80);
     config.tracer_config.trace_overrun = false;

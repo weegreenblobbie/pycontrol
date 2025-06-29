@@ -2,18 +2,13 @@ include ../../config.mk
 
 LIB := libcommon.a
 
-CPPINCLUDES = -I..
-SOURCES = $(wildcard *.cc)
-HEADERS = $(wildcard *.h)
-OBJECTS = $(SOURCES:.cc=.o)
+SOURCES := $(wildcard *.cc)
+HEADERS := $(wildcard *.h)
+OBJECTS := $(SOURCES:.cc=.o)
 
-DEPS = $(SOURCES:.cc=.d)
+DEPS := $(SOURCES:.cc=.d)
 
 all: $(LIB)
-
-%.o: %.cc
-	@echo "$(BUILD_COLOR)Building$(RESET) $<"
-	$(SILENT)$(CXX) $(CXXFLAGS) $(CPPINCLUDES) -c $< -o $@
 
 $(LIB): $(OBJECTS)
 	@echo "$(LINK_COLOR)Archiving$(RESET) $(LIB)"

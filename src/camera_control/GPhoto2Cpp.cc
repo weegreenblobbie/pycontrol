@@ -17,7 +17,7 @@ GPhoto2Cpp::open_camera(const std::string & port)
     return gphoto2cpp::open_camera(port);
 }
 
-std::set<std::string>
+std::vector<std::string>
 GPhoto2Cpp::read_choices(
     const gphoto2cpp::camera_ptr & camera,
     const std::string & property)

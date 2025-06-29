@@ -1,7 +1,5 @@
-#include <chrono>
-#include <iomanip>
 
-#include <ctime>
+
 
 #include <common/str_utils.h>
 #include <camera_control/Camera.h>
@@ -11,45 +9,7 @@
 
 #include <interface/UdpSocket.h>
 #include <interface/GPhoto2Cpp.h>
-
-
-namespace
-{
-
-// Returns the current system time in miliseconds since UNIX epoch.
-pycontrol::milliseconds
-now()
-{
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()
-    ).count();
-}
-
-/*
-std::string
-format_iso8601_utc(pycontrol::milliseconds ms_since_epoch)
-{
-    // Create a duration and time_point from the incoming integer.
-    // We trust that this integer is the "correct" POSIX time in milliseconds.
-    auto const duration = std::chrono::milliseconds(ms_since_epoch);
-    auto const time_point = std::chrono::time_point<std::chrono::system_clock>(duration);
-
-    // Separate into seconds and the fractional millisecond part
-    auto const seconds_since_epoch = std::chrono::time_point_cast<std::chrono::seconds>(time_point);
-    auto const ms_part = std::chrono::duration_cast<std::chrono::milliseconds>(time_point - seconds_since_epoch);
-
-    std::time_t time_t_seconds = std::chrono::system_clock::to_time_t(seconds_since_epoch);
-
-    std::stringstream ss;
-    // std::gmtime correctly interprets a POSIX time_t as UTC
-    ss << std::put_time(std::gmtime(&time_t_seconds), "%Y-%m-%dT%H:%M:%S");
-    ss << '.' << std::setw(3) << std::setfill('0') << ms_part.count() << 'Z';
-
-    return ss.str();
-}
-*/
-
-} /* namespace */
+#include <interface/WallClock.h>
 
 
 namespace pycontrol
@@ -61,9 +21,11 @@ CameraControl(
     interface::UdpSocket & cmd_socket,
     interface::UdpSocket & telem_socket,
     interface::GPhoto2Cpp & gp2cpp,
+    interface::WallClock & clock,
     const kv_pair_vec & cam_to_ids) : _command_socket(cmd_socket),
                                       _telem_socket(telem_socket),
-                                      _gp2cpp(gp2cpp)
+                                      _gp2cpp(gp2cpp),
+                                      _clock(clock)
 
 {
     for (const auto & [serial, id] : cam_to_ids)
@@ -138,11 +100,11 @@ _camera_scan()
                     _cameras[serial]->reconnect(camera, port);
                 }
 
-                DEBUG_LOG << "adding "
-                          << "serial=" << serial << " "
-                          << "desc=" << _serial_to_id[serial] << " "
-                          << "port=" << port
-                          << "\n";
+                INFO_LOG
+                    << "adding "
+                    << "port=" << port << " "
+                    << "serial=" << serial << " "
+                    << "desc=" << _serial_to_id[serial] << "\n";
 
                 _current_ports.insert(port);
             }
@@ -156,13 +118,16 @@ _camera_scan()
             const auto & port = info.port;
             if (not detections.contains(port))
             {
-                DEBUG_LOG << "removing "
-                          << "serial=" << info.serial << " "
-                          << "desc=" << _serial_to_id[info.serial] << " "
-                          << "port=" << port
-                          << "\n";
-                cam->disconnect();
-                _current_ports.erase(port);
+                std::size_t num_erased = _current_ports.erase(port);
+                if (num_erased > 0)
+                {
+                    INFO_LOG
+                        << "removing "
+                        << "port=" << port << " "
+                        << "serial=" << info.serial << " "
+                        << "desc=" << _serial_to_id[info.serial] << "\n";
+                    cam->disconnect();
+                }
             }
         }
     }
@@ -500,6 +465,15 @@ _read_command()
 
         auto choice_vec = _cameras[serial]->read_choices(property);
 
+        // If the vector is empty, probably doesn't exist.
+        if (choice_vec.empty())
+        {
+            oss << "false,\"message\":\""
+                << "property '" << property << "' does not exist\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
         oss << "true,\"data\":[";
         std::size_t idx = 0;
         for (const auto & choice : choice_vec)
@@ -658,9 +632,9 @@ CameraControl::
 dispatch()
 {
     auto next_state = CameraControl::State::init;
-    bool scan_cameras = false;
+    bool scan_cameras = true;
 
-    _control_time = now();
+    _control_time = _clock.now();
 
     switch(_state)
     {
@@ -674,15 +648,13 @@ dispatch()
         }
         case CameraControl::State::scan:
         {
-            scan_cameras = true;
+
             next_state = CameraControl::State::monitor;
             break;
         }
 
         case CameraControl::State::monitor:
         {
-            scan_cameras = true;
-
             // Transition to the next state if we have an event time for any
             // currently connected camera.
             const auto next_event_time = _get_next_event_time();
@@ -700,8 +672,6 @@ dispatch()
 
         case CameraControl::State::execute_ready:
         {
-            scan_cameras = true;
-
             const auto next_event_time = _get_next_event_time();
 
             if (next_event_time < (_control_time + 60'000))
@@ -775,9 +745,9 @@ dispatch()
         }
     }
 
-    // Send out 4 Hz telemetry.
     if (_send_time <= _control_time)
     {
+        // Send out 4 Hz telemetry unless we are monitoring cameras.
         if (scan_cameras)
         {
             _send_time = _control_time + 1000;  // 1 Hz.

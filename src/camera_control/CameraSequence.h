@@ -23,7 +23,7 @@ public:
     void pop() { ++_pos; }
     void reset() {_pos = _sequence.begin();}
     bool empty() {return _pos >= _sequence.end();}
-    std::size_t size() const { return std::distance(_pos, _sequence.end()); }
+    std::size_t size() const { return _sequence.size(); }
     std::size_t pos() const {return std::distance(_sequence.begin(), _pos) + 1; }
 
     event_vec::const_iterator begin() const { return _pos; }

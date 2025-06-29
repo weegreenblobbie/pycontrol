@@ -15,7 +15,7 @@ public:
     gphoto2cpp::camera_ptr
     open_camera(const std::string & port) override;
 
-    std::set<std::string>
+    std::vector<std::string>
     read_choices(
         const gphoto2cpp::camera_ptr & camera,
         const std::string & property) override;

@@ -44,7 +44,11 @@ void
 Camera::
 disconnect()
 {
+    auto serial = _info.serial;
+    auto port = _info.port;
     _info = Info();
+    _info.serial = serial;
+    _info.port = port;
 }
 
 

@@ -1,26 +1,10 @@
 include ../../config.mk
 
-EXTERNAL_DIR = $(ROOT_DIR)external
+CPPINCLUDES += -I..
 
-CPPINCLUDES = -I.. -I$(EXTERNAL_DIR)/include
+LINKFLAGS += -L../common
 
-LINKFLAGS = \
-    -L../common \
-	-L$(EXTERNAL_DIR)/lib \
-	-Wl,-rpath,$(abspath $(EXTERNAL_DIR)/lib)
-
-LIBS = \
-    -lcommon \
-    -lgphoto2 \
-    -lgphoto2_port \
-    -lgphoto2_port \
-    -lcactus_rt \
-    -lcactus_tracing_embedded_perfetto_protos \
-    -lquill \
-	-lprotobuf \
-	-lpthread \
-	-lCatch2 \
-	-lCatch2Main
+LIBS += -lcommon
 
 ALL_SOURCE = $(wildcard *.cc)
 ALL_OBJECTS = $(wildcard *.o)
@@ -45,10 +29,6 @@ UNIT_TEST_BIN_OBJS += Camera.o
 UNIT_TEST_BIN_OBJS += CameraControl.o
 UNIT_TEST_BIN_OBJS += CameraSequence.o
 UNIT_TEST_BIN_OBJS += CameraSequenceFileReader.o
-
-%.o: %.cc
-	@echo "$(BUILD_COLOR)Building$(RESET) $<"
-	$(SILENT)$(CXX) $(CXXFLAGS) $(CPPINCLUDES) -c $< -o $@
 
 $(CAMERA_CONTROL_BIN): $(CAMERA_CONTROL_BIN_OBJS) ../common/libcommon.a
 	@echo "$(LINK_COLOR)Linking$(RESET) $@"

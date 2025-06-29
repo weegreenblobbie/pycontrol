@@ -52,7 +52,7 @@ namespace gphoto2cpp
                                  std::string & output
                              );
 
-    std::set<std::string>    read_choices(
+    std::vector<std::string> read_choices(
                                  const camera_ptr & camera,
                                  const std::string & property);
 
@@ -616,7 +616,7 @@ _read_choices(const camera_ptr & camera, const std::string & property)
 
 
 inline
-std::set<std::string>
+std::vector<std::string>
 read_choices(const camera_ptr & camera, const std::string & property)
 {
     auto & cam_to_choices = _get_camera_to_choice();
@@ -628,13 +628,13 @@ read_choices(const camera_ptr & camera, const std::string & property)
     }
     const auto & ch_map = itor->second;
 
-    auto out = std::set<std::string>();
+    auto out = std::vector<std::string>();
     auto itor2 = ch_map.find(property);
     if (itor2 != ch_map.end())
     {
         for (const auto & choice : itor2->second)
         {
-            out.insert(choice.first);
+            out.push_back(choice.first);
         }
     }
 
