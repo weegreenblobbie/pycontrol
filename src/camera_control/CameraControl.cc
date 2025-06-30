@@ -315,12 +315,15 @@ _read_command()
     std::uint32_t cmd_id = 0;
     std::string command;
 
+    std::ostringstream oss;
+    oss << "{\"id\":" << _command_id << ",\"success\":";
+
     std::istringstream iss(_command_buffer);
     if (not (iss >> cmd_id >> command))
     {
-        ERROR_LOG << "failed to parse command '" << _command_buffer << "'" << std::endl;
-        _command_response = "null";
-        return result::failure;
+        oss << "false,\"message\":\"failed to parse command '" << _command_buffer << "'\"}";
+        _command_response = oss.str();
+        return result::success;
     }
 
     // Nothing new to process.
@@ -331,7 +334,7 @@ _read_command()
 
     _command_id = cmd_id;
 
-    std::ostringstream oss;
+    oss.str("");
     oss << "{\"id\":" << _command_id << ",\"success\":";
 
     //-------------------------------------------------------------------------
@@ -485,6 +488,53 @@ _read_command()
         _command_response = oss.str();
         return result::success;
     }
+    else if (command == "set_choice")
+    {
+        std::string serial;
+        std::string property;
+        std::string value;
+        if (not ((iss >> serial >> property) and (std::getline(iss, value))))
+        {
+            oss << "false,\"message\":\""
+                << "Failed to parse set_choice command: '" << _command_buffer << "'\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not _cameras.contains(serial))
+        {
+            oss << "false,\"message\":\"serial '" << serial << "' does not exist\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+        strip(value, ' ');
+
+        auto cam = _cameras[serial];
+
+        INFO_LOG << "setting '" << property << "' to '" << value << "'" << std::endl;
+
+        if (result::failure == cam->write_property(property, value))
+        {
+            oss << "false,\"message\":\""
+                << "property '" << property << "' does not exist\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (result::failure == cam->write_config())
+        {
+            oss << "false,\"message\":\""
+                << "writing '" << property << "' with '" << value << "' failed\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        oss << "true}";
+        _command_response = oss.str();
+        return result::success;
+    }
+    //-------------------------------------------------------------------------
+    // reset_sequence
     else if (command != "reset_sequence")
     {
         oss << "false,\"message\":\"Unknown command: '" << command << "'\"}";

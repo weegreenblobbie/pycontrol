@@ -159,6 +159,13 @@ class PyControlApp:
 
         return "success", "Simulation started."
 
+    def read_choices(self, serial, prop):
+        return self._cam_io.read_choices(serial, prop)
+
+    def set_choice(self, serial, prop, value):
+        return self._cam_io.set_choice(serial, prop, value)
+
+
     def stop_simulation(self):
         """Stops the current simulation."""
         with self._run_sim_lock:
@@ -343,6 +350,54 @@ def api_camera_sequence_load():
     except Exception as e:
         app.logger.error(f"Failed to load camera sequence {filename}: {e}")
         return make_response("error", "Failed to load camera sequence", 500)
+
+
+JS_TO_PROP = {
+    "quality": "imagequality",
+    "mode": "expprogram",
+    "fstop": "f-number",
+    "shutter": "shutterspeed2",
+}
+
+
+@app.route('/api/camera/read_choices', methods=["POST"])
+def api_camera_read_choices():
+    data = flask.request.get_json()
+    serial = data.get('serial')
+    prop = data.get('property')
+
+    if prop in JS_TO_PROP:
+        prop = JS_TO_PROP[prop]
+
+    response = pycontrol_app.read_choices(serial, prop)
+
+    success = response['success']
+
+    if success:
+         return flask.jsonify(response["data"]), 200
+
+    return make_response("error", response["message"], 400)
+
+
+@app.route('/api/camera/set_choice', methods=["POST"])
+def api_camera_set_choice():
+    data = flask.request.get_json()
+    serial = data.get('serial')
+    prop = data.get('property')
+    value = data.get('value')
+
+    if prop in JS_TO_PROP:
+        prop = JS_TO_PROP[prop]
+
+    response = pycontrol_app.set_choice(serial, prop, value)
+
+    success = response['success']
+
+    if success:
+         return make_response("success", f"Property '{prop}' set to '{value}' on camera '{serial}'", 200)
+
+    return make_response("error", response["message"], 400)
+
 
 
 if __name__ == '__main__':

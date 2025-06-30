@@ -165,7 +165,7 @@ int main(int argc, char ** argv)
     ABORT_ON_FAILURE(command_socket.bind(), "failure", 1);
 
     UdpSocket telem_socket;
-    ABORT_ON_FAILURE(telem_socket.init(cfg.udp_ip, cfg.command_port), "failure", 1);
+    ABORT_ON_FAILURE(telem_socket.init(cfg.udp_ip, cfg.telem_port), "failure", 1);
 
     auto clock = WallClock();
 

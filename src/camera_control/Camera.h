@@ -48,15 +48,19 @@ public:
 
     std::vector<std::string>
     read_choices(const std::string & property) const;
+    result write_property(
+        const std::string & property,
+        const std::string & value);
 
     result read_config();
     result write_config();
     result trigger();
 
-    void set_shutter(const std::string & speed);
     void set_fstop(const std::string & fstop);
     void set_iso(const std::string & iso);
+    void set_mode(const std::string & mode);
     void set_quality(const std::string & quality);
+    void set_shutter(const std::string & speed);
 
 private:
 

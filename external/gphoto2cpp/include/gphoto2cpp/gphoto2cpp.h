@@ -126,11 +126,23 @@ public:
                        [](unsigned char c){ return std::tolower(c); });
         _map[key] = value;
     }
-    iterator find(const std::string& key) { return _map.find(key); }
+    iterator find(const std::string& key)
+    {
+        std::string lower = key;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+        return _map.find(lower);
+    }
     iterator begin() { return _map.begin(); }
     iterator end() { return _map.end(); }
 
-    const_iterator find(const std::string& key) const { return _map.find(key); }
+    const_iterator find(const std::string& key) const
+    {
+        std::string lower = key;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+        return _map.find(lower);
+    }
     const_iterator begin() const { return _map.begin(); }
     const_iterator end() const { return _map.end(); }
 
@@ -634,7 +646,7 @@ read_choices(const camera_ptr & camera, const std::string & property)
     {
         for (const auto & choice : itor2->second)
         {
-            out.push_back(choice.first);
+            out.push_back(choice.second);
         }
     }
 
@@ -860,7 +872,7 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
 
                 for (const auto & choice : read_choices(camera, property))
                 {
-                    std::cerr << "    " << choice << "\n";
+                    std::cerr << "    '" << choice << "'\n";
                 }
                 return false;
             }

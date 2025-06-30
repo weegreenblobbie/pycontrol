@@ -1701,7 +1701,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     REQUIRE(cam1->trigger_count == 4);
 }
 
-TEST_CASE("CameraControl", "[CameraControl][read_choices]")
+TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 {
     Harness harness;
 
@@ -1931,4 +1931,143 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices]")
         R"("sequence":"",)"
         R"("sequence_state":[]})"
     );
+
+    //-------------------------------------------------------------------------
+    // set_choice - missing value
+    //
+    harness.cmd_socket.to_recv("8 set_choice 999 shutterspeed2");
+    msg = harness.dispatch_to_next_message();
+    REQUIRE(msg ==
+        R"({"state":"monitor",)"
+        R"("command_response":)"
+            R"({"id":8,)"
+            R"("success":false,)"
+            R"("message":"Failed to parse set_choice command: '8 set_choice 999 shutterspeed2'"},)"
+        R"("detected_cameras":[)"
+            R"({"connected":true,)"
+            R"("serial":"1234",)"
+            R"("port":"usb:001,001",)"
+            R"("desc":"Nikon Corporation Z 7",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/1000",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"NEF (Raw)",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850}],)"
+        R"("events":{},)"
+        R"("sequence":"",)"
+        R"("sequence_state":[]})"
+    );
+
+    //-------------------------------------------------------------------------
+    // set_choice - bad serial
+    //
+    harness.cmd_socket.to_recv("9 set_choice 999 shutterspeed2 1/500");
+    msg = harness.dispatch_to_next_message();
+    REQUIRE(msg ==
+        R"({"state":"monitor",)"
+        R"("command_response":)"
+            R"({"id":9,)"
+            R"("success":false,)"
+            R"("message":"serial '999' does not exist"},)"
+        R"("detected_cameras":[)"
+            R"({"connected":true,)"
+            R"("serial":"1234",)"
+            R"("port":"usb:001,001",)"
+            R"("desc":"Nikon Corporation Z 7",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/1000",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"NEF (Raw)",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850}],)"
+        R"("events":{},)"
+        R"("sequence":"",)"
+        R"("sequence_state":[]})"
+    );
+
+    //-------------------------------------------------------------------------
+    // set_choice - bad property
+    //
+    harness.cmd_socket.to_recv("10 set_choice 1234 wow-factor 5000");
+    msg = harness.dispatch_to_next_message();
+    REQUIRE(msg ==
+        R"({"state":"monitor",)"
+        R"("command_response":)"
+            R"({"id":10,)"
+            R"("success":false,)"
+            R"("message":"property 'wow-factor' does not exist"},)"
+        R"("detected_cameras":[)"
+            R"({"connected":true,)"
+            R"("serial":"1234",)"
+            R"("port":"usb:001,001",)"
+            R"("desc":"Nikon Corporation Z 7",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/1000",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"NEF (Raw)",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850}],)"
+        R"("events":{},)"
+        R"("sequence":"",)"
+        R"("sequence_state":[]})"
+    );
+
+    //-------------------------------------------------------------------------
+    // set_choice - good
+    //
+    harness.cmd_socket.to_recv("11 set_choice 1234 shutterspeed2 1/500");
+    msg = harness.dispatch_to_next_message();
+    REQUIRE(msg ==
+        R"({"state":"monitor",)"
+        R"("command_response":)"
+            R"({"id":11,)"
+            R"("success":true},)"
+        R"("detected_cameras":[)"
+            R"({"connected":true,)"
+            R"("serial":"1234",)"
+            R"("port":"usb:001,001",)"
+            R"("desc":"Nikon Corporation Z 7",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/500",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"NEF (Raw)",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850}],)"
+        R"("events":{},)"
+        R"("sequence":"",)"
+        R"("sequence_state":[]})"
+    );
+
+    //-------------------------------------------------------------------------
+    // set_choice - value with space.
+    //
+    harness.cmd_socket.to_recv("12 set_choice 1234 imagequality jpeg fine*");
+    msg = harness.dispatch_to_next_message();
+    REQUIRE(msg ==
+        R"({"state":"monitor",)"
+        R"("command_response":)"
+            R"({"id":12,)"
+            R"("success":true},)"
+        R"("detected_cameras":[)"
+            R"({"connected":true,)"
+            R"("serial":"1234",)"
+            R"("port":"usb:001,001",)"
+            R"("desc":"Nikon Corporation Z 7",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/500",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"jpeg fine*",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850}],)"
+        R"("events":{},)"
+        R"("sequence":"",)"
+        R"("sequence_state":[]})"
+    );
+
 }

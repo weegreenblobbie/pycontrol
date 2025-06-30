@@ -4,28 +4,21 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- CameraControl commanding is currently kind of ad hock, each type of command on
-  it's own port, unify this:
-  CameraControl listents for commands on a single port
-  cammands must specify a uniue sequence ids so if the command has aleady been
-  processed can be ignored
-  commands must specify a command type, followed by command parameters so based on
-  the type, CameraControl can process it.
-  Add a reandme in docs to document the commands.
+- Add intelligent sorting of camera properties for read_choices
+  - shutterspeed2
+  - iso
+  - fstop
 
-- Use https://github.com/nlohmann/json/tree/develop for sending telem in JSON format
+- Add a manual trigger button to the camera table
 
+- Disable camera table buttons if state == executing
 
-- When control state != executig, allow manual manipulation of the camera settings
--- easy to view what choices a field has
--- add capture button to manually take a photo with current settings
+- Consider using https://github.com/nlohmann/json/tree/develop for sending telem in JSON format
 
 - Loading a camera sequence that fails, is not fed back to UI
 
 - When I load a camera sequence, i expected the sequence table to get populated in about 1
   second.  Currently takes a bunch of time.
-
-- Display the top 10 camera sequence events.
 
 - Persist the event and camera selection in a config file, so reloading the app
   auto loads the last selected event and sequence file.
@@ -97,6 +90,20 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* When control state != executig, allow manual manipulation of the camera settings
+** easy to view what choices a field has
+
+* Display the top 10 camera sequence events.
+
+* CameraControl commanding is currently kind of ad hock, each type of command on
+  it's own port, unify this:
+  CameraControl listents for commands on a single port
+  cammands must specify a uniue sequence ids so if the command has aleady been
+  processed can be ignored
+  commands must specify a command type, followed by command parameters so based on
+  the type, CameraControl can process it.
+  Add a reandme in docs to document the commands.
 
 * Convert all channels and values to lowercase
 * Internally map lowecase choice maps to camera case.

@@ -80,6 +80,15 @@ td pre {
     background-color: #e6e6e6;
 }
 
+.choice-td {
+    cursor: pointer;
+    user-select: none;
+}
+
+.choice-td:hover {
+    background-color: #f0f8ff;
+}
+
 #event_table {
     table-layout: fixed;
 }
@@ -183,7 +192,6 @@ td pre {
     background-color: #45a049;
 }
 
-/* --- UPDATED: Style for File Selection Lists in Modals --- */
 .file-list-modal {
     list-style-type: none;
     padding: 0;
@@ -380,30 +388,6 @@ td pre {
     max-width: 400px;
 }
 
-#camera_sequence_file_select {
-    width: 100%;
-    padding: 10px;
-    margin: 15px 0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-sizing: border-box;
-    font-size: 1em;
-}
-
-#confirm_camera_sequence_button {
-    background-color: #4CAF50;
-    color: white;
-}
-
-#confirm_camera_sequence_button:hover {
-    background-color: #45a049;
-}
-
-#cancel_camera_sequence_button {
-    background-color: #f44336;
-    color: white;
-}
-
-#cancel_camera_sequence_button:hover {
-    background-color: #da190b;
+#camera_choice_modal .modal-content {
+    max-width: 400px;
 }

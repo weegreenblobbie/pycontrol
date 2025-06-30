@@ -14,6 +14,7 @@ enum class Channel: unsigned int
     fps,
     fstop,
     iso,
+    mode,
     quality,
     shutter_speed,
     trigger,
@@ -30,6 +31,7 @@ to_string(Channel ch)
         case Channel::fps:           return "fps";
         case Channel::fstop:         return "fstop";
         case Channel::iso:           return "iso";
+        case Channel::mode:          return "mode";
         case Channel::quality:       return "quality";
         case Channel::shutter_speed: return "shutter_speed";
         case Channel::trigger:       return "trigger";

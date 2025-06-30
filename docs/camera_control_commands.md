@@ -219,7 +219,7 @@ The successful response would be:
 Command: Read camera choices
 ----------------------------
 
-Load the properity choices for a given camera property, so the UI can populate a
+Loads the properity choices for a given camera property, so the UI can populate a
 drop down list to choose from, for example, for setting the image quality.  The
 command format:
 
@@ -242,4 +242,31 @@ The successful response would be:
 If an error was encountered, the response would be:
 ```
 {"id":5,"success":false,"message":"Unknown perperty 'imagequality'"}
+```
+
+
+Command: Set camera choice
+--------------------------
+
+Sets the property to the specified value for camera with the specified serial number.
+
+```
+[sequence id: int]
+set shoice
+[serial: str] [property:str] [value:str]
+```
+
+For example:
+```
+6 set_choice 3006513 iso 54
+```
+
+The successful response would be:
+```
+{"id":6,"success":true}
+```
+
+If an error was encountered, the response would be:
+```
+{"id":6,"success":false,"message":"Some kind of error message."}
 ```

@@ -63,10 +63,12 @@ const calculating_modal = document.getElementById('calculating_modal');
 const load_camera_sequence_button = document.getElementById('load_camera_sequence_button');
 const camera_sequence_modal = document.getElementById('camera_sequence_modal');
 const camera_sequence_modal_close_button = document.getElementById('camera_sequence_modal_close_button');
-// *** THIS LINE WAS MISSING AND HAS BEEN ADDED ***
 const camera_sequence_file_list = document.getElementById('camera_sequence_file_list');
 const camera_control_state_value = document.getElementById('camera_control_state_value');
 const control_tables_container = document.getElementById('control_tables_container');
+const camera_choice_modal = document.getElementById('camera_choice_modal');
+const camera_choice_modal_title = document.getElementById('camera_choice_modal_title');
+const camera_choice_list = document.getElementById('camera_choice_list');
 
 // --- State Variables ---
 let current_editable_td = null;
@@ -185,26 +187,30 @@ function update_cameras_ui(data)
 		return;
 	}
 
-	for (let cam of data)
+    for (let cam of data)
 	{
 		const row = document.createElement('tr');
         row.innerHTML = `
             <td><img src="${(cam.connected == "0" || !cam.connected) ? '/static/cam-disconnected.svg' : '/static/cam-connected.svg'}" width="70" height="50" alt="Camera connection status"></td>
             <td>${cam.serial || "N/A"}</td>
-            <td class="editable_td" data-serial="${cam.serial}">${cam.desc || "N/A"}</td>
+            <td class="editable_td" data-property="description" data-serial="${cam.serial}">${cam.desc || "N/A"}</td>
             <td>${(cam.connected != "0" && cam.connected) ? (cam.batt || "N/A") : "N/A"}</td>
             <td>${(cam.connected != "0" && cam.connected) ? (cam.port || "N/A") : "N/A"}</td>
             <td>${(cam.connected != "0" && cam.connected) ? (cam.num_photos || "N/A") : "N/A"}</td>
-            <td>${(cam.connected != "0" && cam.connected) ? (cam.quality || "N/A") : "N/A"}</td>
-            <td>${(cam.connected != "0" && cam.connected) ? (cam.mode || "N/A") : "N/A"}</td>
-            <td>${(cam.connected != "0" && cam.connected) ? (cam.iso || "N/A") : "N/A"}</td>
-            <td>${(cam.connected != "0" && cam.connected) ? (cam.fstop || "N/A") : "N/A"}</td>
-            <td>${(cam.connected != "0" && cam.connected) ? (cam.shutter || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="quality" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.quality || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="mode" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.mode || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="iso" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.iso || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="fstop" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.fstop || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="shutter" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.shutter || "N/A") : "N/A"}</td>
         `;
 		cameras_table_body.appendChild(row);
 	}
+
     document.querySelectorAll('.editable_td').forEach(cell => {
         cell.addEventListener('click', handle_editable_td_click);
+    });
+    document.querySelectorAll('.choice-td').forEach(cell => {
+        cell.addEventListener('click', handle_choice_td_click);
     });
 }
 
@@ -258,16 +264,16 @@ function create_control_table_for_camera(camera_data)
 	const data_body = table.createTBody();
 
 	camera_data.events.forEach(event_obj =>
-    {
-        const row = data_body.insertRow();
+        {
+            const row = data_body.insertRow();
 
-        row.insertCell().textContent = event_obj.pos || 'N/A';
-        row.insertCell().textContent = event_obj.eta || 'N/A';
-        row.insertCell().textContent = event_obj.event_id || 'N/A';
-        row.insertCell().textContent = event_obj.event_time_offset || 'N/A';
-        row.insertCell().textContent = event_obj.channel || 'N/A';
-        row.insertCell().textContent = event_obj.value || 'N/A';
-    });
+            row.insertCell().textContent = event_obj.pos || 'N/A';
+            row.insertCell().textContent = event_obj.eta || 'N/A';
+            row.insertCell().textContent = event_obj.event_id || 'N/A';
+            row.insertCell().textContent = event_obj.event_time_offset || 'N/A';
+            row.insertCell().textContent = event_obj.channel || 'N/A';
+            row.insertCell().textContent = event_obj.value || 'N/A';
+        });
 
 	return table;
 }
@@ -300,6 +306,74 @@ function handle_editable_td_click()
 	rename_input.value = current_editable_td.textContent.trim();
 	rename_modal.style.display = 'flex';
 	rename_input.focus();
+}
+
+async function handle_choice_td_click(event) {
+    const cell = event.currentTarget;
+    const serial = cell.dataset.serial;
+    const property = cell.dataset.property;
+    const desc = cell.dataset.desc;
+
+    if (!serial || !property) {
+        console.error("Cell is missing data-serial or data-property attribute.");
+        return;
+    }
+
+    camera_choice_modal_title.textContent = `Set ${property} for ${desc}`;
+    camera_choice_list.innerHTML = '<li>Loading choices...</li>';
+    camera_choice_modal.style.display = 'flex';
+
+    try {
+        const choices = await fetch_data('/api/camera/read_choices', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(
+			{
+				serial: serial,
+				property: property
+			})
+        });
+        populate_camera_choice_modal(choices, serial, property);
+    } catch (error) {
+        camera_choice_list.innerHTML = '<li>Error loading choices.</li>';
+    }
+}
+
+function populate_camera_choice_modal(choices, serial, property) {
+    camera_choice_list.innerHTML = '';
+    if (!choices || !Array.isArray(choices) || choices.length === 0) {
+        camera_choice_list.innerHTML = '<li>No choices available.</li>';
+        return;
+    }
+
+    choices.forEach(choice => {
+        const li = document.createElement('li');
+        li.textContent = choice;
+        li.addEventListener('click', async () => {
+            const value = choice;
+            camera_choice_modal.style.display = 'none';
+            calculating_modal.style.display = 'flex';
+
+            try {
+                await fetch_data('/api/camera/set_choice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(
+                    {
+                        serial: serial,
+                        property: property,
+                        value: value
+                    })
+                });
+                await update_dashboard();
+            } catch (error) {
+                // Error is already alerted by fetch_data
+            } finally {
+                calculating_modal.style.display = 'none';
+            }
+        });
+        camera_choice_list.appendChild(li);
+    });
 }
 
 function handle_rename_modal_close_button_click()
@@ -431,17 +505,10 @@ async function populate_static_event_details(file_name)
 
 		if (event_data.events && Array.isArray(event_data.events))
 		{
-		    //update_event_table_row('Events', '', '');
-
 			event_data.events.forEach(event_id =>
 			{
 				update_event_table_row(event_id, 'N/A', 'Loading...');
 			});
-		}
-		else
-		{
-			console.warn("Event data missing 'events' list or malformed:", event_data);
-			//update_event_table_row('Events', 'No events defined or format error', '');
 		}
 		return true;
 	}
@@ -628,9 +695,6 @@ function hide_camera_sequence_modal()
 	camera_sequence_modal.style.display = 'none';
 }
 
-// =========================================================================
-// === THIS FUNCTION IS UPDATED TO POPULATE A CLICKABLE LIST             ===
-// =========================================================================
 function populate_camera_sequence_modal(files_array)
 {
 	camera_sequence_file_list.innerHTML = '';

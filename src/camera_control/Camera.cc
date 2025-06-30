@@ -65,6 +65,38 @@ read_choices(const std::string & property) const
 }
 
 result
+Camera::
+write_property(const std::string & property, const std::string & value)
+{
+    if (property == "shutterspeed2")
+    {
+        set_shutter(value);
+    }
+    else if (property == "expprogram")
+    {
+        set_mode(value);
+    }
+    else if (property == "f-number")
+    {
+        set_fstop(value);
+    }
+    else if (property == "iso")
+    {
+        set_iso(value);
+    }
+    else if (property == "imagequality")
+    {
+        set_quality(value);
+    }
+    else
+    {
+        ERROR_LOG << "Can't set '" << property << "'" << std::endl;
+        return result::failure;
+    }
+    return result::success;
+}
+
+result
 Camera::read_config()
 {
     if (not _info.connected) return result::success;
@@ -126,6 +158,11 @@ Camera::write_config()
         result::failure
     );
     ABORT_IF_NOT(
+        _gp2cpp.write_property(_camera, "expprogram", _info.mode),
+        "failed to write 'expprogram': " << _info.mode,
+        result::failure
+    );
+    ABORT_IF_NOT(
         _gp2cpp.write_property(_camera, "f-number", _info.fstop),
         "failed to write 'f-number': " << _info.fstop,
         result::failure
@@ -158,6 +195,13 @@ Camera::set_shutter(const std::string & speed)
 
 
 void
+Camera::set_mode(const std::string & mode)
+{
+    _info.mode = mode;
+}
+
+
+void
 Camera::set_fstop(const std::string & fstop)
 {
     _info.fstop = fstop;
@@ -185,6 +229,11 @@ Camera::handle(const Event & event)
         case Channel::fps:
         {
             ABORT_IF(true, "fps not implemented yet", result::failure);
+            break;
+        }
+        case Channel::mode:
+        {
+            set_mode(event.channel_value);
             break;
         }
         case Channel::fstop:
