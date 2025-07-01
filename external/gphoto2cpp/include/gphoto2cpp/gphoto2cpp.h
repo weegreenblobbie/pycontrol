@@ -536,7 +536,7 @@ read_property(
 
 inline
 const CaseInsensitiveMap &
-_read_choices(const camera_ptr & camera, const std::string & property)
+_read_choices(const camera_ptr & camera, const std::string & property, std::vector<std::string> & out)
 {
     auto & cam_to_choices = _get_camera_to_choice();
     auto itor1 = cam_to_choices.find(camera);
@@ -557,9 +557,10 @@ _read_choices(const camera_ptr & camera, const std::string & property)
     }
 
     auto & ch_set = itor2->second;
+    out.clear();
 
-    // Cache miss.
-    if (ch_set.empty())
+//~    // Cache miss.
+//~    if (ch_set.empty())
     {
         // Call read_property() so the child widget pointer is fetched if it was
         // missing in the cache.
@@ -578,7 +579,7 @@ _read_choices(const camera_ptr & camera, const std::string & property)
         // Grab the widget type and read the choices if it's a Window or Radio
         // widget.
         GP2::CameraWidgetType widget_type;
-        if (GP2::OK !=  gp_widget_get_type(child, &widget_type))
+        if (GP2::OK != gp_widget_get_type(child, &widget_type))
         {
             GPHOTO2CPP_ERROR_LOG
                 << "gp_widget_get_type(\"" << property << "\") failed"
@@ -609,6 +610,7 @@ _read_choices(const camera_ptr & camera, const std::string & property)
                         continue;
                     }
                     ch_set.insert(std::string(choice));
+                    out.emplace_back(choice);
                 }
                 break;
             }
@@ -631,25 +633,8 @@ inline
 std::vector<std::string>
 read_choices(const camera_ptr & camera, const std::string & property)
 {
-    auto & cam_to_choices = _get_camera_to_choice();
-    auto itor = cam_to_choices.find(camera);
-    if (itor == cam_to_choices.end())
-    {
-        _read_choices(camera, property);
-        itor = cam_to_choices.find(camera);
-    }
-    const auto & ch_map = itor->second;
-
-    auto out = std::vector<std::string>();
-    auto itor2 = ch_map.find(property);
-    if (itor2 != ch_map.end())
-    {
-        for (const auto & choice : itor2->second)
-        {
-            out.push_back(choice.second);
-        }
-    }
-
+    std::vector<std::string> out;
+    _read_choices(camera, property, out);
     return out;
 }
 
@@ -862,7 +847,8 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
         case GP2::GP_WIDGET_MENU: // Fall through.
         case GP2::GP_WIDGET_RADIO:
         {
-            const auto & map = _read_choices(camera, property);
+            std::vector<std::string> choices;
+            const auto & map = _read_choices(camera, property, choices);
             const auto & itor = map.find(value);
             if (itor == map.end())
             {
@@ -870,7 +856,7 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
                     << property << " value '" << value << "' is invalid. "
                     << "Please use one of the followng:\n";
 
-                for (const auto & choice : read_choices(camera, property))
+                for (const auto & choice : choices)
                 {
                     std::cerr << "    '" << choice << "'\n";
                 }

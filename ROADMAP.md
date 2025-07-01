@@ -4,11 +4,6 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Add intelligent sorting of camera properties for read_choices
-  - shutterspeed2
-  - iso
-  - fstop
-
 - Add a manual trigger button to the camera table
 
 - Disable camera table buttons if state == executing
@@ -90,6 +85,15 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Add a memory cache on PycontrolApp.read_choices
+
+* Add intelligent sorting of camera properties for read_choices
+  - shutterspeed2
+  - iso
+  - fstop
+  I just stopped iterating over the unordered_map and instead always populate a vector
+  that's stored in libgphoto2's memory.
 
 * When control state != executig, allow manual manipulation of the camera settings
 ** easy to view what choices a field has

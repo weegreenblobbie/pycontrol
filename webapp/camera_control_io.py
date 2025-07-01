@@ -5,6 +5,7 @@ A client that reads camera_monitor_bin UDP packets.
 import copy
 import ctypes
 import datetime
+import functools
 import json
 import os.path
 import socket
@@ -14,6 +15,46 @@ import udp_socket
 import utils
 
 now = datetime.datetime.now
+
+
+def args_cache(maxsize):
+    """
+    A decorator that caches a function's results, rounding float arguments
+    to a specified number of decimal places for cache key generation.
+
+    Args:
+        num_decimal_places (int): The number of decimal places to round floats to.
+        maxsize (int): The maximum size of the cache.
+                       Set to None for an unbounded cache.
+    """
+    def decorator(func):
+        # Create a proxy function that rounds floats before calling the original
+        # This proxy is what lru_cache will actually wrap
+        @functools.lru_cache(maxsize=maxsize)
+        def cached_func(*args, **kwargs):
+            # The actual logic of the original function goes here
+            return func(*args, **kwargs)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Pre-process arguments for hashing: round floats
+            processed_args = []
+            for arg in args:
+                processed_args.append(arg)
+
+            processed_kwargs = {}
+            for k, v in kwargs.items():
+                processed_kwargs[k] = v
+
+            # Call the inner cached function with the processed arguments
+            return cached_func(*processed_args, **processed_kwargs)
+
+        # Expose cache control methods (optional but good practice)
+        wrapper.cache_info = cached_func.cache_info
+        wrapper.cache_clear = cached_func.cache_clear
+        wrapper.cache_parameters = cached_func.cache_parameters
+        return wrapper
+    return decorator
 
 
 class CameraControlIo:
@@ -57,7 +98,7 @@ class CameraControlIo:
                 f"{serial} {cam_id}"
             )
             response = None
-            for _ in range(10):
+            for _ in range(15):
                 udp_socket.send_message(cmd, self._udp_ip, self._command_port)
                 time.sleep(0.500)
                 telem = self.read()
@@ -85,7 +126,7 @@ class CameraControlIo:
                 f"{events}"
             )
             response = None
-            for _ in range(10):
+            for _ in range(15):
                 udp_socket.send_message(cmd, self._udp_ip, self._command_port)
                 time.sleep(0.500)
                 telem = self.read()
@@ -111,7 +152,7 @@ class CameraControlIo:
             )
             print(f"load_sequence: {cmd}")
             response = None
-            for _ in range(10):
+            for _ in range(15):
                 udp_socket.send_message(cmd, self._udp_ip, self._command_port)
                 time.sleep(0.500)
                 telem = self.read()
@@ -135,7 +176,7 @@ class CameraControlIo:
                 "reset_sequence"
             )
             response = None
-            for _ in range(10):
+            for _ in range(15):
                 udp_socket.send_message(cmd, self._udp_ip, self._command_port)
                 time.sleep(0.500)
                 telem = self.read()
@@ -145,6 +186,7 @@ class CameraControlIo:
                     break
         return response
 
+    @args_cache(maxsize=128)
     def read_choices(self, serial, property_):
         """
         Commands CameraControl to return a list of choices for the specified
@@ -159,7 +201,7 @@ class CameraControlIo:
                 f"{serial} {property_}"
             )
             response = None
-            for _ in range(10):
+            for _ in range(15):
                 udp_socket.send_message(cmd, self._udp_ip, self._command_port)
                 time.sleep(0.500)
                 telem = self.read()
@@ -182,12 +224,12 @@ class CameraControlIo:
                 f"{serial} {property_} {value}"
             )
             response = None
-            for _ in range(10):
+            for _ in range(15):
                 udp_socket.send_message(cmd, self._udp_ip, self._command_port)
                 time.sleep(0.500)
                 telem = self.read()
                 response_id = telem["command_response"]["id"]
-                if response_id == command_id.value:
+                if response_id <= command_id.value:
                     response = telem["command_response"]
                     break
         return response

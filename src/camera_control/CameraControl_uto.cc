@@ -1545,6 +1545,58 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
             R"x("quality":"NEF (Raw)",)x"
             R"("batt":"100%",)"
             R"("num_photos":850}],)"
+        R"("events":{},)"
+        R"("sequence":")" + seq2.path.string() + R"(",)"
+        R"("sequence_state":[)"
+            R"({"num_events":3,)"
+            R"("id":"z7",)"
+            R"("events":[)"
+
+                R"({"pos":1,)"
+                R"("event_id":"e1",)"
+                R"("event_time_offset":"-00:00:11.000",)"
+                R"("eta":"N/A",)"
+                R"("channel":"z7.trigger",)"
+                R"("value":"1"},)"
+
+                R"({"pos":2,)"
+                R"("event_id":"e1",)"
+                R"("event_time_offset":"-00:00:10.000",)"
+                R"("eta":"N/A",)"
+                R"("channel":"z7.trigger",)"
+                R"("value":"1"},)"
+
+                R"({"pos":3,)"
+                R"("event_id":"e1",)"
+                R"("event_time_offset":"-00:00:09.000",)"
+                R"("eta":"N/A",)"
+                R"("channel":"z7.trigger",)"
+                R"("value":"1"})"
+            "]}"
+        "]}"
+    );
+
+    //-------------------------------------------------------------------------
+    // Dispatch until the first trigger event executes.
+    harness.cmd_socket.to_recv("8 set_events e1 30300");
+    msg = harness.dispatch_to_next_message();
+    REQUIRE(msg ==
+        R"({"state":"execute_ready",)"
+        R"("command_response":)"
+            R"({"id":8,)"
+            R"("success":true},)"
+        R"("detected_cameras":[)"
+            R"({"connected":true,)"
+            R"("serial":"1234",)"
+            R"("port":"usb:001,001",)"
+            R"("desc":"z7",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/1000",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"NEF (Raw)",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850}],)"
         R"("events":{"e1":30300},)"
         R"("sequence":")" + seq2.path.string() + R"(",)"
         R"("sequence_state":[)"
@@ -1555,21 +1607,21 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
                 R"({"pos":1,)"
                 R"("event_id":"e1",)"
                 R"("event_time_offset":"-00:00:11.000",)"
-                R"("eta":" 00:00:09.750",)"
+                R"("eta":" 00:00:09.500",)"
                 R"("channel":"z7.trigger",)"
                 R"("value":"1"},)"
 
                 R"({"pos":2,)"
                 R"("event_id":"e1",)"
                 R"("event_time_offset":"-00:00:10.000",)"
-                R"("eta":" 00:00:10.750",)"
+                R"("eta":" 00:00:10.500",)"
                 R"("channel":"z7.trigger",)"
                 R"("value":"1"},)"
 
                 R"({"pos":3,)"
                 R"("event_id":"e1",)"
                 R"("event_time_offset":"-00:00:09.000",)"
-                R"("eta":" 00:00:11.750",)"
+                R"("eta":" 00:00:11.500",)"
                 R"("channel":"z7.trigger",)"
                 R"("value":"1"})"
             "]}"
@@ -1578,14 +1630,14 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     //-------------------------------------------------------------------------
     // Dispatch until the first trigger event executes.
-    for (int i = 0; i < 3 + 9*4; ++i)
+    for (int i = 0; i < 3 + 8*4; ++i)
     {
         msg = harness.dispatch_to_next_message();
     }
     REQUIRE(msg ==
         R"({"state":"executing",)"
         R"("command_response":)"
-            R"({"id":7,)"
+            R"({"id":8,)"
             R"("success":true},)"
         R"("detected_cameras":[)"
             R"({"connected":true,)"
@@ -1633,7 +1685,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     REQUIRE(msg ==
         R"({"state":"executing",)"
         R"("command_response":)"
-            R"({"id":7,)"
+            R"({"id":8,)"
             R"("success":true},)"
         R"("detected_cameras":[)"
             R"({"connected":true,)"
@@ -1676,7 +1728,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     REQUIRE(msg ==
         R"({"state":"execute_ready",)"
         R"("command_response":)"
-            R"({"id":7,)"
+            R"({"id":8,)"
             R"("success":true},)"
         R"("detected_cameras":[)"
             R"({"connected":true,)"

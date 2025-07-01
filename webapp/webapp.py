@@ -165,14 +165,13 @@ class PyControlApp:
     def set_choice(self, serial, prop, value):
         return self._cam_io.set_choice(serial, prop, value)
 
-
     def stop_simulation(self):
         """Stops the current simulation."""
+        self._cam_io.reset_sequence()
         with self._run_sim_lock:
             self._run_sim = RunSim()
         params = self._event_solver.params()
         self._update_and_trigger(**params)
-        self._cam_io.reset_sequence()
         return "success", "Simulation stopped."
 
     def _read_events(self, event_map):

@@ -549,6 +549,7 @@ _read_command()
     // sequence file is loaded.
     if (command == "reset_sequence")
     {
+        _event_map.clear();
         for (auto & [id, cam_seq] : _sequence_map)
         {
             cam_seq->reset();
