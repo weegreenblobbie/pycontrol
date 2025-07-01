@@ -4,7 +4,11 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Add a manual trigger button to the camera table
+- Print a Use make V=1 to turn on verbose builds message in my Makefiles
+
+- Add the trigger command to unit tests.
+
+- Camera Event sequence ETA should include number of days.
 
 - Disable camera table buttons if state == executing
 
@@ -85,6 +89,8 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Add a manual trigger button to the camera table.
 
 * Add a memory cache on PycontrolApp.read_choices
 

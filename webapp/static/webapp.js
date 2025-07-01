@@ -203,6 +203,20 @@ function update_cameras_ui(data)
             <td class="choice-td" data-property="fstop" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.fstop || "N/A") : "N/A"}</td>
             <td class="choice-td" data-property="shutter" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.shutter || "N/A") : "N/A"}</td>
         `;
+
+        // Create the new cell for the trigger button
+		const cell_trigger = row.insertCell();
+
+		// Only add a button if the camera is connected
+        if (cam.connected && cam.connected != "0") {
+            const trigger_button = document.createElement('button');
+            trigger_button.textContent = 'Trigger';
+            trigger_button.className = 'trigger-button';
+            trigger_button.dataset.serial = cam.serial;
+            trigger_button.addEventListener('click', handle_trigger_click);
+            cell_trigger.appendChild(trigger_button);
+        }
+
 		cameras_table_body.appendChild(row);
 	}
 
@@ -299,7 +313,6 @@ function update_camera_control_ui(camera_control)
 
 
 // --- Main Application Logic & Event Handlers ---
-
 function handle_editable_td_click()
 {
 	current_editable_td = this;
@@ -336,6 +349,32 @@ async function handle_choice_td_click(event) {
         populate_camera_choice_modal(choices, serial, property);
     } catch (error) {
         camera_choice_list.innerHTML = '<li>Error loading choices.</li>';
+    }
+}
+
+async function handle_trigger_click(event)
+{
+    const button = event.currentTarget;
+    const serial = button.dataset.serial;
+
+    if (!serial) return;
+
+    console.log(`Triggering camera: ${serial}`);
+    button.disabled = true;
+    button.textContent = '...';
+
+    try
+    {
+        await fetch_data('/api/camera/trigger',
+        {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ serial: serial })
+        });
+    } catch (error)
+    {
+        button.disabled = false;
+        button.textContent = 'Trigger';
     }
 }
 

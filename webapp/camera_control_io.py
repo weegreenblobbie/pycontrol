@@ -235,6 +235,28 @@ class CameraControlIo:
         return response
 
 
+    def trigger(self, serial):
+        """
+        Triggers the camera with `serial`.
+        """
+        with self._write_lock:
+            telem = self.read()
+            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
+            cmd = (
+                f"{command_id.value} trigger {serial}"
+            )
+            response = None
+            for _ in range(15):
+                udp_socket.send_message(cmd, self._udp_ip, self._command_port)
+                time.sleep(0.500)
+                telem = self.read()
+                response_id = telem["command_response"]["id"]
+                if response_id <= command_id.value:
+                    response = telem["command_response"]
+                    break
+        return response
+
+
     def start(self):
         assert self._read_thread is None, "Read thread already started!"
         self._read_thread = threading.Thread(target=self._read_in_thread)

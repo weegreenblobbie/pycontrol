@@ -174,6 +174,9 @@ class PyControlApp:
         self._update_and_trigger(**params)
         return "success", "Simulation stopped."
 
+    def trigger(self, serial):
+        return self._cam_io.trigger(serial)
+
     def _read_events(self, event_map):
         """Internal method to get and format event data from the solver."""
         event_ids = self._event_solver.event_ids()
@@ -397,6 +400,19 @@ def api_camera_set_choice():
 
     return make_response("error", response["message"], 400)
 
+
+
+@app.route('/api/camera/trigger', methods=["POST"])
+def api_camera_trigger():
+    data = flask.request.get_json()
+    serial = data.get('serial')
+
+    response = pycontrol_app.trigger(serial)
+    success = response['success']
+    if success:
+         return make_response("success", f"Successfully triggered camera '{serial}'", 200)
+
+    return make_response("error", response["message"], 400)
 
 
 if __name__ == '__main__':

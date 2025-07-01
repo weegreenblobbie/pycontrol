@@ -533,6 +533,44 @@ _read_command()
         _command_response = oss.str();
         return result::success;
     }
+    else if (command == "trigger")
+    {
+        std::string serial;
+        if (not (iss >> serial))
+        {
+            oss << "false,\"message\":\""
+                << "Failed to parse trigger command: '" << _command_buffer << "'\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not _cameras.contains(serial))
+        {
+            oss << "false,\"message\":\"serial '" << serial << "' does not exist\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        auto cam = _cameras[serial];
+        const auto & entry = _serial_to_id.find(serial);
+        const auto desc = entry != _serial_to_id.end() ?
+                          entry->second :
+                          cam->info().desc;
+
+        INFO_LOG << "Trigger camera " << desc << std::endl;
+
+        if (result::failure == cam->trigger())
+        {
+            oss << "false,\"message\":\""
+                << "failed to trigger " << cam->info().desc << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        oss << "true}";
+        _command_response = oss.str();
+        return result::success;
+    }
     //-------------------------------------------------------------------------
     // reset_sequence
     else if (command != "reset_sequence")
