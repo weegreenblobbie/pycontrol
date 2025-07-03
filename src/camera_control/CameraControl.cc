@@ -298,8 +298,10 @@ _send_telemetry()
 
 result
 CameraControl::
-_read_command()
+_read_command(bool & got_message)
 {
+    got_message = false;
+
     ABORT_ON_FAILURE(
         _command_socket.recv(_command_buffer),
         "UdpSocket::read() failed",
@@ -316,25 +318,31 @@ _read_command()
     std::string command;
 
     std::ostringstream oss;
-    oss << "{\"id\":" << _command_id << ",\"success\":";
 
     std::istringstream iss(_command_buffer);
     if (not (iss >> cmd_id >> command))
     {
-        oss << "false,\"message\":\"failed to parse command '" << _command_buffer << "'\"}";
+        ++_command_id;
+        oss << "{\"id\":" << _command_id << ",\"success\":false,\"message\":\""
+            << "failed to parse command '" << _command_buffer << "'\"}";
         _command_response = oss.str();
+        got_message = true;
         return result::success;
     }
 
-    // Nothing new to process.
-    if (cmd_id == _command_id)
+    // Nothing new to process.  How do we handle cmd_id rollover?
+    if (cmd_id <= _command_id)
     {
         return result::success;
     }
 
-    _command_id = cmd_id;
+    DEBUG_LOG << "read_command(): control_time: " << _control_time << " cmd: '" << _command_buffer << "'" << std::endl;
 
-    oss.str("");
+    // We have a message, reset the send time so there's no latency to
+    // responding to commands.
+    got_message = true;
+
+    _command_id = cmd_id;
     oss << "{\"id\":" << _command_id << ",\"success\":";
 
     //-------------------------------------------------------------------------
@@ -354,20 +362,25 @@ _read_command()
 
         if (not _serial_to_id.contains(serial))
         {
-            oss << "false,\"message\":\"serial \"" << serial << "\" does not exist\"}";
+            oss << "false,\"message\":\"serial '" << serial << "' does not exist\"}";
             _command_response = oss.str();
             return result::success;
         }
 
         if (_id_to_serial.contains(cam_id))
         {
-            oss << "false,\"message\":\"id \"" << cam_id << "\" already exists\"}";
+            oss << "false,\"message\":\"id '" << cam_id << "' already exists\"}";
             _command_response = oss.str();
             return result::success;
         }
 
         INFO_LOG << "mapping serial " << serial << " to " << cam_id << "\n";
 
+        // First, remove any previous name.
+        const auto & old_id = _serial_to_id[serial];
+        _id_to_serial.erase(old_id);
+
+        // Update with the new id.
         _serial_to_id[serial] = cam_id;
         _id_to_serial[cam_id] = serial;
     }
@@ -813,28 +826,24 @@ dispatch()
         _state = next_state;
     }
 
-    // Scan for camera changes.
-    if (_scan_time <= _control_time)
+    bool got_message = false;
+
+    if (result::failure == _read_command(got_message))
     {
-        _scan_time = _control_time + 1000;  // 1 Hz.
-        if (scan_cameras)
-        {
-            _camera_scan();
-        }
+        ERROR_LOG << "_read_command() failed, ignoring" << std::endl;
     }
 
-    // Read any commands.
-    if (_read_time <= _control_time)
-    {
-        _read_time = _control_time + 250; // 4 Hz.
+//~    DEBUG_LOG << "control_time: " << _control_time << std::endl;
+//~    DEBUG_LOG << " got_message: " << got_message << std::endl;
 
-        if (result::failure == _read_command())
+    if (got_message)
+    {
+        if (result::failure == _send_telemetry())
         {
-            ERROR_LOG << "_read_command() failed, ignoring" << std::endl;
+            ERROR_LOG << "_send_telemetry() failed, ignoring" << std::endl;
         }
     }
-
-    if (_send_time <= _control_time)
+    else if (_send_time <= _control_time)
     {
         // Send out 4 Hz telemetry unless we are monitoring cameras.
         if (scan_cameras)
@@ -848,6 +857,16 @@ dispatch()
         if (result::failure == _send_telemetry())
         {
             ERROR_LOG << "_send_telemetry() failed, ignoring" << std::endl;
+        }
+    }
+
+    // Scan for camera changes.
+    if (_scan_time <= _control_time)
+    {
+        _scan_time = _control_time + 1000;  // 1 Hz.
+        if (scan_cameras)
+        {
+            _camera_scan();
         }
     }
 

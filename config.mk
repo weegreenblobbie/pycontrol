@@ -2,6 +2,8 @@
 # config.mk: Shared Project Configuration
 # =========================================================================
 
+MAKEFLAGS += --no-print-directory
+
 # --- Verbose Build Switch ---
 # This is the single source of truth for the verbose setting.
 # Default to a quiet build (VERBOSE=0) unless overridden from the command line

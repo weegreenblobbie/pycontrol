@@ -12,10 +12,10 @@ venv: requirements.txt
 
 .PHONY: clean real-clen
 clean:
-	@echo "$(BOLD)Cleaning$(RESET)"
+	@echo "$(BOLD)Cleaning$(RESET) $(shell pwd)"
 
 real-clean:
-	@echo "$(BOLD)Real Cleaning$(RESET)"
+	@echo "$(BOLD)Real Cleaning$(RESET) $(shell pwd)"
 	$(SILENT)rm -rf ./venv
 
 # :mode=Makefile:

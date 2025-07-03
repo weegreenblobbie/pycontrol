@@ -107,11 +107,11 @@ $(GPHOTO2CPP_LIB): gphoto2cpp/include/gphoto2cpp/gphoto2cpp.h
 
 .PHONY: clean real-clen
 clean:
-	@echo "$(CLEAN_COLOR)Cleaning$(RESET)"
+	@echo "$(CLEAN_COLOR)Cleaning$(RESET) $(shell pwd)"
 	$(SILENT)rm -rf $(INSTALL_DIRS) cactus_build catch2_build libgphoto2/builddir
 
 real-clean:
-	@echo "$(CLEAN_COLOR)Real Cleaning$(RESET)"
+	@echo "$(CLEAN_COLOR)Real Cleaning$(RESET) $(shell pwd)"
 	$(SILENT)rm -tfv $(CACTUS_REPO) $(CACTUS_REPO) $(LIBGPHOTO2_REPO)
 
 # :mode=Makefile:

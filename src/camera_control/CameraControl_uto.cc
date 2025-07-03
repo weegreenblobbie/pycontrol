@@ -485,6 +485,18 @@ struct Harness
         return cc.dispatch();
     }
 
+    std::string dispatch_to(milliseconds destination)
+    {
+        while(cc.control_time() < destination)
+        {
+            clock.time_ms += 50;
+            REQUIRE(cc.dispatch() == result::success);
+        }
+        auto & telem_vec = tlm_socket.from_send();
+        auto current_size = telem_vec.size();
+        return telem_vec[current_size - 1];
+    }
+
     std::string dispatch_to_next_message(milliseconds ms = 50)
     {
         auto & telem_vec = tlm_socket.from_send();
@@ -545,8 +557,9 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     auto cam1 = make_test_camera();
     harness.gp2cpp.add_camera(cam1);
     auto msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
-        R"({"state":"scan",)"
+        R"({"state":"monitor",)"
         R"("command_response":{"id":0,"success":true},)"
         R"("detected_cameras":[)"
             R"({"connected":true,)"
@@ -569,6 +582,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     // Disconnect the camera.
     //
     cam1->connected = false;
+    msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
     msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
         R"({"state":"monitor",)"
@@ -596,6 +611,7 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     cam1->connected = true;
     cam1->port = "usb:001,002";
     msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
         R"({"state":"monitor",)"
         R"("command_response":{"id":0,"success":true},)"
@@ -621,6 +637,7 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     //
     auto cam2 = make_test_camera("Z 8", "usb:001,003", "5678");
     harness.gp2cpp.add_camera(cam2);
+    msg = harness.dispatch_to_next_message();
     msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
         R"({"state":"monitor",)"
@@ -661,6 +678,7 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     //
     cam1->connected = false;
     msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
         R"({"state":"monitor",)"
         R"("command_response":{"id":0,"success":true},)"
@@ -699,6 +717,7 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     // Unplug the z8.
     //
     cam2->connected = false;
+    msg = harness.dispatch_to_next_message();
     msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
         R"({"state":"monitor",)"
@@ -749,6 +768,7 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     cam2->shutter = "1/800";
 
     msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
         R"({"state":"monitor",)"
         R"("command_response":{"id":0,"success":true},)"
@@ -795,8 +815,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
     auto cam1 = make_test_camera();
     harness.gp2cpp.add_camera(cam1);
     auto msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
-        R"({"state":"scan",)"
+        R"({"state":"monitor",)"
         R"("command_response":)"
             R"({"id":0,)"
             R"("success":true},)"
@@ -909,7 +930,7 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
         R"("command_response":)"
             R"({"id":3,)"
             R"("success":false,)"
-            R"("message":"serial "5678" does not exist"},)"
+            R"("message":"serial '5678' does not exist"},)"
         R"("detected_cameras":[)"
             R"({"connected":true,)"
             R"("serial":"1234",)"
@@ -933,12 +954,16 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
     auto cam2 = make_test_camera("Z 8", "usb:001,002", "5678");
     harness.gp2cpp.add_camera(cam2);
     msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
         R"({"state":"monitor",)"
         R"("command_response":)"
             R"({"id":3,)"
             R"("success":false,)"
-            R"("message":"serial "5678" does not exist"},)"
+            R"("message":"serial '5678' does not exist"},)"
         R"("detected_cameras":[)"
             // znick
             R"({"connected":true,)"
@@ -979,7 +1004,7 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
         R"("command_response":)"
             R"({"id":4,)"
             R"("success":false,)"
-            R"("message":"id "znick" already exists"},)"
+            R"("message":"id 'znick' already exists"},)"
         R"("detected_cameras":[)"
             // znick
             R"({"connected":true,)"
@@ -1049,6 +1074,47 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
         R"("sequence":"",)"
         R"("sequence_state":[]})"
     );
+
+    //-------------------------------------------------------------------------
+    // Rename znick back to z7.
+    //
+    harness.cmd_socket.to_recv("6 set_camera_id 1234 z7");
+    msg = harness.dispatch_to_next_message();
+    REQUIRE(msg ==
+        R"({"state":"monitor",)"
+        R"("command_response":)"
+            R"({"id":6,)"
+            R"("success":true},)"
+        R"("detected_cameras":[)"
+            // znick
+            R"({"connected":true,)"
+            R"("serial":"1234",)"
+            R"("port":"usb:001,001",)"
+            R"("desc":"z7",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/1000",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"NEF (Raw)",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850},)"
+            // z8
+            R"({"connected":true,)"
+            R"("serial":"5678",)"
+            R"("port":"usb:001,002",)"
+            R"("desc":"z8",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/1000",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"NEF (Raw)",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850}],)"
+        R"("events":{},)"
+        R"("sequence":"",)"
+        R"("sequence_state":[]})"
+    );
+
 }
 
 
@@ -1261,26 +1327,132 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     //-------------------------------------------------------------------------
     // Command the event times and show ETA update.
     //
-    auto control_time = harness.cc.control_time();
-    REQUIRE(control_time == 3050);
     harness.cmd_socket.to_recv("4 set_events e1 20050");
     msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
 
-    // Only 1 second should have elapsed.
-    REQUIRE(control_time + 1'000 == harness.cc.control_time());
+    REQUIRE(1'050 == harness.cc.control_time());
     auto e1_eta = 20'050 - harness.cc.control_time();
-    REQUIRE(e1_eta == 16'000);
+    REQUIRE(e1_eta == 19'000);
 
     // Now applying event time offsets below in the sequence should make sense.
-    // 16 - 11 -> 5 seconds eta
-    // 16 - 10 -> 6 seconds eta
-    // 16 -  9 -> 7 seconds eta
+    // 19 - 11 -> 8 seconds eta
+    // 19 - 10 -> 9 seconds eta
+    // 19 -  9 -> 10 seconds eta
     REQUIRE(msg ==
         R"({"state":"monitor",)"
         R"("command_response":)"
             R"({"id":4,)"
             R"("success":true},)"
         R"("detected_cameras":[],)"
+        R"("events":{"e1":20050},)"
+        R"("sequence":")" + seq2.path.string() + R"(",)"
+        R"("sequence_state":[)"
+            R"({"num_events":3,)"
+            R"("id":"z7",)"
+            R"("events":[)"
+
+                R"({"pos":1,)"
+                R"("event_id":"e1",)"
+                R"("event_time_offset":"-00:00:11.000",)"
+                R"("eta":" 00:00:08.000",)"
+                R"("channel":"z7.trigger",)"
+                R"("value":"1"},)"
+
+                R"({"pos":2,)"
+                R"("event_id":"e1",)"
+                R"("event_time_offset":"-00:00:10.000",)"
+                R"("eta":" 00:00:09.000",)"
+                R"("channel":"z7.trigger",)"
+                R"("value":"1"},)"
+
+                R"({"pos":3,)"
+                R"("event_id":"e1",)"
+                R"("event_time_offset":"-00:00:09.000",)"
+                R"("eta":" 00:00:10.000",)"
+                R"("channel":"z7.trigger",)"
+                R"("value":"1"})"
+            "]}"
+        "]}"
+    );
+
+    //-------------------------------------------------------------------------
+    // Plugin a camera.
+    //
+    auto cam1 = make_test_camera();
+    harness.gp2cpp.add_camera(cam1);
+    msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
+    REQUIRE(msg ==
+        R"({"state":"monitor",)"
+        R"("command_response":)"
+            R"({"id":4,)"
+            R"("success":true},)"
+        R"("detected_cameras":[)"
+            R"({"connected":true,)"
+            R"("serial":"1234",)"
+            R"("port":"usb:001,001",)"
+            R"("desc":"Nikon Corporation Z 7",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/1000",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"NEF (Raw)",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850}],)"
+        R"("events":{"e1":20050},)"
+        R"("sequence":")" + seq2.path.string() + R"(",)"
+        R"("sequence_state":[)"
+            R"({"num_events":3,)"
+            R"("id":"z7",)"
+            R"("events":[)"
+
+                R"({"pos":1,)"
+                R"("event_id":"e1",)"
+                R"("event_time_offset":"-00:00:11.000",)"
+                R"("eta":" 00:00:06.000",)"
+                R"("channel":"z7.trigger",)"
+                R"("value":"1"},)"
+
+                R"({"pos":2,)"
+                R"("event_id":"e1",)"
+                R"("event_time_offset":"-00:00:10.000",)"
+                R"("eta":" 00:00:07.000",)"
+                R"("channel":"z7.trigger",)"
+                R"("value":"1"},)"
+
+                R"({"pos":3,)"
+                R"("event_id":"e1",)"
+                R"("event_time_offset":"-00:00:09.000",)"
+                R"("eta":" 00:00:08.000",)"
+                R"("channel":"z7.trigger",)"
+                R"("value":"1"})"
+            "]}"
+        "]}"
+    );
+
+    //-------------------------------------------------------------------------
+    // Rename the camera.
+    harness.cmd_socket.to_recv("5 set_camera_id 1234 z7");
+    msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to_next_message();
+    REQUIRE(msg ==
+        R"({"state":"executing",)"
+        R"("command_response":)"
+            R"({"id":5,)"
+            R"("success":true},)"
+        R"("detected_cameras":[)"
+            R"({"connected":true,)"
+            R"("serial":"1234",)"
+            R"("port":"usb:001,001",)"
+            R"("desc":"z7",)"
+            R"("mode":"M",)"
+            R"("shutter":"1/1000",)"
+            R"("fstop":"F/8",)"
+            R"("iso":"64",)"
+            R"x("quality":"NEF (Raw)",)x"
+            R"("batt":"100%",)"
+            R"("num_photos":850}],)"
         R"("events":{"e1":20050},)"
         R"("sequence":")" + seq2.path.string() + R"(",)"
         R"("sequence_state":[)"
@@ -1313,117 +1485,11 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     );
 
     //-------------------------------------------------------------------------
-    // Plugin a camera.
-    //
-    auto cam1 = make_test_camera();
-    harness.gp2cpp.add_camera(cam1);
-    msg = harness.dispatch_to_next_message();
-    REQUIRE(msg ==
-        R"({"state":"monitor",)"
-        R"("command_response":)"
-            R"({"id":4,)"
-            R"("success":true},)"
-        R"("detected_cameras":[)"
-            R"({"connected":true,)"
-            R"("serial":"1234",)"
-            R"("port":"usb:001,001",)"
-            R"("desc":"Nikon Corporation Z 7",)"
-            R"("mode":"M",)"
-            R"("shutter":"1/1000",)"
-            R"("fstop":"F/8",)"
-            R"("iso":"64",)"
-            R"x("quality":"NEF (Raw)",)x"
-            R"("batt":"100%",)"
-            R"("num_photos":850}],)"
-        R"("events":{"e1":20050},)"
-        R"("sequence":")" + seq2.path.string() + R"(",)"
-        R"("sequence_state":[)"
-            R"({"num_events":3,)"
-            R"("id":"z7",)"
-            R"("events":[)"
-
-                R"({"pos":1,)"
-                R"("event_id":"e1",)"
-                R"("event_time_offset":"-00:00:11.000",)"
-                R"("eta":" 00:00:04.000",)"
-                R"("channel":"z7.trigger",)"
-                R"("value":"1"},)"
-
-                R"({"pos":2,)"
-                R"("event_id":"e1",)"
-                R"("event_time_offset":"-00:00:10.000",)"
-                R"("eta":" 00:00:05.000",)"
-                R"("channel":"z7.trigger",)"
-                R"("value":"1"},)"
-
-                R"({"pos":3,)"
-                R"("event_id":"e1",)"
-                R"("event_time_offset":"-00:00:09.000",)"
-                R"("eta":" 00:00:06.000",)"
-                R"("channel":"z7.trigger",)"
-                R"("value":"1"})"
-            "]}"
-        "]}"
-    );
-
-    //-------------------------------------------------------------------------
-    // Rename the camera.
-    harness.cmd_socket.to_recv("5 set_camera_id 1234 z7");
-    msg = harness.dispatch_to_next_message();
-    REQUIRE(msg ==
-        R"({"state":"executing",)"
-        R"("command_response":)"
-            R"({"id":5,)"
-            R"("success":true},)"
-        R"("detected_cameras":[)"
-            R"({"connected":true,)"
-            R"("serial":"1234",)"
-            R"("port":"usb:001,001",)"
-            R"("desc":"z7",)"
-            R"("mode":"M",)"
-            R"("shutter":"1/1000",)"
-            R"("fstop":"F/8",)"
-            R"("iso":"64",)"
-            R"x("quality":"NEF (Raw)",)x"
-            R"("batt":"100%",)"
-            R"("num_photos":850}],)"
-        R"("events":{"e1":20050},)"
-        R"("sequence":")" + seq2.path.string() + R"(",)"
-        R"("sequence_state":[)"
-            R"({"num_events":3,)"
-            R"("id":"z7",)"
-            R"("events":[)"
-
-                R"({"pos":1,)"
-                R"("event_id":"e1",)"
-                R"("event_time_offset":"-00:00:11.000",)"
-                R"("eta":" 00:00:03.000",)"
-                R"("channel":"z7.trigger",)"
-                R"("value":"1"},)"
-
-                R"({"pos":2,)"
-                R"("event_id":"e1",)"
-                R"("event_time_offset":"-00:00:10.000",)"
-                R"("eta":" 00:00:04.000",)"
-                R"("channel":"z7.trigger",)"
-                R"("value":"1"},)"
-
-                R"({"pos":3,)"
-                R"("event_id":"e1",)"
-                R"("event_time_offset":"-00:00:09.000",)"
-                R"("eta":" 00:00:05.000",)"
-                R"("channel":"z7.trigger",)"
-                R"("value":"1"})"
-            "]}"
-        "]}"
-    );
-
-    //-------------------------------------------------------------------------
-    // 3 seconds away from executing the first event in the sequence.
+    // 5 seconds away from executing the first event in the sequence.
     // Now that the state is executing, we stop monitoring camera changes and
-    // emit telemetry at 4 Hz.  Dispatch for 3 seconds such that the first
+    // emit telemetry at 4 Hz.  Dispatch for 5 seconds such that the first
     // event is executed.
-    for (int i = 0; i < 3 * 4; ++i)
+    for (int i = 0; i < 5 * 4; ++i)
     {
         msg = harness.dispatch_to_next_message();
     }
@@ -1472,13 +1538,11 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     //-------------------------------------------------------------------------
     // Command the event times and show ETA update.
     //
-    control_time = harness.cc.control_time();
-    REQUIRE(control_time == 9050);
     harness.cmd_socket.to_recv("6 set_events e1 30300");
-    msg = harness.dispatch_to_next_message();
+    msg = harness.dispatch_to(9'300);
 
     // Running at 4 Hz, 0.250 seconds should have elapsed.
-    REQUIRE(control_time + 250 == harness.cc.control_time());
+    REQUIRE(9300 == harness.cc.control_time());
     e1_eta = 30'300 - harness.cc.control_time();
     REQUIRE(e1_eta == 21'000);
     // 21 - 10 => 11 seconds
@@ -1578,7 +1642,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     //-------------------------------------------------------------------------
     // Dispatch until the first trigger event executes.
-    harness.cmd_socket.to_recv("8 set_events e1 30300");
+    harness.cmd_socket.to_recv("8 set_events e1 29900");
     msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
         R"({"state":"execute_ready",)"
@@ -1597,7 +1661,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
             R"x("quality":"NEF (Raw)",)x"
             R"("batt":"100%",)"
             R"("num_photos":850}],)"
-        R"("events":{"e1":30300},)"
+        R"("events":{"e1":29900},)"
         R"("sequence":")" + seq2.path.string() + R"(",)"
         R"("sequence_state":[)"
             R"({"num_events":3,)"
@@ -1630,7 +1694,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     //-------------------------------------------------------------------------
     // Dispatch until the first trigger event executes.
-    for (int i = 0; i < 3 + 8*4; ++i)
+    for (int i = 0; i < 3 + 9*4; ++i)
     {
         msg = harness.dispatch_to_next_message();
     }
@@ -1651,7 +1715,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
             R"x("quality":"NEF (Raw)",)x"
             R"("batt":"100%",)"
             R"("num_photos":850}],)"
-        R"("events":{"e1":30300},)"
+        R"("events":{"e1":29900},)"
         R"("sequence":")" + seq2.path.string() + R"(",)"
         R"("sequence_state":[)"
             R"({"num_events":3,)"
@@ -1661,14 +1725,14 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
                 R"({"pos":2,)"
                 R"("event_id":"e1",)"
                 R"("event_time_offset":"-00:00:10.000",)"
-                R"("eta":" 00:00:01.000",)"
+                R"("eta":" 00:00:00.850",)"
                 R"("channel":"z7.trigger",)"
                 R"("value":"1"},)"
 
                 R"({"pos":3,)"
                 R"("event_id":"e1",)"
                 R"("event_time_offset":"-00:00:09.000",)"
-                R"("eta":" 00:00:02.000",)"
+                R"("eta":" 00:00:01.850",)"
                 R"("channel":"z7.trigger",)"
                 R"("value":"1"})"
             "]}"
@@ -1699,7 +1763,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
             R"x("quality":"NEF (Raw)",)x"
             R"("batt":"100%",)"
             R"("num_photos":850}],)"
-        R"("events":{"e1":30300},)"
+        R"("events":{"e1":29900},)"
         R"("sequence":")" + seq2.path.string() + R"(",)"
         R"("sequence_state":[)"
             R"({"num_events":3,)"
@@ -1709,7 +1773,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
                 R"({"pos":3,)"
                 R"("event_id":"e1",)"
                 R"("event_time_offset":"-00:00:09.000",)"
-                R"("eta":" 00:00:01.000",)"
+                R"("eta":" 00:00:00.850",)"
                 R"("channel":"z7.trigger",)"
                 R"("value":"1"})"
             "]}"
@@ -1742,7 +1806,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
             R"x("quality":"NEF (Raw)",)x"
             R"("batt":"100%",)"
             R"("num_photos":850}],)"
-        R"("events":{"e1":30300},)"
+        R"("events":{"e1":29900},)"
         R"("sequence":")" + seq2.path.string() + R"(",)"
         R"("sequence_state":[)"
             R"({"num_events":3,)"
@@ -1777,6 +1841,7 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     //
     auto cam1 = make_test_camera();
     harness.gp2cpp.add_camera(cam1);
+    msg = harness.dispatch_to_next_message();
     msg = harness.dispatch_to_next_message();
     REQUIRE(msg ==
         R"({"state":"monitor",)"

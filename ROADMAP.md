@@ -4,8 +4,6 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Print a Use make V=1 to turn on verbose builds message in my Makefiles
-
 - Add the trigger command to unit tests.
 
 - Camera Event sequence ETA should include number of days.
@@ -89,6 +87,8 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Print a Use make VERBOSE=1 to turn on verbose builds message in my Makefiles
 
 * Add a manual trigger button to the camera table.
 

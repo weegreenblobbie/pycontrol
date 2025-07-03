@@ -42,7 +42,7 @@ test: $(UNIT_TEST_BIN)
 	./$(UNIT_TEST_BIN)
 
 clean:
-	@echo "$(CLEAN_COLOR)Cleaning$(RESET)"
+	@echo "$(CLEAN_COLOR)Cleaning$(RESET) $(shell pwd)"
 	$(SILENT)rm -f $(ALL_BIN) $(ALL_OBJECTS) $(DEPS)
 
 dump:

@@ -32,8 +32,8 @@ Camera(
 void
 Camera::reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port)
 {
-    _gp2cpp.reset_cache(camera);
-    _camera.reset();
+    _gp2cpp.reset_cache(_camera);
+    //_camera.reset();
     _camera = camera;
     _info.port = port;
     _info.connected = true;
@@ -47,6 +47,7 @@ disconnect()
     auto serial = _info.serial;
     auto port = _info.port;
     _info = Info();
+    DEBUG_LOG << serial << " connected: " << _info.connected << std::endl;
     _info.serial = serial;
     _info.port = port;
 }

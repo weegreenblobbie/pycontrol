@@ -81,6 +81,32 @@ class CameraControlIo:
         self._serial_id_cam_id = dict()
         self._telem = dict(command_response=dict(id=0))
 
+        self._retry_count = 15
+        self._retry_sleep = 0.250
+
+    def _send_command(self, message):
+        """
+        Sends the command to CameraControl, automatically increments the command
+        id by one and then repeatively sends the UDP command messages and waits
+        for the response.
+
+        UDP commanding and telemetry is not guarenteed to be delivered, which is
+        why we repeatly send the command and check for the response.
+        """
+        with self._write_lock:
+            telem = self.read()
+            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
+            cmd = f"{command_id.value} {message}"
+            response = None
+            for _ in range(self._retry_count):
+                udp_socket.send_message(cmd, self._udp_ip, self._command_port)
+                time.sleep(self._retry_sleep)
+                telem = self.read()
+                response_id = telem["command_response"]["id"]
+                if response_id >= command_id.value:
+                    response = telem["command_response"]
+                    break
+        return response
 
     def set_camera_id(self, serial, cam_id):
         """
@@ -89,102 +115,30 @@ class CameraControlIo:
         self._serial_id_cam_id[serial] = cam_id
         utils.write_kv_config(self._cam_desc_config, self._serial_id_cam_id)
 
-        with self._write_lock:
-            telem = self.read()
-            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
-            cmd = (
-                f"{command_id.value} "
-                "set_camera_id "
-                f"{serial} {cam_id}"
-            )
-            response = None
-            for _ in range(15):
-                udp_socket.send_message(cmd, self._udp_ip, self._command_port)
-                time.sleep(0.500)
-                telem = self.read()
-                response_id = telem["command_response"]["id"]
-                if response_id == command_id.value:
-                    response = telem["command_response"]
-                    break
-
-        return response
+        cmd = f"set_camera_id {serial} {cam_id}"
+        return self._send_command(cmd)
 
     def set_events(self, event_map):
         """
         Commands CameraControl with a new event_id to timestamp map.
         """
-        events = ""
+        cmd = "set_events "
         for event_id, timestamp in event_map.items():
-            events += f"{event_id} {timestamp} "
-
-        with self._write_lock:
-            telem = self.read()
-            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
-            cmd = (
-                f"{command_id.value} "
-                "set_events "
-                f"{events}"
-            )
-            response = None
-            for _ in range(15):
-                udp_socket.send_message(cmd, self._udp_ip, self._command_port)
-                time.sleep(0.500)
-                telem = self.read()
-                response_id = telem["command_response"]["id"]
-                print(f'    {telem["command_response"]}')
-                if response_id == command_id.value:
-                    response = telem["command_response"]
-                    break
-
-        return response
+            cmd += f"{event_id} {timestamp} "
+        return self._send_command(cmd)
 
     def load_sequence(self, sequence_fn):
         """
         Commands CameraControl to load a camera sequenc file.
         """
-        with self._write_lock:
-            telem = self.read()
-            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
-            cmd = (
-                f"{command_id.value} "
-                "load_sequence "
-                f"{sequence_fn}"
-            )
-            print(f"load_sequence: {cmd}")
-            response = None
-            for _ in range(15):
-                udp_socket.send_message(cmd, self._udp_ip, self._command_port)
-                time.sleep(0.500)
-                telem = self.read()
-                response_id = telem["command_response"]["id"]
-                if response_id == command_id.value:
-                    response = telem["command_response"]
-                    print(f"load sequence response: {response}")
-                    print(f"    sequence: {telem['sequence']}")
-                    break
-        return response
+        cmd = f"load_sequence {sequence_fn}"
+        return self._send_command(cmd)
 
     def reset_sequence(self):
         """
         Commands CameraControl to reset the camera sequence.
         """
-        with self._write_lock:
-            telem = self.read()
-            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
-            cmd = (
-                f"{command_id.value} "
-                "reset_sequence"
-            )
-            response = None
-            for _ in range(15):
-                udp_socket.send_message(cmd, self._udp_ip, self._command_port)
-                time.sleep(0.500)
-                telem = self.read()
-                response_id = telem["command_response"]["id"]
-                if response_id == command_id.value:
-                    response = telem["command_response"]
-                    break
-        return response
+        return self._send_command("reset_sequence")
 
     @args_cache(maxsize=128)
     def read_choices(self, serial, property_):
@@ -192,70 +146,22 @@ class CameraControlIo:
         Commands CameraControl to return a list of choices for the specified
         camera serial number and property.
         """
-        with self._write_lock:
-            telem = self.read()
-            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
-            cmd = (
-                f"{command_id.value} "
-                "read_choices "
-                f"{serial} {property_}"
-            )
-            response = None
-            for _ in range(15):
-                udp_socket.send_message(cmd, self._udp_ip, self._command_port)
-                time.sleep(0.500)
-                telem = self.read()
-                response_id = telem["command_response"]["id"]
-                if response_id == command_id.value:
-                    response = telem["command_response"]
-                    break
-        return response
+        cmd = f"read_choices {serial} {property_}"
+        return self._send_command(cmd)
 
     def set_choice(self, serial, property_, value):
         """
         Commands CameraControl to set a camera property.
         """
-        with self._write_lock:
-            telem = self.read()
-            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
-            cmd = (
-                f"{command_id.value} "
-                "set_choice "
-                f"{serial} {property_} {value}"
-            )
-            response = None
-            for _ in range(15):
-                udp_socket.send_message(cmd, self._udp_ip, self._command_port)
-                time.sleep(0.500)
-                telem = self.read()
-                response_id = telem["command_response"]["id"]
-                if response_id <= command_id.value:
-                    response = telem["command_response"]
-                    break
-        return response
-
+        cmd = f"set_choice {serial} {property_} {value}"
+        return self._send_command(cmd)
 
     def trigger(self, serial):
         """
         Triggers the camera with `serial`.
         """
-        with self._write_lock:
-            telem = self.read()
-            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
-            cmd = (
-                f"{command_id.value} trigger {serial}"
-            )
-            response = None
-            for _ in range(15):
-                udp_socket.send_message(cmd, self._udp_ip, self._command_port)
-                time.sleep(0.500)
-                telem = self.read()
-                response_id = telem["command_response"]["id"]
-                if response_id <= command_id.value:
-                    response = telem["command_response"]
-                    break
-        return response
-
+        cmd = f"trigger {serial}"
+        return self._send_command(cmd)
 
     def start(self):
         assert self._read_thread is None, "Read thread already started!"

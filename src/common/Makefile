@@ -15,7 +15,7 @@ $(LIB): $(OBJECTS)
 	$(SILENT)$(AR) rcs $(LIB) $(OBJECTS)
 
 clean:
-	@echo "$(CLEAN_COLOR)Cleaning$(RESET)"
+	@echo "$(CLEAN_COLOR)Cleaning$(RESET) $(shell pwd)"
 	$(SILENT)rm -f $(LIB) $(OBJECTS) $(DEPS)
 
 # KEEP at the end so %.o rule doesn't overwrite the dependcy tracking

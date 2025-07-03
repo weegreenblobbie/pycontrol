@@ -59,7 +59,7 @@ private:
 
     void _camera_scan();
     result _send_telemetry();
-    result _read_command();
+    result _read_command(bool & got_message);
     result _dispatch_camera_events();
 
     milliseconds _get_event_time(const Event & event) const;

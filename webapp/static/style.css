@@ -411,3 +411,8 @@ td pre {
     background-color: #6c757d; /* Gray when disabled */
     cursor: not-allowed;
 }
+
+.cell-pending-update {
+     /* A light, non-intrusive red */
+    background-color: #ffebee !important;
+}

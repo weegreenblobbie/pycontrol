@@ -31,6 +31,22 @@ class RunSim:
     sim_time_offset: datetime.timedelta = datetime.timedelta(seconds=0.0)
 
 
+def make_response(status_or_obj, message=None, return_code=200):
+    if isinstance(status_or_obj, dict):
+        success = status_or_obj.get('success')
+        message = status_or_obj.get('message')
+        return_code = 200 if success else 400
+        status = "Success" if success else "Failure"
+        data = status_or_obj.get('data')
+    else:
+        status = status_or_obj
+        data = None
+    app.logger.info(f"status: {status} return_code: {return_code} message: {message} data: {data}")
+    if data:
+        return (flask.jsonify(data), return_code)
+    return (flask.jsonify(status=status, message=message), return_code)
+
+
 class PyControlApp:
     def __init__(self, config_path):
         """
@@ -67,7 +83,7 @@ class PyControlApp:
 
     def set_camera_id(self, serial, cam_id):
         """Public method to update a camera's description."""
-        self._cam_io.set_camera_id(serial, cam_id)
+        return make_response(self._cam_io.set_camera_id(serial, cam_id))
 
     def load_event_file(self, filename):
         """Loads an event file and triggers an update."""
@@ -109,22 +125,25 @@ class PyControlApp:
         """Public method to load a camera sequence and re-trigger the solver."""
         full_path = os.path.abspath(os.path.join("..", "sequences", filename))
         if not os.path.isfile(full_path):
-            raise FileNotFoundError(f"Sequence file not found: {filename}")
+            return make_response("Failure", f"Sequence file not found: {filename}", 500)
 
-        self._cam_io.load_sequence(full_path)
+        response = self._cam_io.load_sequence(full_path)
+        if not resonse.get("success"):
+            return make_response(response)
 
         # Re-trigger the solver with existing params after loading a new sequence
         params = self._event_solver.params()
         self._update_and_trigger(**params)
+        return make_response("Success", f"Sequence loaded: {filename}", 200)
 
     def start_simulation(self, gps_latitude, gps_longitude, gps_altitude, event_id, event_time_offset):
         """Starts a simulation. Returns (status_str, message_str)."""
         with self._run_sim_lock:
             if self._run_sim.is_running:
-                return "error", "Simulation is already running."
+                return make_response("Failure", "Simulation is already running.", 400)
 
         if event_id and event_id not in self._event_solver.event_ids():
-            return "error", f"Bad event_id '{event_id}'"
+            return "Failure", f"Bad event_id '{event_id}'"
 
         solution = self._event_solver.simulate_trigger(gps_latitude, gps_longitude, gps_altitude)
 
@@ -133,9 +152,9 @@ class PyControlApp:
         if event_id:
             event_time = solution.get(event_id)
             if event_time is None:
-                return "error", f"No event time for {event_id}"
+                return make_response("Failure", f"No event time for {event_id}", 400)
             if event_time_offset is None:
-                return "error", "Event time offset cannot be None"
+                return make_response("Failure", "Event time offset cannot be None", 400)
 
             event_time_offset_delta = datetime.timedelta(seconds=event_time_offset)
             sim_time_offset = du.now() - event_time - event_time_offset_delta
@@ -156,14 +175,13 @@ class PyControlApp:
 
         params = self._event_solver.params()
         self._update_and_trigger(**params)
-
-        return "success", "Simulation started."
+        return make_response("Success", "Simulation started", 200)
 
     def read_choices(self, serial, prop):
-        return self._cam_io.read_choices(serial, prop)
+        return make_response(self._cam_io.read_choices(serial, prop))
 
     def set_choice(self, serial, prop, value):
-        return self._cam_io.set_choice(serial, prop, value)
+        return make_response(self._cam_io.set_choice(serial, prop, value))
 
     def stop_simulation(self):
         """Stops the current simulation."""
@@ -172,10 +190,10 @@ class PyControlApp:
             self._run_sim = RunSim()
         params = self._event_solver.params()
         self._update_and_trigger(**params)
-        return "success", "Simulation stopped."
+        return make_response("Success", "Simulation stopped.", 200)
 
     def trigger(self, serial):
-        return self._cam_io.trigger(serial)
+        return make_response(self._cam_io.trigger(serial))
 
     def _read_events(self, event_map):
         """Internal method to get and format event data from the solver."""
@@ -233,10 +251,6 @@ logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 pycontrol_app = PyControlApp(CAMERA_CONTROL_CONFIG)
 
-def make_response(status, message, return_code=200):
-    app.logger.info(f"status: {status}, message: {message}, code: {return_code}")
-    return (flask.jsonify(status=status, message=message), return_code)
-
 #------------------------------------------------------------------------------
 # Flask Routes
 #
@@ -258,11 +272,8 @@ def api_camera_update_description():
     serial = data.get('serial')
     cam_id = data.get('description')
     if not serial or cam_id is None:
-        return make_response("error", "Missing serial or description", 400)
-
-    # Correctly call the public method
-    pycontrol_app.set_camera_id(serial, cam_id)
-    return make_response("success", "Description updated")
+        return make_response("Failure", "Missing serial or description", 400)
+    return pycontrol_app.set_camera_id(serial, cam_id)
 
 
 @app.route('/api/event_list')
@@ -278,13 +289,12 @@ def api_event_load():
     if not filename:
         return make_response("error", "Filename not provided", 400)
 
-#~    try:
-    data = pycontrol_app.load_event_file(filename)
-    app.logger.info(f"loaded event {filename}")
-    return flask.jsonify(data), 200
-#~    except Exception as e:
-#~        app.logger.error(f"Failed to load event file {filename}: {e}")
-#~        return make_response("error", f"Failed to load event file: {e}", 500)
+    try:
+        data = pycontrol_app.load_event_file(filename)
+        app.logger.info(f"loaded event {filename}")
+        return flask.jsonify(data), 200
+    except Exception as e:
+        return make_response("Failure", f"Failed to load event file: {e}", 500)
 
 
 @app.route('/api/run_sim/defaults')
@@ -304,7 +314,7 @@ def api_run_sim_defaults():
                 data[tokens[0]] = ""
         return flask.jsonify(data), 200
     except FileNotFoundError:
-        return make_response("error", "run_sim.config not found", 404)
+        return make_response("Failure", "run_sim.config not found", 404)
 
 
 @app.route('/api/run_sim')
@@ -316,18 +326,17 @@ def api_run_sim():
     event_time_offset = flask.request.args.get('event_time_offset', default=None, type=float)
 
     if any(p is None for p in [gps_latitude, gps_longitude, gps_altitude]):
-        return make_response("error", "Missing or invalid GPS simulation parameters.", 400)
+        return make_response("Failure", "Missing or invalid GPS simulation parameters.", 400)
 
-    status, message = pycontrol_app.start_simulation(
+    return make_response(pycontrol_app.start_simulation(
         gps_latitude, gps_longitude, gps_altitude, event_id, event_time_offset
-    )
-    return make_response(status, message, 200 if status == "success" else 400)
+    ))
+
 
 
 @app.route('/api/run_sim/stop')
 def api_run_sim_stop():
-    status, message = pycontrol_app.stop_simulation()
-    return make_response(status, message, 200)
+    return pycontrol_app.stop_simulation()
 
 
 @app.route('/api/camera_sequence_list')
@@ -345,8 +354,7 @@ def api_camera_sequence_load():
 
     try:
         # Correctly call the public method
-        pycontrol_app.load_sequence(filename)
-        return make_response("success", f"Camera Sequence loaded: {filename}", 200)
+        return pycontrol_app.load_sequence(filename)
     except FileNotFoundError as e:
         return make_response("error", str(e), 404)
     except Exception as e:
@@ -371,14 +379,7 @@ def api_camera_read_choices():
     if prop in JS_TO_PROP:
         prop = JS_TO_PROP[prop]
 
-    response = pycontrol_app.read_choices(serial, prop)
-
-    success = response['success']
-
-    if success:
-         return flask.jsonify(response["data"]), 200
-
-    return make_response("error", response["message"], 400)
+    return pycontrol_app.read_choices(serial, prop)
 
 
 @app.route('/api/camera/set_choice', methods=["POST"])
@@ -391,15 +392,7 @@ def api_camera_set_choice():
     if prop in JS_TO_PROP:
         prop = JS_TO_PROP[prop]
 
-    response = pycontrol_app.set_choice(serial, prop, value)
-
-    success = response['success']
-
-    if success:
-         return make_response("success", f"Property '{prop}' set to '{value}' on camera '{serial}'", 200)
-
-    return make_response("error", response["message"], 400)
-
+    return pycontrol_app.set_choice(serial, prop, value)
 
 
 @app.route('/api/camera/trigger', methods=["POST"])
@@ -407,12 +400,7 @@ def api_camera_trigger():
     data = flask.request.get_json()
     serial = data.get('serial')
 
-    response = pycontrol_app.trigger(serial)
-    success = response['success']
-    if success:
-         return make_response("success", f"Successfully triggered camera '{serial}'", 200)
-
-    return make_response("error", response["message"], 400)
+    return pycontrol_app.trigger(serial)
 
 
 if __name__ == '__main__':
