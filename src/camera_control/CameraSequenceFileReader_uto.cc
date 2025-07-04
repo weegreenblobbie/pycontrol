@@ -1,9 +1,6 @@
 #include <fstream>
 #include <cstdio> // For std::remove
 
-// This tells Catch to provide a main() - only do this in one cpp file
-#define CATCH_CONFIG_MAIN
-
 #include <catch2/catch_test_macros.hpp>
 
 #include <camera_control/CameraSequenceFileReader.h>

@@ -11,6 +11,9 @@ LIBGPHOTO2_LIB := lib/libgphoto2.so
 
 GPHOTO2CPP_LIB := include/gphoto2cpp/gphoto2cpp.h
 
+JSON_REPO := json/.git/config
+JSON_LIB := include/nlohmann/json.hpp
+
 MESON_VENV := venv/bin/meson
 
 CWD := $(CURDIR)
@@ -19,17 +22,19 @@ MESON := $(cwd)$(MESON_VENV)
 
 INSTALL_DIRS := $(CWD)/bin $(CWD)/include $(CWD)/lib $(CWD)/share
 
-all: $(INSTALL_DIRS) $(CACTUS_LIB) $(CATCH_LIB) $(LIBGPHOTO2_LIB) $(GPHOTO2CPP_LIB)
+all: $(INSTALL_DIRS) $(CACTUS_LIB) $(CATCH_LIB) $(LIBGPHOTO2_LIB) $(GPHOTO2CPP_LIB) $(JSON_LIB)
 
 $(INSTALL_DIRS):
 	@echo "$(BUILD_COLOR)Making$(RESET) $@"
 	$(SILENT)mkdir -p $@
 
+#------------------------------------------------------------------------------
 # Cactus RT.
+#
 $(CACTUS_REPO):
-	@echo "$(CLONE_COLOR)Cloning$(RESET) $@"
-	$(SILENT)git clone https://github.com/cactusdynamics/cactus-rt.git
-	$(SILENT)cd cactus-rt && \
+	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
+	$(SILENT)git clone --quiet https://github.com/cactusdynamics/cactus-rt.git $(DEVNULL) && \
+	cd cactus-rt && \
 		git checkout 3997bd8bae85452322b7c7cbfe1bf6a88223ac4c
 
 $(CACTUS_LIB): $(CACTUS_REPO)
@@ -53,11 +58,13 @@ $(CACTUS_LIB): $(CACTUS_REPO)
     cp -r cactus_build/_deps/quill-src/quill/include/quill $(CWD)/include && \
     touch $@
 
+#------------------------------------------------------------------------------
 # Catch2 release 3.8.2.
+#
 $(CATCH_REPO):
-	@echo "$(CLONE_COLOR)Cloning$(RESET) $@"
-	$(SILENT)git clone https://github.com/catchorg/Catch2.git
-	$(SILENT)cd Catch2 && \
+	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
+	$(SILENT)git clone --quiet https://github.com/catchorg/Catch2.git $(DEVNULL) && \
+	cd Catch2 && \
 		git checkout 2b60af89e23d28eefc081bc930831ee9d45ea58b
 
 $(CATCH_LIB): $(CATCH_REPO)
@@ -73,10 +80,12 @@ $(CATCH_LIB): $(CATCH_REPO)
 	cmake --install catch2_build $(DEVNULL) && \
 	touch $@
 
+#------------------------------------------------------------------------------
 # libgphoto2.
+#
 $(LIBGPHOTO2_REPO):
-	@echo "$(CLONE_COLOR)Cloning$(RESET) $@"
-	$(SILENT)git clone https://github.com/gphoto/libgphoto2.git && \
+	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
+	$(SILENT)git clone --quiet https://github.com/gphoto/libgphoto2.git $(DEVNULL) && \
 	cd libgphoto2 && \
 	   git checkout 9df7485aa54f2c3233e52e2a3efb1daf5cf6f967
 
@@ -99,11 +108,32 @@ $(LIBGPHOTO2_LIB): $(LIBGPHOTO2_REPO) $(MESON_VENV)
 	echo "$(INSTALL_COLOR)Installing$(RESET) $@" && \
 	meson install  $(DEVNULL)
 
+#------------------------------------------------------------------------------
 # gphoto2cpp - C++ wrapper.
+#
 $(GPHOTO2CPP_LIB): gphoto2cpp/include/gphoto2cpp/gphoto2cpp.h
 	@echo "$(INSTALL_COLOR)Installing$(RESET) $@"
 	$(SILENT)cp -r gphoto2cpp/include/gphoto2cpp $(CWD)/include
 
+#------------------------------------------------------------------------------
+# json v3.12.0
+#
+$(JSON_REPO):
+	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
+	$(SILENT)git clone --quiet --depth 1 --branch v3.12.0 https://github.com/nlohmann/json.git $(DEVNULL)
+
+$(JSON_LIB): $(JSON_REPO)
+	@echo "$(CONFIGURE_COLOR)Configuring$(RESET) $@"
+	$(SILENT)mkdir -p json_build && \
+	cmake -S json -B json_build \
+	    -DJSON_BuildTests=OFF \
+	    -DJSON_MultipleHeaders=ON \
+        -DCMAKE_INSTALL_PREFIX="$(CWD)" $(DEVNULL) && \
+	echo "$(BUILD_COLOR)Building$(RESET) $@" && \
+	cmake --build json_build -j $$(nproc) $(DEVNULL) && \
+	echo "$(INSTALL_COLOR)Installing$(RESET) $@" && \
+	cmake --install json_build $(DEVNULL) && \
+	touch $@
 
 .PHONY: clean real-clen
 clean:

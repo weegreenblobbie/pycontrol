@@ -24,6 +24,7 @@ javascript or python, a pretty printed example:
 ```
 {
     "state": "execute_ready",
+    "time": 1000,
     "command_response": {
         "id": 1,
         "success": true,
@@ -61,8 +62,8 @@ javascript or python, a pretty printed example:
         "c2": 1750627397194,
         "mid": 1750627397254,
         "c3": 1750627397314,
-        "c4": 1750627401314,
-    }
+        "c4": 1750627401314
+    },
     "sequence": "spain-2026.seq",
     "sequence_state": [
         {

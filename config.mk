@@ -13,7 +13,7 @@ VERBOSE ?= 0
 # Set the @ symbol for silencing commands based on the VERBOSE flag.
 ifeq ($(VERBOSE), 0)
 	SILENT = @
-	DEVNULL = 2>&1 > /dev/null
+	DEVNULL = > /dev/null 2>&1
 else
 	SILENT =
 	DEVNULL =
@@ -78,6 +78,9 @@ LIBS = \
 	-lCatch2 \
 	-lCatch2Main
 
+#-----------------------------------------------------------------------------
+# C++ compiler source into objects.
+#
 %.o: %.cc $(MAKEFILE_LIST)
 	@echo "$(BUILD_COLOR)Building$(RESET) $<"
 	$(SILENT)$(CXX) $(CXXFLAGS) $(CPPINCLUDES) -c $< -o $@

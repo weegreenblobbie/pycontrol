@@ -161,6 +161,11 @@ _send_telemetry()
     _telem_message << "\",";
 
     //-------------------------------------------------------------------------
+    // time
+    //
+    _telem_message << "\"time\":" << _control_time << ",";
+
+    //-------------------------------------------------------------------------
     // command_response
     //
     _telem_message << "\"command_response\":" << _command_response << ",";
@@ -320,6 +325,7 @@ _read_command(bool & got_message)
     std::ostringstream oss;
 
     std::istringstream iss(_command_buffer);
+
     if (not (iss >> cmd_id >> command))
     {
         ++_command_id;
@@ -389,24 +395,34 @@ _read_command(bool & got_message)
     //
     else if (command == "set_events")
     {
-        _event_map.clear();
-        while (true)
+        bool parse_error = false;
+
+        auto new_event_map = event_map();
+        while (not iss.eof())
         {
             std::string event_id;
             milliseconds timestamp;
-            if (not (iss >> event_id >> timestamp))
+
+            parse_error = parse_error or not (iss >> event_id);
+            parse_error = parse_error or not (iss >> timestamp);
+
+            if (parse_error)
             {
                 break;
             }
-            _event_map[event_id] = timestamp;
+
+            new_event_map[event_id] = timestamp;
         }
 
-        if (_event_map.empty())
+        if (parse_error or new_event_map.empty())
         {
             oss << "false,\"message\":\"failed to parse events from '" << _command_buffer << "'\"}";
             _command_response = oss.str();
             return result::success;
         }
+
+        // All good, update the event map!
+        _event_map = new_event_map;
     }
     //-------------------------------------------------------------------------
     // load_sequence
@@ -427,7 +443,7 @@ _read_command(bool & got_message)
         if (result::failure == seq_reader.read_file(sequence_fn))
         {
             oss << "false,\"message\":\"failed to parse camera sequence file '"
-                << sequence_fn << "'}";
+                << sequence_fn << "'\"}";
             _command_response = oss.str();
             return result::success;
         }
@@ -600,7 +616,6 @@ _read_command(bool & got_message)
     // sequence file is loaded.
     if (command == "reset_sequence")
     {
-        _event_map.clear();
         for (auto & [id, cam_seq] : _sequence_map)
         {
             cam_seq->reset();
@@ -832,9 +847,6 @@ dispatch()
     {
         ERROR_LOG << "_read_command() failed, ignoring" << std::endl;
     }
-
-//~    DEBUG_LOG << "control_time: " << _control_time << std::endl;
-//~    DEBUG_LOG << " got_message: " << got_message << std::endl;
 
     if (got_message)
     {
