@@ -6,16 +6,14 @@ Make it work
 
 - Add the trigger command to unit tests.
 
-- Camera Event sequence ETA should include number of days.
-
 - Disable camera table buttons if state == executing
 
-- Consider using https://github.com/nlohmann/json/tree/develop for sending telem in JSON format
+- Fix these astropy warnings:
+    WARNING: TimeDeltaMissingUnitWarning: Numerical value without unit or explicit format passed to TimeDelta, assuming days [astropy.time.core]
+    WARNING: Tried to get polar motions for times after IERS data is valid. Defaulting to polar motion from the 50-yr mean for those. This may affect precision at the arcsec level. Please check your astropy.utils.iers.conf.iers_auto_url and point it to a newer version if necessary. [astropy.coordinates.builtin_frames.utils]
+    WARNING: TimeDeltaMissingUnitWarning: Numerical value without unit or explicit format passed to TimeDelta, assuming days [astropy.time.core]
 
 - Loading a camera sequence that fails, is not fed back to UI
-
-- When I load a camera sequence, i expected the sequence table to get populated in about 1
-  second.  Currently takes a bunch of time.
 
 - Persist the event and camera selection in a config file, so reloading the app
   auto loads the last selected event and sequence file.
@@ -32,22 +30,25 @@ Make it work
     z7.date              now
     z7.mode              manual
 
+    I don't think we need any of the above.  Syncing the date would be nice, it would be
+    < 100 milliseconds from GPS given the latencies.
+
+    chronyc -n sources
+    MS Name/IP address         Stratum Poll Reach LastRx Last sample
+    ===============================================================================
+    #* GPS                           0   4   377    13   -168us[-1511us] +/-   50ms
+
+    So we are about +/- 51 milliseconds from GPS time.  So that's pretty darn good.
+
 - Implement and test these workflows:
     - pick event, clear any camera schedule
     - pick camera schedule file, validate
-
-- Add a timeout to camera_info_reader.py so if the camera_montitor_bin stops emitting
-  telemetry, we assume no cameras are detected.
 
 - Detect if camera is in Movie Mode and make camera status work while in that mode
 
 - Raspberry PI Health, like /api/gps, add a /api/pi-health for memory, cpu, and temp stats
 
 - Add automated camera frames-per-second auto testing to find limit.
-
-- Add event simulation mode for local testing
-    - override location
-    - override time or event
 
 - Auto start app on rpi boot
 
@@ -67,11 +68,24 @@ Make it work well
 
 - Figure out an easy and smooth software update straegy.
 
+- Consider installing the Adafruit GPS modules with PPS:
+    https://austinsnerdythings.com/2021/04/19/microsecond-accurate-ntp-with-a-raspberry-pi-and-pps-gps/
+
+    Although, according to chronyc -n sources, were only about 50 milliseconds off:
+
+    chronyc -n sources
+
+    MS Name/IP address         Stratum Poll Reach LastRx Last sample
+    ===============================================================================
+    #* GPS                           0   4   377    13   -168us[-1511us] +/-   50ms
 
 MAke it work well for others
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- self signed certs for https comms with raspberry pi
+- self signed certs for https comms with raspberry pi ?  Maybe adhoc wireless with WPA2 is
+  all that's needed.
+
+- Official deb packages for raspberry pi distribution ?
 
 - mobile phone apps for user UI control
 
@@ -88,6 +102,16 @@ MAke it work well for others
 Past Items Completed
 ====================
 
+* Display camera id instead of serial when clicking on camera settings to change.
+
+* Camera Event sequence ETA should include number of days.
+
+* Preserve event ordering on the web UI.
+
+* Consider using https://github.com/nlohmann/json/tree/develop for sending telem in JSON format
+* Use a json parser in the unit test objects (uto) files so each filed can be
+  asserted to provide more precise error messages.
+
 * Print a Use make VERBOSE=1 to turn on verbose builds message in my Makefiles
 
 * Add a manual trigger button to the camera table.
@@ -100,6 +124,10 @@ Past Items Completed
   - fstop
   I just stopped iterating over the unordered_map and instead always populate a vector
   that's stored in libgphoto2's memory.
+
+* When I load a camera sequence, i expected the sequence table to get populated in about 1
+  second.  Currently takes a bunch of time.
+  Solved by immediatlety sending telemtry in response to commanding.
 
 * When control state != executig, allow manual manipulation of the camera settings
 ** easy to view what choices a field has
@@ -122,6 +150,10 @@ Past Items Completed
 * Run Sim button should work multiple times when Event Id is an empty string
 ** Also fix the integer intput widgest, no silly up/down buttons, allow one to type in
    and fix the issue if the mouse up event happens outside the diaglog, don't close it.
+
+* Add event simulation mode for local testing
+** override location
+** override time or event
 
 * Cache read_property widgets.
 

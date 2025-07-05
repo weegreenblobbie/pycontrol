@@ -198,11 +198,11 @@ function update_cameras_ui(data)
             <td>${(cam.connected != "0" && cam.connected) ? (cam.batt || "N/A") : "N/A"}</td>
             <td>${(cam.connected != "0" && cam.connected) ? (cam.port || "N/A") : "N/A"}</td>
             <td>${(cam.connected != "0" && cam.connected) ? (cam.num_photos || "N/A") : "N/A"}</td>
-            <td class="choice-td" data-property="quality" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.quality || "N/A") : "N/A"}</td>
-            <td class="choice-td" data-property="mode" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.mode || "N/A") : "N/A"}</td>
-            <td class="choice-td" data-property="iso" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.iso || "N/A") : "N/A"}</td>
-            <td class="choice-td" data-property="fstop" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.fstop || "N/A") : "N/A"}</td>
-            <td class="choice-td" data-property="shutter" data-serial="${cam.serial}">${(cam.connected != "0" && cam.connected) ? (cam.shutter || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="quality" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.quality || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="mode" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.mode || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="iso" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.iso || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="fstop" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.fstop || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="shutter" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.shutter || "N/A") : "N/A"}</td>
         `;
 
         // Create the new cell for the trigger button
@@ -232,22 +232,18 @@ function update_cameras_ui(data)
 
 function update_events_ui(events_data)
 {
-    if (typeof events_data === 'object' && events_data !== null)
+    if (events_data && events_data.length > 0)
     {
-        for (const event_id in events_data)
+        for (const event_info of events_data)
         {
-            if (events_data.hasOwnProperty(event_id))
+            if (event_info && event_info.length === 3)
             {
-                const event_info = events_data[event_id];
-                if (Array.isArray(event_info) && event_info.length === 2)
-                {
-                    const [event_time, eta] = event_info;
-                    update_event_table_row(event_id, event_time, eta);
-                }
-                else
-                {
-                    console.warn(`Malformed event info for ${event_id}. Received:`, event_info);
-                }
+                const [event_id, event_time, eta] = event_info;
+                update_event_table_row(event_id, event_time, eta);
+            }
+            else
+            {
+                console.warn(`Malformed event info in list. Expected [id, time, eta]. Received:`, event_info);
             }
         }
     }
@@ -343,17 +339,18 @@ function handle_editable_td_click()
 async function handle_choice_td_click(event)
 {
     const cell = event.currentTarget;
+    const serial = cell.dataset.serial;
+    const property = cell.dataset.property;
+    const desc = cell.dataset.desc;
 
-    // Store the info needed to find this cell later
-    active_cell_info =
+    if (!serial || !property)
     {
-        serial: cell.dataset.serial,
-        property: cell.dataset.property,
-        original_text: cell.textContent.trim(),
-        desc: cell.dataset.desc
-    };
+        console.error("Cell is missing data-serial or data-property attribute.");
+        return;
+    }
 
-    camera_choice_modal_title.textContent = `Set ${active_cell_info.property} for ${active_cell_info.serial}`;
+    // Use the description for the title, falling back to the serial number if the description is blank.
+    camera_choice_modal_title.textContent = `Set ${property} for camera '${desc || serial}'`;
     camera_choice_list.innerHTML = '<li>Loading choices...</li>';
     camera_choice_modal.style.display = 'flex';
 
@@ -364,16 +361,15 @@ async function handle_choice_td_click(event)
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                serial: active_cell_info.serial,
-                property: active_cell_info.property
+                serial: serial,
+                property: property
             })
         });
-        populate_camera_choice_modal(choices, active_cell_info.serial, active_cell_info.property);
+        populate_camera_choice_modal(choices, serial, property);
     }
     catch (error)
     {
         camera_choice_list.innerHTML = '<li>Error loading choices.</li>';
-        active_cell_info = null;
     }
 }
 

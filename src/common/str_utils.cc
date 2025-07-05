@@ -249,6 +249,10 @@ convert_milliseconds_to_hms(const milliseconds & total_milliseconds)
 
     total_ms = std::abs(total_ms);
 
+    const auto days = total_ms / 86'400'000;
+
+    total_ms -= days * 86'400'000;
+
     const auto hours = total_ms / 3600'000;
 
     total_ms -= hours * 3600'000;
@@ -271,6 +275,11 @@ convert_milliseconds_to_hms(const milliseconds & total_milliseconds)
     else
     {
         ss << " ";
+    }
+
+    if (days != 0)
+    {
+        ss << days << " days ";
     }
 
     ss << std::setw(2) << hours << ":"

@@ -128,7 +128,7 @@ class PyControlApp:
             return make_response("Failure", f"Sequence file not found: {filename}", 500)
 
         response = self._cam_io.load_sequence(full_path)
-        if not resonse.get("success"):
+        if not response.get("success"):
             return make_response(response)
 
         # Re-trigger the solver with existing params after loading a new sequence
@@ -185,6 +185,7 @@ class PyControlApp:
 
     def stop_simulation(self):
         """Stops the current simulation."""
+        self._cam_io.set_events({})
         self._cam_io.reset_sequence()
         with self._run_sim_lock:
             self._run_sim = RunSim()
@@ -198,16 +199,16 @@ class PyControlApp:
     def _read_events(self, event_map):
         """Internal method to get and format event data from the solver."""
         event_ids = self._event_solver.event_ids()
-        out = dict()
+        out = []
         for event_id in event_ids:
             event_time = event_map.get(event_id, EventSolver.COMPUTING)
             if event_time == EventSolver.COMPUTING:
-                out[event_id] = (event_time, "")
+                out.append( (event_id, event_time, "") )
             elif event_time is None:
-                out[event_id] = ("Event not visible!", "N/A")
+                out.append( (event_id, "Event not visible!", "N/A") )
             elif isinstance(event_time, datetime.datetime):
                 eta = du.eta(source=du.now(), destination=event_time)
-                out[event_id] = (du.normalize(event_time), eta)
+                out.append( (event_id, du.normalize(event_time), eta) )
             else:
                 raise ValueError(f"Unknown event_time type: {event_time}")
         return out
@@ -246,7 +247,7 @@ class PyControlApp:
 #
 CAMERA_CONTROL_CONFIG = "../config/camera_control.config"
 app = flask.Flask(__name__)
-app.config['DEBUG'] = True
+app.config['DEBUG'] = False
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 pycontrol_app = PyControlApp(CAMERA_CONTROL_CONFIG)
@@ -328,9 +329,9 @@ def api_run_sim():
     if any(p is None for p in [gps_latitude, gps_longitude, gps_altitude]):
         return make_response("Failure", "Missing or invalid GPS simulation parameters.", 400)
 
-    return make_response(pycontrol_app.start_simulation(
+    return pycontrol_app.start_simulation(
         gps_latitude, gps_longitude, gps_altitude, event_id, event_time_offset
-    ))
+    )
 
 
 

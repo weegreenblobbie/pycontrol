@@ -324,7 +324,12 @@ _read_command(bool & got_message)
 
     std::ostringstream oss;
 
-    std::istringstream iss(_command_buffer);
+    // Copy and strip extraneous whitespace.
+    std::string raw_cmd(_command_buffer.c_str());
+    strip(raw_cmd, ' ');
+    strip(raw_cmd, '\n');
+
+    std::istringstream iss(raw_cmd);
 
     if (not (iss >> cmd_id >> command))
     {
@@ -396,7 +401,6 @@ _read_command(bool & got_message)
     else if (command == "set_events")
     {
         bool parse_error = false;
-
         auto new_event_map = event_map();
         while (not iss.eof())
         {
@@ -414,7 +418,7 @@ _read_command(bool & got_message)
             new_event_map[event_id] = timestamp;
         }
 
-        if (parse_error or new_event_map.empty())
+        if (parse_error)
         {
             oss << "false,\"message\":\"failed to parse events from '" << _command_buffer << "'\"}";
             _command_response = oss.str();

@@ -28,9 +28,6 @@ UNIT_TEST_BIN_SRC += CameraSequence.cc
 UNIT_TEST_BIN_SRC += CameraSequenceFileReader.cc
 UNIT_TEST_BIN_OBJS := $(UNIT_TEST_BIN_SRC:.cc=.o)
 
-# Make all the unit test objects depend on the C++ module:
-$(UNIT_TEST_BIN_OBJS): $(UNIT_TEST_MODULE_OBJ)
-
 $(CAMERA_CONTROL_BIN): $(CAMERA_CONTROL_BIN_OBJS) ../common/libcommon.a
 	@echo "$(LINK_COLOR)Linking$(RESET) $@"
 	$(SILENT)$(CXX) -o $(CAMERA_CONTROL_BIN) $(CAMERA_CONTROL_BIN_OBJS) $(LINKFLAGS) $(LIBS)
