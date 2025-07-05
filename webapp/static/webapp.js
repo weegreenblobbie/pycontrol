@@ -580,30 +580,32 @@ function clear_event_data_rows()
     event_row_map.clear();
 }
 
-async function populate_static_event_details(file_name)
+async function populate_static_event_details(event_file, seq_file)
 {
     clear_event_data_rows();
 
     const file_display_row = event_table_body.insertRow(0);
     const file_label_cell = file_display_row.insertCell(0);
-    const file_name_cell = file_display_row.insertCell(1);
+    const event_file_cell = file_display_row.insertCell(1);
+    const seq_file_cell = file_display_row.insertCell(2);
 
-    file_label_cell.textContent = "Event File:";
+    file_label_cell.textContent = "Files:";
     file_label_cell.classList.add('column_1');
-    file_name_cell.colSpan = 2;
-    file_name_cell.appendChild(document.createElement('pre')).textContent = file_name;
+    //event_file_cell.colSpan = 2;
+    event_file_cell.appendChild(document.createElement('pre')).textContent = event_file;
+    seq_file_cell.appendChild(document.createElement('pre')).textContent = seq_file;
 
     const loading_row = event_table_body.insertRow(1);
     const loading_cell = loading_row.insertCell(0);
     loading_cell.colSpan = 3;
-    loading_cell.textContent = `Loading details for ${file_name}...`;
+    loading_cell.textContent = `Loading details for ${event_file}...`;
 
     try
     {
         const event_data = await fetch_data('/api/event_load', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: file_name })
+            body: JSON.stringify({ filename: event_file })
         });
         loading_row.remove();
 
@@ -620,9 +622,9 @@ async function populate_static_event_details(file_name)
     }
     catch (error)
     {
-        console.error(`Error fetching static event details for ${file_name}:`, error);
+        console.error(`Error fetching static event details for ${event_file}:`, error);
         clear_event_data_rows();
-        update_event_table_row('Error', `Failed to load ${file_name}.`, error.message.substring(0, 100));
+        update_event_table_row('Error', `Failed to load ${event_file}.`, error.message.substring(0, 100));
         return false;
     }
 }
@@ -855,30 +857,61 @@ async function handle_load_camera_sequence_click()
 // --- Main Dashboard Update Loop ---
 async function update_dashboard()
 {
-    try
-    {
-        const data = await fetch_data('/api/dashboard_update');
+    let dashboard_data;
 
-        if (data.gps)
-        {
-            update_gps_ui(data.gps);
-        }
-        if (data.detected_cameras)
-        {
-            update_cameras_ui(data.detected_cameras);
-        }
-        if (data.events && event_row_map.size > 0)
-        {
-            update_events_ui(data.events);
-        }
-        if (data.camera_control)
-        {
-            update_camera_control_ui(data.camera_control);
-        }
-    }
-    catch (error)
+	try
+	{
+		dashboard_data = await fetch_data('/api/dashboard_update');
+	}
+	catch (error)
+	{
+		console.error("Failed to update dashboard:", error);
+		return;
+	}
+
+	if (typeof dashboard_data === 'undefined' || dashboard_data === null)
+	{
+	    console.log("dashboard_data isn't defined");
+	    return;
+	}
+
+    const event_file = dashboard_data.event_filename;
+    const seq_file = dashboard_data.sequence_filename;
+
+    if (dashboard_data.gps)
     {
-        console.error("Failed to update dashboard:", error);
+        update_gps_ui(dashboard_data.gps);
+    }
+    if (dashboard_data.detected_cameras)
+    {
+        update_cameras_ui(dashboard_data.detected_cameras);
+    }
+
+    if (event_row_map.size === 0 && event_file && seq_file)
+    {
+        console.log('Initial load detected for files:');
+        console.log('    ' + event_file);
+        console.log('    ' + seq_file);
+        await populate_static_event_details(event_file, seq_file);
+        load_event_file_button.classList.add('loaded');
+    }
+    if (seq_file)
+    {
+        load_camera_sequence_button.classList.add('loaded');
+    }
+    else
+    {
+        load_camera_sequence_button.classList.remove('loaded');
+    }
+
+    if (dashboard_data.events && event_row_map.size > 0)
+    {
+        update_events_ui(dashboard_data.events);
+    }
+
+    if (dashboard_data.camera_control)
+    {
+        update_camera_control_ui(dashboard_data.camera_control);
     }
 }
 

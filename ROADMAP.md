@@ -4,6 +4,12 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
+- Loading a camera sequence that fails, is not fed back to UI
+
+- Add message about when it's okay to turn off camera
+
+- Look into how many files on the memory card
+
 - Add the trigger command to unit tests.
 
 - Disable camera table buttons if state == executing
@@ -12,11 +18,6 @@ Make it work
     WARNING: TimeDeltaMissingUnitWarning: Numerical value without unit or explicit format passed to TimeDelta, assuming days [astropy.time.core]
     WARNING: Tried to get polar motions for times after IERS data is valid. Defaulting to polar motion from the 50-yr mean for those. This may affect precision at the arcsec level. Please check your astropy.utils.iers.conf.iers_auto_url and point it to a newer version if necessary. [astropy.coordinates.builtin_frames.utils]
     WARNING: TimeDeltaMissingUnitWarning: Numerical value without unit or explicit format passed to TimeDelta, assuming days [astropy.time.core]
-
-- Loading a camera sequence that fails, is not fed back to UI
-
-- Persist the event and camera selection in a config file, so reloading the app
-  auto loads the last selected event and sequence file.
 
 - Add gps time and system time delta to the gps status line, to help verify if chrony
   is correctly syncing system time.
@@ -101,6 +102,10 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Persist the event and camera selection in a config file, so reloading the app
+  auto loads the last selected event and sequence file.
+
 
 * Display camera id instead of serial when clicking on camera settings to change.
 

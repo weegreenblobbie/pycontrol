@@ -26,6 +26,7 @@ class GpsReader:
     DATA_TIMEOUT_SECONDS = 1.25
     FLOAT_TOLERANCE = 1e-7
     MODES = ("NOT SEEN", "NO FIX", "2D FIX", "3D FIX")
+    NO_FIX = 1
 
     def __init__(self, host="127.0.0.1", port="2947"):
         self._host = host
@@ -126,11 +127,12 @@ class GpsReader:
                             setattr(self, f"_{key}", value)
 
             except Exception as err:
-                print(f"Error reading socket: {err}")
+                print(f"gps_reader.py error: {err}")
                 sock.close()
                 sock = None
 
                 with self._lock:
+                    self._error = True
                     self._connected = False
                     if self._last_known_mode != 0:
                         self._last_known_mode = 0
@@ -148,7 +150,33 @@ class GpsReader:
     def _process_tpv_report(self, report):
         """Processes a TPV report and returns a dict of updates."""
         updates = {'connected': True, 'error': False}
+
         current_mode = report.get('mode', 0)
+
+        has_fix = current_mode >= 2
+        lat_from_report = report.get('lat', 0.0)
+        has_valid_lat_lon = abs(lat_from_report) > self.FLOAT_TOLERANCE
+        ecefx = report.get('ecefx', 0.0)
+        has_valid_ecef = abs(ecefx) > 10000.0
+
+        # My cheap u-blox GPS receiver sometimes produces bogus lat, long, alt,
+        # but valid ECEF.  So if we have ECEF, use that instead of the lat, long,
+        # alt.
+        if has_fix and has_valid_ecef:
+            x, y, z = report['ecefx'], report['ecefy'], report['ecefz']
+            lon, lat, alt = self._transformer.transform(x, y, z)
+            updates['lat'], updates['long'], updates['altitude'] = lat, lon, alt
+
+        # Sometimes we don't have ECEF, so fall back on lat, long, alt.
+        elif has_fix  and has_valid_lat_lon:
+            updates['lat'] = lat_from_report
+            updates['long'] = report.get('lon', 0.0)
+            updates['altitude'] = report.get('alt', 0.0)
+        else:
+            # Oh no!  We don't have either!  Consider the GPS disconnected to
+            # bring attention to the user.
+            current_mode = self.NO_FIX
+            updates['lat'], updates['long'], updates['altitude'] = 0.0, 0.0, 0.0
 
         if current_mode != self._last_known_mode:
             self._last_known_mode = current_mode
@@ -157,25 +185,7 @@ class GpsReader:
         time_in_mode = datetime.datetime.now() - self._mode_change_time
         updates['mode'] = self.MODES[current_mode]
         updates['mode_time'] = format_timedelta_to_hms(time_in_mode)
-
         updates['time'] = report.get('time')
-
-        has_fix = current_mode >= 2
-        lat_from_report = report.get('lat', 0.0)
-        is_lat_lon_invalid = abs(lat_from_report) < self.FLOAT_TOLERANCE
-        ecefx = report.get('ecefx', 0.0)
-        has_valid_ecef = abs(ecefx) > 10000.0
-
-        if has_fix and is_lat_lon_invalid and has_valid_ecef:
-            x, y, z = report['ecefx'], report['ecefy'], report['ecefz']
-            lon, lat, alt = self._transformer.transform(x, y, z)
-            updates['lat'], updates['long'], updates['altitude'] = lat, lon, alt
-        elif has_fix:
-            updates['lat'] = lat_from_report
-            updates['long'] = report.get('lon', 0.0)
-            updates['altitude'] = report.get('alt', 0.0)
-        else:
-            updates['lat'], updates['long'], updates['altitude'] = 0.0, 0.0, 0.0
 
         return updates
 

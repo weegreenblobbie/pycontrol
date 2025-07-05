@@ -13,6 +13,7 @@ import date_utils as du
 from camera_control_io import CameraControlIo
 from event_solver import EventSolver
 from gps_reader import GpsReader
+import utils
 
 # These dataclasses are also fine at the top level as they define data structures
 @dataclasses.dataclass(kw_only=True)
@@ -48,26 +49,39 @@ def make_response(status_or_obj, message=None, return_code=200):
 
 
 class PyControlApp:
-    def __init__(self, config_path):
+    def __init__(self, root_dir):
         """
         Initializes all long-running objects and starts their threads.
         """
         print("Initializing PyControlApp...")
         self._gps_reader = GpsReader()
-        self._cam_io = CameraControlIo(config_path)
+        self._cam_io = CameraControlIo(os.path.join(root_dir, "config", "camera_control.config"))
         self._event_solver = EventSolver(self._cam_io)
         self._run_sim = RunSim()
-        self._run_sim_lock = threading.Lock()
+        self._lock = threading.Lock()
         self._gps_reader.start()
         self._cam_io.start()
         self._event_solver.start()
+        self._event_file = None
+        self._seq_file = None
+        self._defaults_loaded = False
+
+        # Read in gui config to load previous event and sequence files.
+        self._gui_config_filename = os.path.join(root_dir, "config", "gui.config")
         print("All reader/solver threads started.")
+
+    def load_defaults(self):
+        if self._defaults_loaded:
+            return
+        cfg = utils.read_kv_config(self._gui_config_filename)
+        self.load_event_file(cfg["event_file"])
+        self.load_sequence(cfg["sequence_file"])
+        self._defaults_loaded = True
 
     def get_dashboard_data(self):
         """Gathers all data needed for the main dashboard update."""
         telem = self._cam_io.read()
         detected_cameras = telem.pop("detected_cameras", [])
-        #events = telem.pop("events", dict())
         events = self._read_events(self._event_solver.read())
         camera_control = dict(
             state = telem.pop("state", "unknown"),
@@ -77,6 +91,8 @@ class PyControlApp:
         return {
             "gps": self._gps_reader.read(),
             "detected_cameras": detected_cameras,
+            "event_filename": self._event_file,
+            "sequence_filename": self._seq_file,
             "events": events,
             "camera_control": camera_control,
         }
@@ -110,13 +126,20 @@ class PyControlApp:
             elif event_ids and key in event_ids:
                 data["event_map"][key] = du.make_datetime(values[0])
 
-        app.logger.info(f"event data: {data}")
-
         self._update_and_trigger(
             type = data["type"],
             datetime = date_,
             event_ids = data["event_ids"],
             event_map = data.get("event_map", {}),
+        )
+
+        self._event_file = filename
+        utils.write_kv_config(
+            self._gui_config_filename,
+            dict(
+                event_file = self._event_file,
+                sequence_file = self._seq_file,
+            )
         )
 
         return data
@@ -134,11 +157,20 @@ class PyControlApp:
         # Re-trigger the solver with existing params after loading a new sequence
         params = self._event_solver.params()
         self._update_and_trigger(**params)
+
+        self._seq_file = filename
+        utils.write_kv_config(
+            self._gui_config_filename,
+            dict(
+                event_file = self._event_file,
+                sequence_file = self._seq_file,
+            )
+        )
         return make_response("Success", f"Sequence loaded: {filename}", 200)
 
     def start_simulation(self, gps_latitude, gps_longitude, gps_altitude, event_id, event_time_offset):
         """Starts a simulation. Returns (status_str, message_str)."""
-        with self._run_sim_lock:
+        with self._lock:
             if self._run_sim.is_running:
                 return make_response("Failure", "Simulation is already running.", 400)
 
@@ -163,7 +195,7 @@ class PyControlApp:
         gps_offset = GpsPos(latitude=snapshot["lat"], longitude=snapshot["long"], altitude=snapshot["altitude"])
         gps_pos = GpsPos(latitude=gps_latitude, longitude=gps_longitude, altitude=gps_altitude)
 
-        with self._run_sim_lock:
+        with self._lock:
             self._run_sim = RunSim(
                 is_running=True,
                 gps_pos=gps_pos,
@@ -187,7 +219,7 @@ class PyControlApp:
         """Stops the current simulation."""
         self._cam_io.set_events({})
         self._cam_io.reset_sequence()
-        with self._run_sim_lock:
+        with self._lock:
             self._run_sim = RunSim()
         params = self._event_solver.params()
         self._update_and_trigger(**params)
@@ -220,7 +252,7 @@ class PyControlApp:
         longitude = gps["long"]
         altitude = gps["altitude"]
 
-        with self._run_sim_lock:
+        with self._lock:
             sim_is_running = self._run_sim.is_running
             sim_pos = copy.deepcopy(self._run_sim.gps_pos)
             sim_offset = copy.deepcopy(self._run_sim.gps_offset)
@@ -245,18 +277,19 @@ class PyControlApp:
 #------------------------------------------------------------------------------
 # Global Flask app and PyControlApp instance
 #
-CAMERA_CONTROL_CONFIG = "../config/camera_control.config"
+ROOT_DIR = "../"
 app = flask.Flask(__name__)
 app.config['DEBUG'] = False
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
-pycontrol_app = PyControlApp(CAMERA_CONTROL_CONFIG)
+pycontrol_app = PyControlApp(ROOT_DIR)
 
 #------------------------------------------------------------------------------
 # Flask Routes
 #
 @app.route('/')
 def hello():
+    pycontrol_app.load_defaults()
     return flask.render_template('index.html')
 
 
