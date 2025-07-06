@@ -4,6 +4,12 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
+- Add burstnumber property.
+
+- Turns out not all cameras support shutterspeed2, avialablephotos.
+  - I'll have to make a map for fraction shutter string shutterspeed.
+  - Or make a branch of libgphoto2 to add these props to the Z8 camera.
+
 - Loading a camera sequence that fails, is not fed back to UI
 
 - Add message about when it's okay to turn off camera

@@ -12,6 +12,11 @@ public:
     std::vector<std::string>
     auto_detect() override;
 
+    bool
+    list_files(
+        const gphoto2cpp::camera_ptr & camera,
+        std::vector<std::string> & out) override;
+
     gphoto2cpp::camera_ptr
     open_camera(const std::string & port) override;
 
@@ -43,6 +48,12 @@ public:
             gphoto2cpp::camera_ptr & camera,
             const std::string & property,
             const std::string & value) override;
+
+    bool
+    wait_for_event(
+        const gphoto2cpp::camera_ptr & camera,
+        const int timeout,
+        gphoto2cpp::Event & out) override;
 };
 
 

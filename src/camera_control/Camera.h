@@ -3,13 +3,14 @@
 #include <vector>
 #include <string>
 
-#include <interface/GPhoto2Cpp.h>
-
 #include <common/types.h>
-#include <camera_control/Event.h>
+
+#include <interface/GPhoto2Cpp.h>
 
 namespace pycontrol
 {
+
+class Event;
 
 
 class Camera
@@ -18,17 +19,18 @@ public:
 
     struct Info
     {
-        bool        connected {false};
-        std::string serial {"N/A"};
-        std::string port {"N/A"};
-        std::string desc {"N/A"};
-        std::string mode {"N/A"};
-        std::string shutter {"N/A"};
-        std::string fstop {"N/A"};
-        std::string iso {"N/A"};
-        std::string quality {"N/A"};
+        bool        connected     {false};
+        std::string serial        {"N/A"};
+        std::string port          {"N/A"};
+        std::string desc          {"N/A"};
+        std::string mode          {"N/A"};
+        std::string shutter       {"N/A"};
+        std::string fstop         {"N/A"};
+        std::string iso           {"N/A"};
+        std::string quality       {"N/A"};
         std::string battery_level {"N/A"};
-        std::string num_photos {"-1"};
+        int num_avail             {0};
+        int num_photos            {0};
     };
 
     Camera(
@@ -55,6 +57,7 @@ public:
     result read_config();
     result write_config();
     result trigger();
+    result drain_events();
 
     void set_fstop(const std::string & fstop);
     void set_iso(const std::string & iso);
@@ -64,9 +67,9 @@ public:
 
 private:
 
-    interface::GPhoto2Cpp & _gp2cpp;
-    Info                   _info;
-    gphoto2cpp::camera_ptr _camera;
+    interface::GPhoto2Cpp &        _gp2cpp;
+    gphoto2cpp::camera_ptr         _camera;
+    Info                           _info;
 };
 
 

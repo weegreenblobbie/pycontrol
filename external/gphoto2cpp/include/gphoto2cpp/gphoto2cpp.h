@@ -8,7 +8,6 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include <ctime>
@@ -25,8 +24,21 @@ namespace GP2 {
 #include <gphoto2/gphoto2-result.h>
 #include <gphoto2/gphoto2-widget.h>
 
-constexpr auto ERROR_UNKNOWN_PORT = GP_ERROR_UNKNOWN_PORT;
-constexpr auto OK = GP_OK;
+constexpr auto OK                        = GP_OK;
+constexpr auto ERROR_BAD_PARAMETERS      = GP_ERROR_BAD_PARAMETERS;
+constexpr auto ERROR_CAMERA_BUSY         = GP_ERROR_CAMERA_BUSY;
+constexpr auto ERROR_CAMERA_ERROR        = GP_ERROR_CAMERA_ERROR;
+constexpr auto ERROR_CANCEL              = GP_ERROR_CANCEL;
+constexpr auto ERROR_CORRUPTED_DATA      = GP_ERROR_CORRUPTED_DATA;
+constexpr auto ERROR_DIRECTORY_EXISTS    = GP_ERROR_DIRECTORY_EXISTS;
+constexpr auto ERROR_DIRECTORY_NOT_FOUND = GP_ERROR_DIRECTORY_NOT_FOUND;
+constexpr auto ERROR_FILE_EXISTS         = GP_ERROR_FILE_EXISTS;
+constexpr auto ERROR_FILE_NOT_FOUND      = GP_ERROR_FILE_NOT_FOUND;
+constexpr auto ERROR_MODEL_NOT_FOUND     = GP_ERROR_MODEL_NOT_FOUND;
+constexpr auto ERROR_NO_SPACE            = GP_ERROR_NO_SPACE;
+constexpr auto ERROR_OS_FAILURE          = GP_ERROR_OS_FAILURE;
+constexpr auto ERROR_PATH_NOT_ABSOLUTE   = GP_ERROR_PATH_NOT_ABSOLUTE;
+constexpr auto ERROR_UNKNOWN_PORT        = GP_ERROR_UNKNOWN_PORT;
 }
 
 
@@ -44,6 +56,10 @@ namespace gphoto2cpp
     cam_list_ptr             make_camera_list();
     port_info_list_ptr       make_port_info_list();
     camera_ptr               open_camera(const std::string & port);
+
+    bool                     list_files(
+                                 const camera_ptr & camera,
+                                 std::vector<std::string> & out);
 
     bool                     read_config(const camera_ptr & camera);
     bool                     read_property(
@@ -67,6 +83,17 @@ namespace gphoto2cpp
     void                     reset_cache(const camera_ptr & camera);
 
     bool                     trigger(const camera_ptr & camera);
+
+    struct Event
+    {
+        GP2::CameraEventType  type;
+        std::shared_ptr<void> data;
+    };
+
+    bool                     wait_for_event(
+                                const camera_ptr & camera,
+                                const int timeout_ms,
+                                Event & out);
 
     bool                     set_log_level(LogLevel_t lvl);
 }
@@ -193,6 +220,110 @@ _get_camera_to_choice()
     return _camera_to_choice;
 }
 
+inline
+bool
+_list_all_folders_recursively(
+    const camera_ptr & camera,
+    const std::string & folder,
+    std::vector<std::string> & all_folders)
+{
+    if (all_folders.empty())
+    {
+        all_folders.push_back(folder);
+    }
+    auto folder_list_ptr = make_camera_list();
+    GPHOTO2CPP_CHECK_PTR(folder_list_ptr, "make_camera_list() failed", false);
+
+    // List subfolders in the current folder.
+    if (GP2::gp_camera_folder_list_folders(
+            camera.get(),
+            folder.c_str(),
+            folder_list_ptr.get(),
+            get_context().get()) >= GP2::OK)
+    {
+        const int folder_count = GP2::gp_list_count(folder_list_ptr.get());
+
+        for (int i = 0; i < folder_count; ++i)
+        {
+            const char* subfolder_name;
+            GPHOTO2CPP_SAFE_CALL(
+                GP2::gp_list_get_name(
+                    folder_list_ptr.get(),
+                    i,
+                    &subfolder_name
+                ),
+                false
+            );
+
+            // Construct the full path for the subfolder
+            std::string full_path = folder;
+            if (full_path != "/")
+            {
+                full_path += "/";
+            }
+            full_path += subfolder_name;
+
+            all_folders.push_back(full_path);
+
+            // Recurse into the subfolder
+            if (not _list_all_folders_recursively(camera, full_path, all_folders))
+            {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+inline
+bool
+list_files(const camera_ptr & camera, std::vector<std::string> & out)
+{
+    out.clear();
+
+    std::vector<std::string> all_folders;
+    if (not _list_all_folders_recursively(camera, "/", all_folders))
+    {
+        return false;
+    }
+
+    for (const auto & folder : all_folders)
+    {
+        auto list_ptr = make_camera_list();
+        GPHOTO2CPP_CHECK_PTR(list_ptr, "make_camera_list() failed", false);
+
+        GPHOTO2CPP_SAFE_CALL(
+            GP2::gp_camera_folder_list_files(
+                camera.get(),
+                folder.c_str(),
+                list_ptr.get(),
+                get_context().get()
+            ),
+            false
+        );
+        const int file_count = GP2::gp_list_count(list_ptr.get());
+
+        if (file_count < GP2::OK)
+        {
+            GPHOTO2CPP_ERROR_LOG << "gp_list_count() failed" << std::endl;
+            return false;
+        }
+
+        for (int i = 0; i < file_count; ++i)
+        {
+            const char* filename;
+            GPHOTO2CPP_SAFE_CALL(
+                GP2::gp_list_get_name(list_ptr.get(), i, &filename),
+                false
+            );
+            out.push_back(folder + "/" + std::string(filename));
+        }
+    }
+
+    return true;
+}
+
 
 inline
 void
@@ -305,7 +436,7 @@ make_camera()
 {
     GP2::Camera * local {nullptr};
     GPHOTO2CPP_SAFE_CALL(gp_camera_new(&local), nullptr);
-    return camera_ptr(local, [](GP2::Camera * p){GP2::gp_camera_free(p);});
+    return camera_ptr(local, [](GP2::Camera * p){GP2::gp_camera_unref(p);});
 }
 
 
@@ -388,17 +519,57 @@ open_camera(const std::string & port)
 inline
 int
 _lookup_widget(
-    const root_widget_ptr & widget,
-    const std::string & property,
-    child_widget_ptr * child)
+    GP2::CameraWidget * widget,
+    const char * name,
+    GP2::CameraWidget ** result)
 {
-    int ret;
-    ret = GP2::gp_widget_get_child_by_name(widget.get(), property.c_str(), child);
-    if (ret < GP2::OK)
+    // From gphoto2/actions.c(1618) _find_widget_by_name().
+    //
+    int ret = GP2::gp_widget_get_child_by_name(widget, name, result);
+    if (ret == GP2::OK)
     {
-        ret = gp_widget_get_child_by_label(widget.get(), property.c_str(), child);
+        // Found it, result should be the child widget.
+        return GP2::OK;
     }
-    return ret;
+
+    ret = GP2::gp_widget_get_child_by_label(widget, name, result);
+    if (ret == GP2::OK)
+    {
+        // Found it, result should be the child widget.
+        return GP2::OK;
+    }
+
+    // Not found, iterate through all children to see if any are containers that
+    // we can search recursively.
+    int count = GP2::gp_widget_count_children(widget);
+    for (int i = 0; i < count; i++)
+    {
+        GP2::CameraWidget * child {nullptr};
+        ret = GP2::gp_widget_get_child(widget, i, &child);
+        if (ret < GP2::OK)
+        {
+            continue;
+        }
+
+        // Get the type of the child widget.
+        GP2::CameraWidgetType type;
+
+        ret = GP2::gp_widget_get_type(child, &type);
+        if (ret < GP2::OK)
+        {
+            continue;
+        }
+
+        ret = _lookup_widget(child, name, result);
+        if (ret == GP2::OK)
+        {
+            // Found it, result should be the child widget.
+            return GP2::OK;
+        }
+    }
+
+    // We've finished searching, give up.
+    return GP2::ERROR_BAD_PARAMETERS;
 }
 
 
@@ -449,14 +620,11 @@ read_property(
         // Cache miss, fetch the child widget from libgphoto2.
         child_widget_ptr child {nullptr};
 
-        GPHOTO2CPP_SAFE_CALL(
-            _lookup_widget(
-                root,
-                property,
-                &child
-            ),
-            false
-        );
+        if (GP2::OK != _lookup_widget(root.get(), property.c_str(), &child))
+        {
+            GPHOTO2CPP_ERROR_LOG << "Failed to look up widget '" << property << "', aborting" << std::endl;
+            return false;
+        }
         cam_to_prop[property] = child;
     }
 
@@ -659,14 +827,11 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
         // Cache miss, fetch the child widget from libgphoto2.
         child_widget_ptr child {nullptr};
 
-        GPHOTO2CPP_SAFE_CALL(
-            _lookup_widget(
-                root,
-                property,
-                &child
-            ),
-            false
-        );
+        if (GP2::OK != _lookup_widget(root.get(), property.c_str(), &child))
+        {
+            GPHOTO2CPP_ERROR_LOG << "failed to look up widget '" << property << "', aborting" << std::endl;
+            return false;
+        };
         cam_to_prop[property] = child;
     }
 
@@ -935,6 +1100,45 @@ trigger(const camera_ptr & camera)
         ),
         false
     );
+
+    return true;
+}
+
+inline
+bool
+wait_for_event(
+    const camera_ptr & camera,
+    const int timeout_ms,
+    Event & out)
+{
+    void * raw_data {nullptr};
+    int res = GP2::ERROR_CAMERA_BUSY;
+
+    while (res == GP2::ERROR_CAMERA_BUSY)
+    {
+        res = GP2::gp_camera_wait_for_event(
+            camera.get(),
+            timeout_ms,
+            &out.type,
+            &raw_data,
+            get_context().get()
+        );
+
+        if (res == GP2::OK)
+        {
+            break;
+        }
+        else
+        {
+            GPHOTO2CPP_ERROR_LOG
+                << "gp_camera_wait_for_event(): call failed with "
+                << GP2::gp_result_as_string(res)
+                << ", aborting" << std::endl;
+            return false;
+        }
+    };
+
+    out.data = std::shared_ptr<void>(raw_data, [](void * ptr){ if(ptr){::free(ptr);} });
 
     return true;
 }

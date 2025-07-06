@@ -1,5 +1,10 @@
-#include <common/io.h>
 #include <camera_control/Camera.h>
+#include <camera_control/Event.h>
+
+#include <common/io.h>
+#include <common/str_utils.h>
+
+#include <gphoto2cpp/gphoto2cpp.h> // For Event type.
 
 namespace pycontrol
 {
@@ -13,8 +18,8 @@ Camera(
     const std::string & config_file)
 :
     _gp2cpp(gp2cpp),
-    _info{.connected = true, .serial = serial, .port = port, },
-    _camera{camera}
+    _camera{camera},
+    _info{.connected = true, .serial = serial, .port = port}
 {
     // Expensive read, reads all the camera's configuration.
     _gp2cpp.read_config(_camera);
@@ -24,7 +29,6 @@ Camera(
 
     _gp2cpp.read_property(_camera, "manufacturer", make);
     _gp2cpp.read_property(_camera, "cameramodel", model);
-
     _info.desc = make + " " + model;
 }
 
@@ -32,8 +36,6 @@ Camera(
 void
 Camera::reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port)
 {
-    _gp2cpp.reset_cache(_camera);
-    //_camera.reset();
     _camera = camera;
     _info.port = port;
     _info.connected = true;
@@ -47,7 +49,6 @@ disconnect()
     auto serial = _info.serial;
     auto port = _info.port;
     _info = Info();
-    DEBUG_LOG << serial << " connected: " << _info.connected << std::endl;
     _info.serial = serial;
     _info.port = port;
 }
@@ -69,7 +70,7 @@ result
 Camera::
 write_property(const std::string & property, const std::string & value)
 {
-    if (property == "shutterspeed2")
+    if (property == "shutterspeed")
     {
         set_shutter(value);
     }
@@ -102,6 +103,7 @@ Camera::read_config()
 {
     if (not _info.connected) return result::success;
 
+    // Big, expesive camera state fetch.
     if (not _gp2cpp.read_config(_camera))
     {
         disconnect();
@@ -115,7 +117,7 @@ Camera::read_config()
         result::failure
     );
 
-    if (not _gp2cpp.read_property(_camera, "shutterspeed2", _info.shutter))
+    if (not _gp2cpp.read_property(_camera, "shutterspeed", _info.shutter))
     {
         disconnect();
         return result::success;
@@ -141,11 +143,63 @@ Camera::read_config()
         "reading quality failed",
         result::failure
     );
-    ABORT_IF_NOT(
-        _gp2cpp.read_property(_camera, "availableshots", _info.num_photos),
-        "reading avialble shots failed",
+//~    std::string num_avail;
+//~    ABORT_IF_NOT(
+//~        _gp2cpp.read_property(_camera, "availableshots", num_avail),
+//~        "reading avialble shots failed",
+//~        result::failure
+//~    );
+//~    ABORT_ON_FAILURE(
+//~        as_type<int>(num_avail, _info.num_avail),
+//~        "failure",
+//~        result::failure
+//~    );
+
+    ABORT_ON_FAILURE(
+        drain_events(),
+        "failure",
         result::failure
     );
+
+    return result::success;
+}
+
+
+result
+Camera::drain_events()
+{
+    // Drain the camera event queue, in order to count photos taken.
+    bool have_events = true;
+    while (have_events)
+    {
+        gphoto2cpp::Event event;
+        int timeout_ms = 1;
+
+        ABORT_IF_NOT(
+            _gp2cpp.wait_for_event(_camera, timeout_ms, event),
+            "failure",
+            result::failure
+        );
+
+        switch (event.type)
+        {
+            case GP2::GP_EVENT_FILE_ADDED:
+            {
+                ++_info.num_photos;
+                break;
+            }
+            case GP2::GP_EVENT_TIMEOUT:
+            {
+                have_events = false;
+                break;
+            }
+            default:
+            {
+                // Ignore all other events.
+                break;
+            }
+        }
+    }
 
     return result::success;
 }
@@ -154,7 +208,7 @@ result
 Camera::write_config()
 {
     ABORT_IF_NOT(
-        _gp2cpp.write_property(_camera, "shutterspeed2", _info.shutter),
+        _gp2cpp.write_property(_camera, "shutterspeed", _info.shutter),
         "failed to write 'shutterspeed2': " << _info.shutter,
         result::failure
     );
@@ -178,6 +232,7 @@ Camera::write_config()
         "failed to write 'imagequality': " << _info.quality,
         result::failure
     );
+
     ABORT_IF_NOT(
         _gp2cpp.write_config(_camera),
         "failed to flush settings",
@@ -268,6 +323,7 @@ Camera::handle(const Event & event)
             break;
         }
     }
+//~    ABORT_ON_FAILURE(drain_events(), "failure", result::failure);
 
     return result::success;
 }

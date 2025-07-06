@@ -201,6 +201,7 @@ _send_telemetry()
                 << "\"iso\":\""      << info.iso           << "\","
                 << "\"quality\":\""  << info.quality       << "\","
                 << "\"batt\":\""     << info.battery_level << "\","
+                << "\"num_avail\":"  << info.num_avail     << ","
                 << "\"num_photos\":" << info.num_photos    << "}";
 
             if (++idx < _cameras.size()) _telem_message << ",";

@@ -95,6 +95,14 @@ UtoGp2Cpp::auto_detect()
     return out;
 }
 
+bool
+UtoGp2Cpp::list_files(const camera_ptr & camera, str_vec & out)
+{
+    out = _filenames;
+    return true;
+}
+
+
 camera_ptr
 UtoGp2Cpp::open_camera(const std::string & port)
 {
@@ -235,6 +243,9 @@ UtoGp2Cpp::trigger(const camera_ptr & camera)
 {
     auto test_cam = _camera_to_test[camera];
     test_cam->trigger_count++;
+    std::stringstream ss;
+    ss << "/root/img_" << test_cam->trigger_count << ".jpg";
+    _filenames.push_back(ss.str());
     return test_cam->trigger_result;
 }
 
@@ -326,6 +337,17 @@ UtoGp2Cpp::write_property(
     }
 
     return test_cam->write_property_result;
+}
+
+bool
+UtoGp2Cpp::wait_for_event(
+    const camera_ptr & camera,
+    const int timeout_ms,
+    gphoto2cpp::Event & out)
+{
+    // TODO: do something usefull.
+
+    return true;
 }
 
 

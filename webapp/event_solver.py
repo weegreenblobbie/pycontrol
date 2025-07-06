@@ -123,14 +123,11 @@ class EventSolver:
                 # rounding to the nearest milisecond.
                 event_map[event_id] = int(timestamp.timestamp() * 1000.0 + 0.5)
 
-        if not event_map:
-            return
-
         response = self._cam_io.set_events(event_map)
 
         if not response or not response["success"]:
-            print(f"Failed to set events: {response}")
-            raise RuntimeError(repr(response))
+            # TODO: debug this.
+            print(f"WARNING: Failed to set events: {response}")
 
     def read(self):
         """

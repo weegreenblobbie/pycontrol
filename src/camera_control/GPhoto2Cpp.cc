@@ -11,6 +11,14 @@ GPhoto2Cpp::auto_detect()
     return gphoto2cpp::auto_detect();
 }
 
+bool
+GPhoto2Cpp::list_files(
+    const gphoto2cpp::camera_ptr & camera,
+    std::vector<std::string> & out)
+{
+    return gphoto2cpp::list_files(camera, out);
+}
+
 gphoto2cpp::camera_ptr
 GPhoto2Cpp::open_camera(const std::string & port)
 {
@@ -60,11 +68,20 @@ GPhoto2Cpp::write_config(gphoto2cpp::camera_ptr & camera)
 
 bool
 GPhoto2Cpp::write_property(
-        gphoto2cpp::camera_ptr & camera,
-        const std::string & property,
-        const std::string & value)
+    gphoto2cpp::camera_ptr & camera,
+    const std::string & property,
+    const std::string & value)
 {
     return gphoto2cpp::write_property(camera, property, value);
+}
+
+bool
+GPhoto2Cpp::wait_for_event(
+    const gphoto2cpp::camera_ptr & camera,
+    const int timeout_ms,
+    gphoto2cpp::Event & out)
+{
+    return gphoto2cpp::wait_for_event(camera, timeout_ms, out);
 }
 
 

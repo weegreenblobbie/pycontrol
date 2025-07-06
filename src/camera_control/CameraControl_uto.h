@@ -91,6 +91,7 @@ struct UtoGp2Cpp : interface::GPhoto2Cpp
     void add_camera(test_camera_ptr cam);
 
     str_vec auto_detect() override;
+    bool list_files(const camera_ptr & camera, str_vec & out) override;
     camera_ptr open_camera(const std::string & port) override;
     str_vec read_choices(const camera_ptr & camera, const std::string & property) override;
 
@@ -109,10 +110,16 @@ struct UtoGp2Cpp : interface::GPhoto2Cpp
         const std::string & property,
         const std::string & value) override;
 
+    bool wait_for_event(
+        const camera_ptr & camera,
+        const int timeout_ms,
+        gphoto2cpp::Event & out) override;
+
 private:
 
     std::set<test_camera_ptr> _test_cams;
     std::map<camera_ptr, test_camera_ptr> _camera_to_test;
+    str_vec _filenames;
 
 };
 

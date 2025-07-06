@@ -82,8 +82,8 @@ class CameraControlIo:
         self._serial_id_cam_id = dict()
         self._telem = dict(command_response=dict(id=0))
 
-        self._retry_count = 15
-        self._retry_sleep = 0.250
+        self._retry_count = 30
+        self._retry_sleep = 0.125
 
     def _send_command(self, message):
         """
@@ -107,6 +107,9 @@ class CameraControlIo:
                 if response_id >= command_id.value:
                     response = telem["command_response"]
                     break
+        if response is None:
+            print(f"Failed to get reponse from command: {cmd}")
+
         return response
 
     def set_camera_id(self, serial, cam_id):
@@ -119,10 +122,11 @@ class CameraControlIo:
         cmd = f"set_camera_id {serial} {cam_id}"
         return self._send_command(cmd)
 
-    def set_events(self, event_map):
+    def set_events(self, event_map=None):
         """
         Commands CameraControl with a new event_id to timestamp map.
         """
+        event_map = event_map if event_map else dict()
         cmd = "set_events "
         for event_id, timestamp in event_map.items():
             cmd += f"{event_id} {timestamp} "

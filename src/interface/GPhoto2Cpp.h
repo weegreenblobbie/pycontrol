@@ -16,6 +16,7 @@ namespace GP2
 namespace gphoto2cpp
 {
     using camera_ptr = std::shared_ptr<GP2::Camera>;
+    struct Event;
 }
 
 
@@ -33,6 +34,12 @@ public:
     virtual
     std::vector<std::string>
     auto_detect() = 0;
+
+    virtual
+    bool
+    list_files(
+        const gphoto2cpp::camera_ptr & camera,
+        std::vector<std::string> & out) = 0;
 
     virtual
     gphoto2cpp::camera_ptr
@@ -73,6 +80,13 @@ public:
             gphoto2cpp::camera_ptr & camera,
             const std::string & property,
             const std::string & value) = 0;
+
+    virtual
+    bool
+    wait_for_event(
+        const gphoto2cpp::camera_ptr & camera,
+        const int timeout,
+        gphoto2cpp::Event & out) = 0;
 
 };
 

@@ -197,7 +197,8 @@ function update_cameras_ui(data)
             <td class="editable_td" data-property="description" data-serial="${cam.serial}">${cam.desc || "N/A"}</td>
             <td>${(cam.connected != "0" && cam.connected) ? (cam.batt || "N/A") : "N/A"}</td>
             <td>${(cam.connected != "0" && cam.connected) ? (cam.port || "N/A") : "N/A"}</td>
-            <td>${(cam.connected != "0" && cam.connected) ? (cam.num_photos || "N/A") : "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? cam.num_avail : "N/A"}</td>
+            <td>${(cam.connected != "0" && cam.connected) ? cam.num_photos : "N/A"}</td>
             <td class="choice-td" data-property="quality" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.quality || "N/A") : "N/A"}</td>
             <td class="choice-td" data-property="mode" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.mode || "N/A") : "N/A"}</td>
             <td class="choice-td" data-property="iso" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.iso || "N/A") : "N/A"}</td>
