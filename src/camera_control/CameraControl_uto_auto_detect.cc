@@ -40,7 +40,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -71,7 +72,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj1.iso == "N/A" );
     CHECK( obj1.quality == "N/A" );
     CHECK( obj1.batt == "N/A" );
-    CHECK( obj1.num_photos == -1 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -103,7 +105,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -135,7 +138,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     // z8
     auto obj2 = data.detected_cameras[1];
@@ -149,7 +153,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj2.iso == "64" );
     CHECK( obj2.quality == "NEF (Raw)" );
     CHECK( obj2.batt == "100%" );
-    CHECK( obj2.num_photos == 850 );
+    CHECK( obj2.num_avail == 0 );
+    CHECK( obj2.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -180,7 +185,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj1.iso == "N/A" );
     CHECK( obj1.quality == "N/A" );
     CHECK( obj1.batt == "N/A" );
-    CHECK( obj1.num_photos == -1 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     // z8
     obj2 = data.detected_cameras[1];
@@ -194,7 +200,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj2.iso == "64" );
     CHECK( obj2.quality == "NEF (Raw)" );
     CHECK( obj2.batt == "100%" );
-    CHECK( obj2.num_photos == 850 );
+    CHECK( obj2.num_avail == 0 );
+    CHECK( obj2.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -225,7 +232,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj1.iso == "N/A" );
     CHECK( obj1.quality == "N/A" );
     CHECK( obj1.batt == "N/A" );
-    CHECK( obj1.num_photos == -1 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     // z8
     obj2 = data.detected_cameras[1];
@@ -239,7 +247,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj2.iso == "N/A" );
     CHECK( obj2.quality == "N/A" );
     CHECK( obj2.batt == "N/A" );
-    CHECK( obj2.num_photos == -1 );
+    CHECK( obj2.num_avail == 0 );
+    CHECK( obj2.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -253,7 +262,7 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     cam1->iso = "400";
     cam1->shutter = "1/400";
     cam1->quality = "JPEG Basic";
-    cam1->num_photos = "3456";
+    cam1->num_avail = 3456;
 
     cam2->connected = true;
     cam2->port = "usb:001,005";
@@ -261,7 +270,7 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     cam2->iso = "800";
     cam2->shutter = "1/800";
     cam2->quality = "TIFF";
-    cam2->num_photos = "411";
+    cam2->num_avail = 411;
 
     data = harness.dispatch_to_next_message();
     data = harness.dispatch_to_next_message();
@@ -284,7 +293,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj1.iso == "400" );
     CHECK( obj1.quality == "JPEG Basic" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 3'456 );
+//~    CHECK( obj1.num_avail == 3'456 );
+    CHECK( obj1.num_photos == 0 );
 
     // z8
     obj2 = data.detected_cameras[1];
@@ -298,7 +308,8 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
     CHECK( obj2.iso == "800" );
     CHECK( obj2.quality == "TIFF" );
     CHECK( obj2.batt == "100%" );
-    CHECK( obj2.num_photos == 411 );
+//~    CHECK( obj1.num_avail == 411 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );

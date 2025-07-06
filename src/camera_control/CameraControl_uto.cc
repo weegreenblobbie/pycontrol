@@ -1,3 +1,4 @@
+#include <common/str_utils.h>
 #include <camera_control/CameraControl_uto.h>
 
 void
@@ -57,7 +58,8 @@ make_test_camera(
     tc->iso = "64";
     tc->quality = "NEF (Raw)";
     tc->batt_level = "100%";
-    tc->num_photos = "850";
+    tc->num_avail = 850;
+    tc->num_photos = 0;
 
     tc->choice_map = {
         {"expprogram", {"M", "A", "S", "P"}},
@@ -176,7 +178,7 @@ UtoGp2Cpp::read_property(
         }
     }
 
-    else if (property == "shutterspeed2")
+    else if (property == "shutterspeed2" or property == "shutterspeed")
     {
         if(test_cam->read_property_result)
         {
@@ -284,7 +286,7 @@ UtoGp2Cpp::write_property(
         return false;
     }
 
-    else if (property == "shutterspeed2")
+    else if (property == "shutterspeed" or property == "shutterspeed2")
     {
         if(test_cam->write_property_result)
         {
@@ -328,7 +330,12 @@ UtoGp2Cpp::write_property(
     {
         if(test_cam->write_property_result)
         {
-            test_cam->num_photos = value;
+            int int_val;
+            if (not pycontrol::as_type(value, int_val))
+            {
+                return false;
+            }
+            test_cam->num_photos = int_val;
         }
     }
     else
@@ -346,7 +353,7 @@ UtoGp2Cpp::wait_for_event(
     gphoto2cpp::Event & out)
 {
     // TODO: do something usefull.
-
+    out.type = GP2::GP_EVENT_TIMEOUT;
     return true;
 }
 

@@ -14,10 +14,6 @@ Make it work
 
 - Add message about when it's okay to turn off camera
 
-- Look into how many files on the memory card
-
-- Add the trigger command to unit tests.
-
 - Disable camera table buttons if state == executing
 
 - Fix these astropy warnings:
@@ -109,9 +105,14 @@ MAke it work well for others
 Past Items Completed
 ====================
 
+* Add the trigger command to unit tests.
+
+* Look into how many files on the memory card
+  - draining camera events, adds num shots to the gui for easy confirmation of
+  number of images taken
+
 * Persist the event and camera selection in a config file, so reloading the app
   auto loads the last selected event and sequence file.
-
 
 * Display camera id instead of serial when clicking on camera settings to change.
 

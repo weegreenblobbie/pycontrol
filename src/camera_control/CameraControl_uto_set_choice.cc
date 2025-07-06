@@ -44,7 +44,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -75,7 +76,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -106,7 +108,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -138,7 +141,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -170,7 +174,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -202,7 +207,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -234,7 +240,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -266,7 +273,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -298,7 +306,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -330,7 +339,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -362,7 +372,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -394,7 +405,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "NEF (Raw)" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -426,7 +438,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( obj1.iso == "64" );
     CHECK( obj1.quality == "jpeg fine*" );
     CHECK( obj1.batt == "100%" );
-    CHECK( obj1.num_photos == 850 );
+    CHECK( obj1.num_avail == 0 );
+    CHECK( obj1.num_photos == 0 );
 
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );

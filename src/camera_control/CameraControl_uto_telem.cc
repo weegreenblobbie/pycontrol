@@ -43,6 +43,7 @@ Telem parse_telem(const std::string & json_str)
             cam_obj["iso"],
             cam_obj["quality"],
             cam_obj["batt"],
+            cam_obj["num_avail"],
             cam_obj["num_photos"]
         );
     }

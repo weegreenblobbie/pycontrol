@@ -6,6 +6,8 @@
 #include <camera_control/CameraControl.h>
 #include <camera_control/CameraControl_uto_telem.h>
 
+#include <gphoto2cpp/gphoto2cpp.h>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include <fstream>
@@ -49,7 +51,8 @@ struct TestCamera
     std::string iso = "N/A";
     std::string quality = "N/A";
     std::string batt_level = "N/A";
-    std::string num_photos = "-1";
+    int num_avail = 0;
+    int num_photos = 0;
 
     choice_map_t choice_map;
 
@@ -69,11 +72,6 @@ struct TestCamera
     bool write_property_result = true;
 
 };
-
-namespace GP2
-{
-    struct _Camera {};
-}
 
 using test_camera_ptr = std::shared_ptr<TestCamera>;
 

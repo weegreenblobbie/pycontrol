@@ -106,19 +106,20 @@ We need to install the folling depencies for building:
 ```
 cmake
 g++
+gettext                # gphoto2
 git
-gphoto2
-libgphoto2-dev
-libgtest-dev
-libprotobuf-dev
-libxml2-dev            # libgphoto2
 libcurl4-gnutls-dev    # libgphoto2
-libgd-dev              # libgphoto2
 libexif-dev            # libgphoto2
+libgd-dev              # libgphoto2
+libgtest-dev
 libltdl-dev            # libgphoto2
+libpopt-dev            # gphoto2
+libprotobuf-dev
 libusb-1.0-0-dev       # libusb-dev
+libxml2-dev            # libgphoto2
+libgettextpo-dev       # gphoto2
 make
-meson
+meson                  # libgphoto2
 protobuf-dev
 python3.12-venv
 ```

@@ -222,7 +222,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     CHECK( cam_data.iso == "64" );
     CHECK( cam_data.quality == "NEF (Raw)" );
     CHECK( cam_data.batt == "100%" );
-    CHECK( cam_data.num_photos == 850 );
+    CHECK( cam_data.num_photos == 0 );
 
     REQUIRE( data.events.size() == 1 );
     CHECK( data.events["e1"] == 20'000 );
@@ -285,7 +285,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     CHECK( cam_data.iso == "64" );
     CHECK( cam_data.quality == "NEF (Raw)" );
     CHECK( cam_data.batt == "100%" );
-    CHECK( cam_data.num_photos == 850 );
+    CHECK( cam_data.num_photos == 0 );
 
     REQUIRE( data.events.size() == 1 );
     CHECK( data.events["e1"] == 20'000 );
@@ -350,7 +350,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     CHECK( cam_data.iso == "64" );
     CHECK( cam_data.quality == "NEF (Raw)" );
     CHECK( cam_data.batt == "100%" );
-    CHECK( cam_data.num_photos == 850 );
+    CHECK( cam_data.num_photos == 0 );
 
     REQUIRE( data.events.size() == 1 );
     CHECK( data.events["e1"] == 20'000 );
@@ -409,7 +409,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     CHECK( cam_data.iso == "64" );
     CHECK( cam_data.quality == "NEF (Raw)" );
     CHECK( cam_data.batt == "100%" );
-    CHECK( cam_data.num_photos == 850 );
+    CHECK( cam_data.num_photos == 0 );
 
     REQUIRE( data.events.size() == 1 );
     CHECK( data.events["e1"] == 30000 );
@@ -459,7 +459,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     CHECK( cam_data.iso == "64" );
     CHECK( cam_data.quality == "NEF (Raw)" );
     CHECK( cam_data.batt == "100%" );
-    CHECK( cam_data.num_photos == 850 );
+    CHECK( cam_data.num_photos == 0 );
 
     REQUIRE( data.events.size() == 1 );
     CHECK( data.events["e1"] == 30000 );
@@ -516,7 +516,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     CHECK( cam_data.iso == "64" );
     CHECK( cam_data.quality == "NEF (Raw)" );
     CHECK( cam_data.batt == "100%" );
-    CHECK( cam_data.num_photos == 850 );
+    CHECK( cam_data.num_photos == 0 );
 
     REQUIRE( data.events.size() == 1 );
     CHECK( data.events["e1"] == 30250 );
@@ -574,7 +574,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     CHECK( cam_data.iso == "64" );
     CHECK( cam_data.quality == "NEF (Raw)" );
     CHECK( cam_data.batt == "100%" );
-    CHECK( cam_data.num_photos == 850 );
+    CHECK( cam_data.num_photos == 0 );
 
     REQUIRE( data.events.size() == 1 );
     CHECK( data.events["e1"] == 30250 );
@@ -627,7 +627,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     CHECK( cam_data.iso == "64" );
     CHECK( cam_data.quality == "NEF (Raw)" );
     CHECK( cam_data.batt == "100%" );
-    CHECK( cam_data.num_photos == 850 );
+    CHECK( cam_data.num_photos == 0 );
 
     REQUIRE( data.events.size() == 1 );
     CHECK( data.events["e1"] == 30250 );
@@ -675,7 +675,7 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     CHECK( cam_data.iso == "64" );
     CHECK( cam_data.quality == "NEF (Raw)" );
     CHECK( cam_data.batt == "100%" );
-    CHECK( cam_data.num_photos == 850 );
+    CHECK( cam_data.num_photos == 0 );
 
     REQUIRE( data.events.size() == 1 );
     CHECK( data.events["e1"] == 30250 );

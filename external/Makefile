@@ -9,6 +9,9 @@ CATCH_LIB := lib/libCatch2.so
 LIBGPHOTO2_REPO := libgphoto2/.git/config
 LIBGPHOTO2_LIB := lib/libgphoto2.so
 
+GPHOTO2_REPO := gphoto2/.git/config
+GPHOTO2_BIN := bin/gphoto2
+
 GPHOTO2CPP_LIB := include/gphoto2cpp/gphoto2cpp.h
 
 JSON_REPO := json/.git/config
@@ -22,7 +25,7 @@ MESON := $(cwd)$(MESON_VENV)
 
 INSTALL_DIRS := $(CWD)/bin $(CWD)/include $(CWD)/lib $(CWD)/share
 
-all: $(INSTALL_DIRS) $(CACTUS_LIB) $(CATCH_LIB) $(LIBGPHOTO2_LIB) $(GPHOTO2CPP_LIB) $(JSON_LIB)
+all: $(INSTALL_DIRS) $(CACTUS_LIB) $(CATCH_LIB) $(LIBGPHOTO2_LIB) $(GPHOTO2CPP_LIB) $(GPHOTO2_BIN) $(JSON_LIB)
 
 $(INSTALL_DIRS):
 	@echo "$(BUILD_COLOR)Making$(RESET) $@"
@@ -89,6 +92,11 @@ $(LIBGPHOTO2_REPO):
 	cd libgphoto2 && \
 	   git checkout 9df7485aa54f2c3233e52e2a3efb1daf5cf6f967
 
+# My fork
+#~$(LIBGPHOTO2_REPO):
+#~	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
+#~	$(SILENT)git clone --quiet --depth 1 --branch dev/nikon-z8-shutterspeed2 https://github.com/weegreenblobbie/libgphoto2.git $(DEVNULL)
+
 $(MESON_VENV):
 	@echo "$(INSTALL_COLOR)Installing$(RESET) $@"
 	python3 -m venv venv && \
@@ -106,7 +114,29 @@ $(LIBGPHOTO2_LIB): $(LIBGPHOTO2_REPO) $(MESON_VENV)
 	meson configure --prefix=$(CWD) --libdir=$(CWD)/lib --bindir=$(CWD)/bin && \
 	meson compile $(DEVNULL) && \
 	echo "$(INSTALL_COLOR)Installing$(RESET) $@" && \
-	meson install  $(DEVNULL)
+	meson install $(DEVNULL)
+
+#------------------------------------------------------------------------------
+# gphoto2 command line utility - v2.5.28
+#
+$(GPHOTO2_REPO):
+	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
+	$(SILENT)git clone --quiet https://github.com/gphoto/gphoto2.git $(DEVNULL) && \
+	cd gphoto2 && \
+	   git checkout v2.5.28
+
+$(GPHOTO2_BIN): $(GPHOTO2_REPO)
+	@echo "$(CONFIGURE_COLOR)Configuring$(RESET) $@"
+	$(SILENT)cd gphoto2 && \
+	autoreconf -is && \
+	LIBGPHOTO2_LIBS="-L$(CWD)/lib -lgphoto2 -lgphoto2_port" \
+	LIBGPHOTO2_CFLAGS="-I$(CWD)/include" \
+	LDFLAGS="-Wl,-rpath,$(CWD)/lib" \
+	./configure --prefix=$(CWD) $(DEVNULL) && \
+	echo "$(BUILD_COLOR)Building$(RESET) $@" && \
+	make -j $$(nproc) && \
+	echo "$(INSTALL_COLOR)Installing$(RESET) $@" && \
+	make install $(DEVNULL)
 
 #------------------------------------------------------------------------------
 # gphoto2cpp - C++ wrapper.

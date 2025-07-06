@@ -70,7 +70,7 @@ result
 Camera::
 write_property(const std::string & property, const std::string & value)
 {
-    if (property == "shutterspeed")
+    if (property == "shutterspeed" or property == "shutterspeed2")
     {
         set_shutter(value);
     }

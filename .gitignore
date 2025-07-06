@@ -5,6 +5,7 @@ external/cactus-rt
 external/cactus_build
 external/Catch2
 external/catch2_build
+external/gphoto2
 external/json
 external/json_build
 external/libgphoto2

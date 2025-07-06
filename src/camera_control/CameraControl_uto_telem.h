@@ -29,6 +29,7 @@ struct DetectedCamera
     std::string iso;
     std::string quality;
     std::string batt;
+    int num_avail;
     int num_photos;
 };
 
