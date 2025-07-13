@@ -204,6 +204,7 @@ function update_cameras_ui(data)
             <td class="choice-td" data-property="iso" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.iso || "N/A") : "N/A"}</td>
             <td class="choice-td" data-property="fstop" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.fstop || "N/A") : "N/A"}</td>
             <td class="choice-td" data-property="shutter" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.shutter || "N/A") : "N/A"}</td>
+            <td class="choice-td" data-property="burst" data-serial="${cam.serial}" data-desc="${cam.desc || ''}">${(cam.connected != "0" && cam.connected) ? (cam.burst_number || "N/A") : "N/A"}</td>
         `;
 
         // Create the new cell for the trigger button

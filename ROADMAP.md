@@ -4,11 +4,19 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
+- Conditional use shutterspeed2, burstnumb, num_avail
+
 - Add burstnumber property.
 
 - Turns out not all cameras support shutterspeed2, avialablephotos.
   - I'll have to make a map for fraction shutter string shutterspeed.
   - Or make a branch of libgphoto2 to add these props to the Z8 camera.
+
+- speed test with z7 + z8 to see if they hit 2.33 and 4.66 FPS.
+
+- Report command latency to UI to detect bad raspberry pi behavior
+
+- Count and report number of errors to UI
 
 - Loading a camera sequence that fails, is not fed back to UI
 

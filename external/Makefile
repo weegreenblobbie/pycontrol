@@ -86,16 +86,17 @@ $(CATCH_LIB): $(CATCH_REPO)
 #------------------------------------------------------------------------------
 # libgphoto2.
 #
-$(LIBGPHOTO2_REPO):
-	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
-	$(SILENT)git clone --quiet https://github.com/gphoto/libgphoto2.git $(DEVNULL) && \
-	cd libgphoto2 && \
-	   git checkout 9df7485aa54f2c3233e52e2a3efb1daf5cf6f967
-
-# My fork
 #~$(LIBGPHOTO2_REPO):
 #~	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
-#~	$(SILENT)git clone --quiet --depth 1 --branch dev/nikon-z8-shutterspeed2 https://github.com/weegreenblobbie/libgphoto2.git $(DEVNULL)
+#~	$(SILENT)git clone --quiet https://github.com/gphoto/libgphoto2.git $(DEVNULL) && \
+#~	cd libgphoto2 && \
+#~	   git checkout 9df7485aa54f2c3233e52e2a3efb1daf5cf6f967
+
+# My fork
+$(LIBGPHOTO2_REPO):
+	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
+	$(SILENT)git clone --quiet https://github.com/weegreenblobbie/libgphoto2.git $(DEVNULL) && \
+	cd libgphoto2 && git checkout dev/nikon-z8-shutterspeed2
 
 $(MESON_VENV):
 	@echo "$(INSTALL_COLOR)Installing$(RESET) $@"
@@ -110,8 +111,8 @@ $(LIBGPHOTO2_LIB): $(LIBGPHOTO2_REPO) $(MESON_VENV)
 	mkdir -p builddir && \
 	meson setup builddir $(DEVNULL) && \
 	cd builddir && \
-	echo "$(BUILD_COLOR)Building$(RESET) $@" && \
 	meson configure --prefix=$(CWD) --libdir=$(CWD)/lib --bindir=$(CWD)/bin && \
+	echo "$(BUILD_COLOR)Building$(RESET) $@" && \
 	meson compile $(DEVNULL) && \
 	echo "$(INSTALL_COLOR)Installing$(RESET) $@" && \
 	meson install $(DEVNULL)
@@ -128,13 +129,13 @@ $(GPHOTO2_REPO):
 $(GPHOTO2_BIN): $(GPHOTO2_REPO)
 	@echo "$(CONFIGURE_COLOR)Configuring$(RESET) $@"
 	$(SILENT)cd gphoto2 && \
-	autoreconf -is && \
-	LIBGPHOTO2_LIBS="-L$(CWD)/lib -lgphoto2 -lgphoto2_port" \
+	autoreconf -is $(DEVNULL) && \
+	LIBGPHOTO2_LIBS="-L$(CWD)/lib -L$(CWD)/lib/libgphoto2_port/0.12.2 -lgphoto2 -lgphoto2_port" \
 	LIBGPHOTO2_CFLAGS="-I$(CWD)/include" \
-	LDFLAGS="-Wl,-rpath,$(CWD)/lib" \
+	LDFLAGS="-Wl,-rpath,$(CWD)/lib:$(CWD)/lib/libgphoto2_port/0.12.2" \
 	./configure --prefix=$(CWD) $(DEVNULL) && \
 	echo "$(BUILD_COLOR)Building$(RESET) $@" && \
-	make -j $$(nproc) && \
+	make -j $$(nproc) $(DEVNULL) && \
 	echo "$(INSTALL_COLOR)Installing$(RESET) $@" && \
 	make install $(DEVNULL)
 

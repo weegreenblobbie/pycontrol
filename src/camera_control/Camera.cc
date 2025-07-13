@@ -30,6 +30,27 @@ Camera(
     _gp2cpp.read_property(_camera, "manufacturer", make);
     _gp2cpp.read_property(_camera, "cameramodel", model);
     _info.desc = make + " " + model;
+
+    _query_props();
+}
+
+void
+Camera::_query_props()
+{
+    INFO_LOG << "Checking for some specific camera properties..." << std::endl;
+    std::string value;
+    _have_shutterspeed2 = _gp2cpp.read_property(_camera, "shutterspeed2", value);
+    _have_num_avail = _gp2cpp.read_property(_camera, "availableshots", value);
+    _have_burst_number = _gp2cpp.read_property(_camera, "burstnumber", value);
+    _have_capture_mode = _gp2cpp.read_property(_camera, "capturemode", value);
+    _have_shooting_speed = _gp2cpp.read_property(_camera, "shootingspeed", value);
+
+    std::cout
+        << "    avialableshots: " << _have_num_avail << "\n"
+        << "       burstnumber: " << _have_burst_number << "\n"
+        << "       capturemode: " << _have_capture_mode << "\n"
+        << "     shootingspeed: " << _have_shooting_speed << "\n"
+        << "     shutterspeed2: " << _have_shutterspeed2 << std::endl;
 }
 
 
@@ -39,6 +60,7 @@ Camera::reconnect(gphoto2cpp::camera_ptr & camera, const std::string & port)
     _camera = camera;
     _info.port = port;
     _info.connected = true;
+    _query_props();
 }
 
 
@@ -70,9 +92,13 @@ result
 Camera::
 write_property(const std::string & property, const std::string & value)
 {
-    if (property == "shutterspeed" or property == "shutterspeed2")
+    if (property == "burstnumber")
     {
-        set_shutter(value);
+        set_burst_number(value);
+    }
+    else if (property == "capturemode")
+    {
+        set_capture_mode(value);
     }
     else if (property == "expprogram")
     {
@@ -89,6 +115,14 @@ write_property(const std::string & property, const std::string & value)
     else if (property == "imagequality")
     {
         set_quality(value);
+    }
+    else if (property == "shootingspeed")
+    {
+        set_shooting_speed(value);
+    }
+    else if (property == "shutterspeed" or property == "shutterspeed2")
+    {
+        set_shutter(value);
     }
     else
     {
@@ -117,7 +151,12 @@ Camera::read_config()
         result::failure
     );
 
-    if (not _gp2cpp.read_property(_camera, "shutterspeed", _info.shutter))
+    std::string shutterspeed = "shutterspeed";
+    if (_have_shutterspeed2)
+    {
+        shutterspeed += "2";
+    }
+    if (not _gp2cpp.read_property(_camera, shutterspeed, _info.shutter))
     {
         disconnect();
         return result::success;
@@ -143,17 +182,54 @@ Camera::read_config()
         "reading quality failed",
         result::failure
     );
-//~    std::string num_avail;
-//~    ABORT_IF_NOT(
-//~        _gp2cpp.read_property(_camera, "availableshots", num_avail),
-//~        "reading avialble shots failed",
-//~        result::failure
-//~    );
-//~    ABORT_ON_FAILURE(
-//~        as_type<int>(num_avail, _info.num_avail),
-//~        "failure",
-//~        result::failure
-//~    );
+
+    if (_have_num_avail)
+    {
+        std::string num_avail;
+        ABORT_IF_NOT(
+            _gp2cpp.read_property(_camera, "availableshots", num_avail),
+            "reading avialbleshots failed",
+            result::failure
+        );
+        ABORT_ON_FAILURE(
+            as_type<int>(num_avail, _info.num_avail),
+            "failure",
+            result::failure
+        );
+    }
+
+    if (_have_burst_number)
+    {
+        std::string burst_number;
+        ABORT_IF_NOT(
+            _gp2cpp.read_property(_camera, "burstnumber", burst_number),
+            "reading burstnumber failed",
+            result::failure
+        );
+        ABORT_ON_FAILURE(
+            as_type<int>(burst_number, _info.burst_number),
+            "failure",
+            result::failure
+        );
+    }
+
+    if (_have_capture_mode)
+    {
+        ABORT_IF_NOT(
+            _gp2cpp.read_property(_camera, "capturemode", _info.capture_mode),
+            "reading capturemode failed",
+            result::failure
+        );
+    }
+
+    if (_have_shooting_speed)
+    {
+        ABORT_IF_NOT(
+            _gp2cpp.read_property(_camera, "shootingspeed", _info.shooting_speed),
+            "reading shootingspeed failed",
+            result::failure
+        );
+    }
 
     ABORT_ON_FAILURE(
         drain_events(),
@@ -207,9 +283,14 @@ Camera::drain_events()
 result
 Camera::write_config()
 {
+    std::string shutterspeed = "shutterspeed";
+    if (_have_shutterspeed2)
+    {
+        shutterspeed += "2";
+    }
     ABORT_IF_NOT(
-        _gp2cpp.write_property(_camera, "shutterspeed", _info.shutter),
-        "failed to write 'shutterspeed2': " << _info.shutter,
+        _gp2cpp.write_property(_camera, shutterspeed, _info.shutter),
+        "failed to write '" << shutterspeed << "': " << _info.shutter,
         result::failure
     );
     ABORT_IF_NOT(
@@ -232,12 +313,21 @@ Camera::write_config()
         "failed to write 'imagequality': " << _info.quality,
         result::failure
     );
-
+    if (_have_burst_number)
+    {
+        ABORT_IF_NOT(
+            _gp2cpp.write_property(_camera, "burstnumber", std::to_string(_info.burst_number)),
+            "failed to write 'burstnumber': " << _info.quality,
+            result::failure
+        );
+    }
     ABORT_IF_NOT(
         _gp2cpp.write_config(_camera),
         "failed to flush settings",
         result::failure
     );
+
+    ABORT_ON_FAILURE(drain_events(), "failure", result::failure);
 
     return result::success;
 }
@@ -276,20 +366,44 @@ Camera::set_quality(const std::string & quality)
     _info.quality = quality;
 }
 
+void
+Camera::set_burst_number(const std::string & burst_number)
+{
+    as_type<int>(burst_number, _info.burst_number);
+}
+
+void
+Camera::set_capture_mode(const std::string & capture_mode)
+{
+    _info.capture_mode = capture_mode;
+}
+
+void
+Camera::set_shooting_speed(const std::string & shooting_speed)
+{
+    _info.shooting_speed = shooting_speed;
+}
+
+
 
 result
 Camera::handle(const Event & event)
 {
     switch(event.channel)
     {
+        case Channel::burst_number:
+        {
+            set_burst_number(event.channel_value);
+            break;
+        }
+        case Channel::capture_mode:
+        {
+            set_capture_mode(event.channel_value);
+            break;
+        }
         case Channel::fps:
         {
             ABORT_IF(true, "fps not implemented yet", result::failure);
-            break;
-        }
-        case Channel::mode:
-        {
-            set_mode(event.channel_value);
             break;
         }
         case Channel::fstop:
@@ -302,9 +416,19 @@ Camera::handle(const Event & event)
             set_iso(event.channel_value);
             break;
         }
+        case Channel::mode:
+        {
+            set_mode(event.channel_value);
+            break;
+        }
         case Channel::quality:
         {
             set_quality(event.channel_value);
+            break;
+        }
+        case Channel::shooting_speed:
+        {
+            set_shooting_speed(event.channel_value);
             break;
         }
         case Channel::shutter_speed:
@@ -323,7 +447,6 @@ Camera::handle(const Event & event)
             break;
         }
     }
-//~    ABORT_ON_FAILURE(drain_events(), "failure", result::failure);
 
     return result::success;
 }

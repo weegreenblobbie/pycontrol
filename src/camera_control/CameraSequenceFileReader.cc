@@ -291,10 +291,24 @@ read_file(const std::string & file_path)
 
         bool validation_ok = false;
         Channel channel;
-        if (channel_name == "shutter_speed")
+
+        if (channel_name == "burst_number")
         {
-            validation_ok = _is_valid_shutter_speed(channel_value_str);
-            channel = Channel::shutter_speed;
+            int num;
+            validation_ok = result::success == as_type<int>(channel_value_str, num);
+            validation_ok = validation_ok and num >= 0;
+            channel = Channel::burst_number;
+        }
+        else if (channel_name == "capture_mode")
+        {
+            validation_ok = true;
+            // TODO: how can we validate this?
+            channel = Channel::capture_mode;
+        }
+        else if (channel_name == "fps")
+        {
+            validation_ok = _is_valid_fps_value(channel_value_str);
+            channel = Channel::fps;
         }
         else if (channel_name == "fstop")
         {
@@ -306,15 +320,28 @@ read_file(const std::string & file_path)
             validation_ok = true;
             channel = Channel::iso;
         }
+        else if (channel_name == "mode")
+        {
+            validation_ok = true;
+            // TODO: most cameras can't set mode, a physical dial usually sets
+            // this.
+            channel = Channel::mode;
+        }
         else if (channel_name == "quality")
         {
             validation_ok = true;
             channel = Channel::quality;
         }
-        else if (channel_name == "fps")
+        else if (channel_name == "shooting_speed")
         {
-            validation_ok = _is_valid_fps_value(channel_value_str);
-            channel = Channel::fps;
+            validation_ok = true;
+            // TODO: how can we validate this?
+            channel = Channel::shooting_speed;
+        }
+        else if (channel_name == "shutter_speed")
+        {
+            validation_ok = _is_valid_shutter_speed(channel_value_str);
+            channel = Channel::shutter_speed;
         }
         else if (channel_name == "trigger")
         {

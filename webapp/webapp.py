@@ -73,10 +73,16 @@ class PyControlApp:
     def load_defaults(self):
         if self._defaults_loaded:
             return
-        cfg = utils.read_kv_config(self._gui_config_filename)
-        self.load_event_file(cfg["event_file"])
-        self.load_sequence(cfg["sequence_file"])
-        self._defaults_loaded = True
+        cfg = None
+        try:
+            cfg = utils.read_kv_config(self._gui_config_filename)
+        except FileNotFoundError:
+            pass
+
+        if cfg:
+            self.load_event_file(cfg.get("event_file"))
+            self.load_sequence(cfg.get("sequence_file"))
+            self._defaults_loaded = True
 
     def get_dashboard_data(self):
         """Gathers all data needed for the main dashboard update."""
@@ -101,8 +107,10 @@ class PyControlApp:
         """Public method to update a camera's description."""
         return make_response(self._cam_io.set_camera_id(serial, cam_id))
 
-    def load_event_file(self, filename):
+    def load_event_file(self, filename=None):
         """Loads an event file and triggers an update."""
+        if filename is None:
+            return
         full_path = os.path.join("../events", filename)
         with open(full_path, "r") as fin:
             all_lines = fin.readlines()
@@ -144,8 +152,10 @@ class PyControlApp:
 
         return data
 
-    def load_sequence(self, filename):
+    def load_sequence(self, filename=None):
         """Public method to load a camera sequence and re-trigger the solver."""
+        if filename is None:
+            return
         full_path = os.path.abspath(os.path.join("..", "sequences", filename))
         if not os.path.isfile(full_path):
             return make_response("Failure", f"Sequence file not found: {filename}", 500)
@@ -279,7 +289,7 @@ class PyControlApp:
 #
 ROOT_DIR = "../"
 app = flask.Flask(__name__)
-app.config['DEBUG'] = False
+app.config['DEBUG'] = True
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 pycontrol_app = PyControlApp(ROOT_DIR)
@@ -401,6 +411,7 @@ JS_TO_PROP = {
     "mode": "expprogram",
     "fstop": "f-number",
     "shutter": "shutterspeed2",
+    "burst": "burstnumber",
 }
 
 
@@ -412,6 +423,9 @@ def api_camera_read_choices():
 
     if prop in JS_TO_PROP:
         prop = JS_TO_PROP[prop]
+
+    if prop == "burstnumber":
+        return flask.jsonify(list(range(1,11))), 200
 
     return pycontrol_app.read_choices(serial, prop)
 

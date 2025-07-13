@@ -22,7 +22,7 @@ void cleanup_test_file(const std::string& filename)
     std::remove(filename.c_str());
 }
 
-TEST_CASE("CameraSequenceFileReader: Successful Parsing of Valid File", "[CameraSequenceFileReader][Success]")
+TEST_CASE("CameraSequenceFileReader: Successful Parsing of Valid File", "[seq]")
 {
     const std::string test_filename = "valid_config.txt";
     const std::string content = R"(
@@ -34,78 +34,98 @@ TEST_CASE("CameraSequenceFileReader: Successful Parsing of Valid File", "[Camera
         event5     2.2    camA.fps              start
         event6     5      camA.fps              stop
         event7   -10      camC.shutter_speed    1/4000
-        event8   100.0    camC.trigger          1
+        event8    10.0    camC.trigger          1
+        event9    20.0    camC.burst_number     5
+        event10   30.0    camC.capture_mode     2
+        event11   40.0    camC.shooting_speed   0
     )";
     create_test_file(test_filename, content);
 
     CameraSequenceFileReader sequence_reader;
     REQUIRE(result::success == sequence_reader.read_file(test_filename));
+    cleanup_test_file(test_filename);
 
     const auto& entries = sequence_reader.get_events();
-    REQUIRE(entries.size() == 9);
+    REQUIRE(entries.size() == 12);
 
     // Verify a few specific entries
-    REQUIRE(entries[0].event_id == "event0");
-    REQUIRE(entries[0].event_time_offset_ms == 0);
-    REQUIRE(entries[0].camera_id == "cama");
-    REQUIRE(entries[0].channel == Channel::shutter_speed);
-    REQUIRE(entries[0].channel_value == "1/125");
+    CHECK(entries[0].event_id == "event0");
+    CHECK(entries[0].event_time_offset_ms == 0);
+    CHECK(entries[0].camera_id == "cama");
+    CHECK(entries[0].channel == Channel::shutter_speed);
+    CHECK(entries[0].channel_value == "1/125");
 
-    REQUIRE(entries[1].event_id == "event1");
-    REQUIRE(entries[1].event_time_offset_ms == 1'500);
-    REQUIRE(entries[1].camera_id == "camb");
-    REQUIRE(entries[1].channel == Channel::fstop);
-    REQUIRE(entries[1].channel_value == "f/8");
+    CHECK(entries[1].event_id == "event1");
+    CHECK(entries[1].event_time_offset_ms == 1'500);
+    CHECK(entries[1].camera_id == "camb");
+    CHECK(entries[1].channel == Channel::fstop);
+    CHECK(entries[1].channel_value == "f/8");
 
-    REQUIRE(entries[2].event_id == "event2");
-    REQUIRE(entries[2].event_time_offset_ms == 2'000);
-    REQUIRE(entries[2].camera_id == "cama");
-    REQUIRE(entries[2].channel == Channel::iso);
-    REQUIRE(entries[2].channel_value == "400");
+    CHECK(entries[2].event_id == "event2");
+    CHECK(entries[2].event_time_offset_ms == 2'000);
+    CHECK(entries[2].camera_id == "cama");
+    CHECK(entries[2].channel == Channel::iso);
+    CHECK(entries[2].channel_value == "400");
 
-    REQUIRE(entries[3].event_id == "event3");
-    REQUIRE(entries[3].event_time_offset_ms == 2'100);
-    REQUIRE(entries[3].camera_id == "camb");
-    REQUIRE(entries[3].channel == Channel::quality);
-    REQUIRE(entries[3].channel_value == "nef (raw)");
+    CHECK(entries[3].event_id == "event3");
+    CHECK(entries[3].event_time_offset_ms == 2'100);
+    CHECK(entries[3].camera_id == "camb");
+    CHECK(entries[3].channel == Channel::quality);
+    CHECK(entries[3].channel_value == "nef (raw)");
 
-    REQUIRE(entries[4].event_id == "event4");
-    REQUIRE(entries[4].event_time_offset_ms == 2'200);
-    REQUIRE(entries[4].camera_id == "cama");
-    REQUIRE(entries[4].channel == Channel::fps);
-    REQUIRE(entries[4].channel_value == "5.0");
+    CHECK(entries[4].event_id == "event4");
+    CHECK(entries[4].event_time_offset_ms == 2'200);
+    CHECK(entries[4].camera_id == "cama");
+    CHECK(entries[4].channel == Channel::fps);
+    CHECK(entries[4].channel_value == "5.0");
 
-    REQUIRE(entries[5].event_id == "event5");
-    REQUIRE(entries[5].event_time_offset_ms == 2'200);
-    REQUIRE(entries[5].camera_id == "cama");
-    REQUIRE(entries[5].channel == Channel::fps);
-    REQUIRE(entries[5].channel_value == "start");
+    CHECK(entries[5].event_id == "event5");
+    CHECK(entries[5].event_time_offset_ms == 2'200);
+    CHECK(entries[5].camera_id == "cama");
+    CHECK(entries[5].channel == Channel::fps);
+    CHECK(entries[5].channel_value == "start");
 
-    REQUIRE(entries[6].event_id == "event6");
-    REQUIRE(entries[6].event_time_offset_ms == 5'000);
-    REQUIRE(entries[6].camera_id == "cama");
-    REQUIRE(entries[6].channel == Channel::fps);
-    REQUIRE(entries[6].channel_value == "stop");
+    CHECK(entries[6].event_id == "event6");
+    CHECK(entries[6].event_time_offset_ms == 5'000);
+    CHECK(entries[6].camera_id == "cama");
+    CHECK(entries[6].channel == Channel::fps);
+    CHECK(entries[6].channel_value == "stop");
 
-    REQUIRE(entries[7].event_id == "event7");
-    REQUIRE(entries[7].event_time_offset_ms == -10'000);
-    REQUIRE(entries[7].camera_id == "camc");
-    REQUIRE(entries[7].channel == Channel::shutter_speed);
-    REQUIRE(entries[7].channel_value == "1/4000");
+    CHECK(entries[7].event_id == "event7");
+    CHECK(entries[7].event_time_offset_ms == -10'000);
+    CHECK(entries[7].camera_id == "camc");
+    CHECK(entries[7].channel == Channel::shutter_speed);
+    CHECK(entries[7].channel_value == "1/4000");
 
-    REQUIRE(entries[8].event_id == "event8");
-    REQUIRE(entries[8].event_time_offset_ms == 100'000);
-    REQUIRE(entries[8].camera_id == "camc");
-    REQUIRE(entries[8].channel == Channel::trigger);
-    REQUIRE(entries[8].channel_value == "1");
+    CHECK(entries[8].event_id == "event8");
+    CHECK(entries[8].event_time_offset_ms == 10'000);
+    CHECK(entries[8].camera_id == "camc");
+    CHECK(entries[8].channel == Channel::trigger);
+    CHECK(entries[8].channel_value == "1");
+
+    CHECK(entries[9].event_id == "event9");
+    CHECK(entries[9].event_time_offset_ms == 20'000);
+    CHECK(entries[9].camera_id == "camc");
+    CHECK(entries[9].channel == Channel::burst_number);
+    CHECK(entries[9].channel_value == "5");
+
+    CHECK(entries[10].event_id == "event10");
+    CHECK(entries[10].event_time_offset_ms == 30'000);
+    CHECK(entries[10].camera_id == "camc");
+    CHECK(entries[10].channel == Channel::capture_mode);
+    CHECK(entries[10].channel_value == "2");
+
+    CHECK(entries[11].event_id == "event11");
+    CHECK(entries[11].event_time_offset_ms == 40'000);
+    CHECK(entries[11].camera_id == "camc");
+    CHECK(entries[11].channel == Channel::shooting_speed);
+    CHECK(entries[11].channel_value == "0");
 
     sequence_reader.clear();
-    REQUIRE(entries.empty() == true);
-
-    cleanup_test_file(test_filename);
+    CHECK(entries.empty() == true);
 }
 
-TEST_CASE("CameraSequenceFileReader: Ignores Comments and Blank Lines", "[CameraSequenceFileReader][Ignore]")
+TEST_CASE("CameraSequenceFileReader: Ignores Comments and Blank Lines", "[seq_whitespace]")
 {
     const std::string test_filename = "comments_blanks.txt";
     const std::string content = R"(
@@ -140,7 +160,7 @@ TEST_CASE("CameraSequenceFileReader: Ignores Comments and Blank Lines", "[Camera
 }
 
 
-TEST_CASE("CameraSequenceFileReader: event time offset format", "[CameraSequenceFileReader][HH:MM:SS]")
+TEST_CASE("CameraSequenceFileReader: event time offset format", "[seq_hhmmss]")
 {
     const std::string test_filename = "event_time_offsets.txt";
     const std::string content = R"(
@@ -177,7 +197,7 @@ TEST_CASE("CameraSequenceFileReader: event time offset format", "[CameraSequence
 }
 
 
-TEST_CASE("CameraSequenceFileReader: Failures", "[CameraSequenceFileReader][Failure]")
+TEST_CASE("CameraSequenceFileReader: Failures", "[seq_bad]")
 {
     CameraSequenceFileReader sequence_reader;
     REQUIRE(result::failure == sequence_reader.read_file("non_existent_file.txt"));

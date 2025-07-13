@@ -1,0 +1,48 @@
+# z8.capture_mode  0 - Single Shot
+# z8.capture_mode  1 - Burst
+# z8.capture_mode  2 - Continuous low speed -> shooting_speed not supported yet
+# z8.capture_mode  3 - Timer
+# z8.capture_mode  4 - Continuous 15 FPS
+# z8.capture_mode  5 - Continuous 30 FPS
+# z8.capture_mode  6 - Continuous 60 FPS
+# z8.capture_mode  7 - Continuous 120 FPS
+
+c2     -10.000  z8.quality          NEF (Raw)
+c2     -10.000  z8.iso              100
+c2     -10.000  z8.shutter_speed    1/500
+c2     -10.000  z8.fstop            f/8
+c2     -10.000  z8.capture_mode     2  # low speed at 5 FPS
+#c2     -10.000  z8.shooting_speed   0  # 5 fps  - not supported, manually set?
+c2     -10.000  z8.burst_number     5
+
+# 30 triggers x5 = 150 photos over 30 seconds or 5 FPS.
+c2 -9 z8.trigger 1
+c2 -8 z8.trigger 1
+c2 -7 z8.trigger 1
+c2 -6 z8.trigger 1
+c2 -5 z8.trigger 1
+c2 -4 z8.trigger 1
+c2 -3 z8.trigger 1
+c2 -2 z8.trigger 1
+c2 -1 z8.trigger 1
+c2  0 z8.trigger 1
+c2  1 z8.trigger 1
+c2  2 z8.trigger 1
+c2  3 z8.trigger 1
+c2  4 z8.trigger 1
+c2  5 z8.trigger 1
+c2  6 z8.trigger 1
+c2  7 z8.trigger 1
+c2  8 z8.trigger 1
+c2  9 z8.trigger 1
+c2 10 z8.trigger 1
+c2 11 z8.trigger 1
+c2 12 z8.trigger 1
+c2 13 z8.trigger 1
+c2 14 z8.trigger 1
+c2 15 z8.trigger 1
+c2 16 z8.trigger 1
+c2 17 z8.trigger 1
+c2 18 z8.trigger 1
+c2 19 z8.trigger 1
+c2 20 z8.trigger 1

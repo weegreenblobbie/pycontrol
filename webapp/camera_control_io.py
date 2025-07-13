@@ -82,8 +82,8 @@ class CameraControlIo:
         self._serial_id_cam_id = dict()
         self._telem = dict(command_response=dict(id=0))
 
-        self._retry_count = 30
-        self._retry_sleep = 0.125
+        self._retry_count = 15
+        self._retry_sleep = 0.500
 
     def _send_command(self, message):
         """

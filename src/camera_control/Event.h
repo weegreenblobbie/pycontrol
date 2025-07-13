@@ -11,11 +11,14 @@ namespace pycontrol
 
 enum class Channel: unsigned int
 {
+    burst_number,
+    capture_mode,
     fps,
     fstop,
     iso,
     mode,
     quality,
+    shooting_speed,
     shutter_speed,
     trigger,
 
@@ -28,14 +31,17 @@ to_string(Channel ch)
 {
     switch(ch)
     {
-        case Channel::fps:           return "fps";
-        case Channel::fstop:         return "fstop";
-        case Channel::iso:           return "iso";
-        case Channel::mode:          return "mode";
-        case Channel::quality:       return "quality";
-        case Channel::shutter_speed: return "shutter_speed";
-        case Channel::trigger:       return "trigger";
-        case Channel::null:          return "null";
+        case Channel::burst_number:   return "burst_number";
+        case Channel::capture_mode:   return "capture_mode";
+        case Channel::fps:            return "fps";
+        case Channel::fstop:          return "fstop";
+        case Channel::iso:            return "iso";
+        case Channel::mode:           return "mode";
+        case Channel::quality:        return "quality";
+        case Channel::shooting_speed: return "shooting_speed";
+        case Channel::shutter_speed:  return "shutter_speed";
+        case Channel::trigger:        return "trigger";
+        case Channel::null:           return "null";
     }
     return "to_string(Channel) error";
 }

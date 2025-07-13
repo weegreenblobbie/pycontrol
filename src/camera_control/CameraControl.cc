@@ -201,8 +201,17 @@ _send_telemetry()
                 << "\"iso\":\""      << info.iso           << "\","
                 << "\"quality\":\""  << info.quality       << "\","
                 << "\"batt\":\""     << info.battery_level << "\","
-                << "\"num_avail\":"  << info.num_avail     << ","
-                << "\"num_photos\":" << info.num_photos    << "}";
+                << "\"num_photos\":" << info.num_photos;
+
+            if (cam_ptr->have_num_avail())
+            {
+                _telem_message << ",\"num_avail\":" << info.num_avail;
+            }
+            if (cam_ptr->have_burst_number())
+            {
+                _telem_message << ",\"burst_number\":" << info.burst_number;
+            }
+            _telem_message << "}";
 
             if (++idx < _cameras.size()) _telem_message << ",";
         }

@@ -1,0 +1,39 @@
+c2     -10.000  z7.quality          NEF (Raw)
+c2     -10.000  z7.iso              100
+c2     -10.000  z7.shutter_speed    1/500
+c2     -10.000  z7.fstop            f/8
+c2     -10.000  z7.capture_mode     2  # Continuous low speed
+c2     -10.000  z7.shooting_speed   0  # 5 fps
+c2     -10.000  z7.burst_number     5
+
+# 30 triggers x5 = 150 photos over 30 seconds or 5 FPS.
+c2 -9 z7.trigger 1
+c2 -8 z7.trigger 1
+c2 -7 z7.trigger 1
+c2 -6 z7.trigger 1
+c2 -5 z7.trigger 1
+c2 -4 z7.trigger 1
+c2 -3 z7.trigger 1
+c2 -2 z7.trigger 1
+c2 -1 z7.trigger 1
+c2  0 z7.trigger 1
+c2  1 z7.trigger 1
+c2  2 z7.trigger 1
+c2  3 z7.trigger 1
+c2  4 z7.trigger 1
+c2  5 z7.trigger 1
+c2  6 z7.trigger 1
+c2  7 z7.trigger 1
+c2  8 z7.trigger 1
+c2  9 z7.trigger 1
+c2 10 z7.trigger 1
+c2 11 z7.trigger 1
+c2 12 z7.trigger 1
+c2 13 z7.trigger 1
+c2 14 z7.trigger 1
+c2 15 z7.trigger 1
+c2 16 z7.trigger 1
+c2 17 z7.trigger 1
+c2 18 z7.trigger 1
+c2 19 z7.trigger 1
+c2 20 z7.trigger 1

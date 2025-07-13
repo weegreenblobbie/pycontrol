@@ -106,15 +106,22 @@
       become: true
       ansible.builtin.apt:
         name:
+          - automake
+          - autoconf
+          - autopoint
           - cmake
           - g++
+          - gettext
           - gphoto2
           - libbenchmark-dev
           - libboost-dev
-          - libgtest-dev
-          - libprotobuf-dev
+          - libgettextpo-dev
           - libgphoto2-6
           - libgphoto2-dev
+          - libgtest-dev
+          - libpopt-dev
+          - libpopt0
+          - libprotobuf-dev
           - make
           - protobuf-compiler
           - python-is-python3
