@@ -133,19 +133,198 @@
         - install
         - build
 
+    - name: Wifi
+      become: true
+      ansible.builtin.apt:
+        name:
+          - hostapd
+          - dnsmasq
+        state: present
+      tags:
+        - install
+        - wifi
+
+    - name: Wifi - Setup static IP
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/systemd/network/10-wlan0-ap.network
+        content: |
+          [Match]
+          Name=wlan0
+
+          [Network]
+          Address={{wlan0_ip}}/24
+          interface wlan0
+        mode: '0644'
+        owner: root
+        group: root
+      notify:
+        - restart systemd-networkd
+      tags:
+        - wifi
+
+    - name: Wifi - Setup ad-hoc wireless network
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/hostapd/hostapd.conf
+        content: |
+          interface=wlan0
+          driver=nl80211
+          ssid={{ssid}}
+          hw_mode=g
+          channel=7
+          wmm_enabled=0
+          macaddr_acl=0
+          auth_algs=1
+          ignore_broadcast_ssid=0
+          wpa=2
+          wpa_passphrase={{password}}
+          wpa_key_mgmt=WPA-PSK
+          wpa_pairwise=TKIP
+          rsn_pairwise=CCMP
+        mode: '0644'
+        owner: root
+        group: root
+      tags:
+        - wifi
+
+    - name: Wifi - hostapd config
+      become: true
+      lineinfile:
+        path: /etc/default/hostapd
+        regexp: '^#DAEMON_CONF=""'
+        line: 'DAEMON_CONF="/etc/hostapd/hostapd.conf"'
+        state: present
+      tags:
+        - wifi
+
+    - name: Wifi - Setup dnsmasq
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/dnsmasq.conf
+        content: |
+          interface=wlan0
+          dhcp-range={{dhcp_pool}},255.255.255.0,12h
+          # Add domain requests get redirect to the pycontrol app.
+          address=/#/{{wlan0_ip}}
+          address=/pycontrol/{{wlan0_ip}}
+          # Create aliases (CNAMEs) that point to the primary name
+          # Format is cname=<alias>,<target>
+          cname=app,pycontrol
+        mode: '0644'
+        owner: root
+        group: root
+      tags:
+        - wifi
+
+    - name: 'PyControl - C++ camera_control_bin service'
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/pycontrol-camera.service
+        content: |
+          [Unit]
+          Description=PyControl Camera Control Service
+          # Start this service after the network is up and gpsd is ready
+          After=network.target gpsd.socket
+
+          [Service]
+          # The type of the service
+          Type=simple
+
+          # Must run as root to get cpu affinity permission.
+          User=root
+          Group=root
+
+          # The working directory for your executable
+          WorkingDirectory=/home/{{username}}/pycontrol
+
+          # The full command to execute (use absolute paths)
+          ExecStart=/home/{{username}}/pycontrol/src/camera_control/camera_control_bin
+
+          # Automatically restart the service if it fails
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          # Enable this service for the default multi-user runlevel
+          WantedBy=multi-user.target
+        mode: '0644'
+        owner: root
+        group: root
+      tags:
+        - pycontrol
+
+    - name: PyControl - Webapp service
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/pycontrol-webapp.service
+        content: |
+          [Unit]
+          Description=PyControl Flask Web Application
+          # Start this after the main camera control service is running
+          After=pycontrol-camera.service
+
+          [Service]
+          Type=simple
+          User=root
+          Group=root
+
+          # The working directory for your Flask app
+          WorkingDirectory=/home/{{username}}/pycontrol/webapp
+
+          # The command to start the Flask app
+          # IMPORTANT: If you use a Python virtual environment, change the path
+          # to /home/nhilton/pycontrol/venv/bin/python3 or similar.
+          ExecStart=/home/{{username}}/pycontrol/webapp/venv/bin/python3 /home/{{username}}/pycontrol/webapp/webapp.py
+
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+        mode: '0644'
+        owner: root
+        group: root
+      tags:
+        - pycontrol
+
+    - name: Enable and start PyControl services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - pycontrol-camera.service
+        - pycontrol-webapp.service
+        - hostapd.service
+        - dnsmasq.service
+
+      tags:
+        - pycontrol
+        - wifi
+
   handlers:
 
     - name: restart ssh
       ansible.builtin.service:
         name: ssh
         state: restarted
+        enabled: true
 
     - name: restart gpsd
       ansible.builtin.service:
         name: gpsd
         state: restarted
+        enabled: true
 
     - name: restart chronyd
       ansible.builtin.service:
         name: chronyd
         state: restarted
+        enabled: true
+
+    - name: restart systemd-networkd
+      ansible.builtin.service:
+        name: systemd-networkd
+        state: restarted
+        enabled: true

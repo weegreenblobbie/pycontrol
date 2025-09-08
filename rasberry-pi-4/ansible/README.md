@@ -23,7 +23,26 @@ Quick Start
 
     ansible-playbook -i inventory.ini playbook.yaml -k
 
-7) To skip some cleaning tasks that you may have already run, specify tags to skip tasks with the clean tag:
+7) Run the playbook for things with a specific tag
+
+    ansible-playbook -i inventory.ini playbook.yaml -k --tags wifi
+
+8) To skip some cleaning tasks that you may have already run, specify tags to skip tasks with the clean tag:
 
     ansible-playbook -i inventory.ini playbook.yaml -k --skip-tags "clean"
+
+Variables
+=========
+
+You can find various settings in the variable section of inventory.ini
+
+```yaml
+
+[all:vars]
+wlan0_ip=192.168.26.1
+dhcp_pool=192.168.26.100,192.168.26.120
+ssid=PyControl
+password=Spain2026
+username=nhilton
+```
 

@@ -289,7 +289,7 @@ class PyControlApp:
 #
 ROOT_DIR = "../"
 app = flask.Flask(__name__)
-app.config['DEBUG'] = True
+app.config['DEBUG'] = False
 logging.getLogger('werkzeug').setLevel(logging.ERROR)
 
 pycontrol_app = PyControlApp(ROOT_DIR)
@@ -451,5 +451,15 @@ def api_camera_trigger():
     return pycontrol_app.trigger(serial)
 
 
+# Catch all route.
+@app.route('/<path:path>')
+def catch_all(path):
+    """
+    Catches all other requests (like captive portal checks)
+    and redirects them to the main page.
+    """
+    return flask.redirect("/")
+
+
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=80)

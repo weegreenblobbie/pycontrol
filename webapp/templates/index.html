@@ -68,6 +68,18 @@
 
         <div class="section">
             <h2>Events</h2>
+            <table id="event_info_table">
+                <thead>
+                    <tr>
+                        <th>Event File</th>
+                        <th>Type</th>
+                        <th>Sequence File</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+
             <table id="event_table">
                 <colgroup>
                     <col style="width: 25%;">
@@ -180,6 +192,16 @@
             <ul id="camera_choice_list" class="file-list-modal">
                 <li>Loading choices...</li>
             </ul>
+        </div>
+    </div>
+
+    <div id="error_modal" class="modal">
+        <div class="modal-content error-modal-content">
+            <h2 id="error_modal_title">Connection Error</h2>
+            <p id="error_modal_message">Failed to fetch data from the server.</p>
+            <div class="modal-buttons">
+                <button id="reload_button">Reload</button>
+            </div>
         </div>
     </div>
 

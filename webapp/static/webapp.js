@@ -45,6 +45,7 @@ const rename_input = document.getElementById('rename_input');
 const save_rename_button = document.getElementById('save_rename');
 const cancel_rename_button = document.getElementById('cancel_rename');
 const event_table_body = document.querySelector('#event_table tbody');
+const event_info_table_body = document.getElementById("event_info_table").tBodies[0];
 const event_selection_modal = document.getElementById('event_selection_modal');
 const file_list_element = document.getElementById('file_list');
 const event_row_map = new Map();
@@ -74,6 +75,7 @@ const camera_choice_list = document.getElementById('camera_choice_list');
 let active_cell_info = null;
 let current_editable_td = null;
 let is_sim_running = false;
+let is_event_table_initialized = false;
 
 // --- Data Fetching ---
 async function fetch_data(url, options = {})
@@ -123,9 +125,24 @@ async function fetch_data(url, options = {})
     catch (error)
     {
         console.error(`Fetch operation failed for ${url}:`, error);
-        alert(`Error: ${error.message}`);
-        throw error;
-    }
+
+        const error_modal = document.getElementById('error_modal');
+        const error_message_p = document.getElementById('error_modal_message');
+        const reload_button = document.getElementById('reload_button');
+
+        if (error_modal && error_message_p && reload_button)
+        {
+            error_message_p.textContent = `Error: ${error.message}. Check the connection and try again.`;
+            reload_button.onclick = () => { window.location.reload(); };
+            error_modal.style.display = 'flex';
+        }
+        else
+        {
+            // Fallback to alert if the modal elements don't exist for some reason
+            alert(`Error: ${error.message}`);
+        }
+		throw error;
+	}
 }
 
 
@@ -576,59 +593,46 @@ function update_event_table_row(event_id, event_time, eta = 'N/A')
     eta_pre.textContent = eta;
 }
 
-function clear_event_data_rows()
-{
-    event_table_body.innerHTML = '';
-    event_row_map.clear();
-}
-
 async function populate_static_event_details(event_file, seq_file)
 {
-    clear_event_data_rows();
+	// Clear both tables
+	event_info_table_body.innerHTML = '';
+	event_row_map.clear();
+	is_event_table_initialized = false;
 
-    const file_display_row = event_table_body.insertRow(0);
-    const file_label_cell = file_display_row.insertCell(0);
-    const event_file_cell = file_display_row.insertCell(1);
-    const seq_file_cell = file_display_row.insertCell(2);
-
-    file_label_cell.textContent = "Files:";
-    file_label_cell.classList.add('column_1');
-    //event_file_cell.colSpan = 2;
-    event_file_cell.appendChild(document.createElement('pre')).textContent = event_file;
-    seq_file_cell.appendChild(document.createElement('pre')).textContent = seq_file;
-
-    const loading_row = event_table_body.insertRow(1);
-    const loading_cell = loading_row.insertCell(0);
-    loading_cell.colSpan = 3;
-    loading_cell.textContent = `Loading details for ${event_file}...`;
-
-    try
-    {
-        const event_data = await fetch_data('/api/event_load', {
+	try
+	{
+		const event_data = await fetch_data('/api/event_load', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filename: event_file })
         });
-        loading_row.remove();
 
-        update_event_table_row('Type', event_data.type || 'N/A', '');
+        // Populate the new info table
+        const info_row = event_info_table_body.insertRow();
+        info_row.insertCell().textContent = event_file || 'N/A';
+        info_row.insertCell().textContent = event_data.type || 'N/A';
+        info_row.insertCell().textContent = seq_file || 'N/A';
 
-        if (event_data.events && Array.isArray(event_data.events))
-        {
-            event_data.events.forEach(event_id =>
-            {
-                update_event_table_row(event_id, 'N/A', 'Loading...');
-            });
-        }
-        return true;
-    }
-    catch (error)
-    {
-        console.error(`Error fetching static event details for ${event_file}:`, error);
-        clear_event_data_rows();
-        update_event_table_row('Error', `Failed to load ${event_file}.`, error.message.substring(0, 100));
-        return false;
-    }
+		// Populate the main event list table
+		if (event_data.events && Array.isArray(event_data.events))
+		{
+			event_data.events.forEach(event_id =>
+			{
+				update_event_table_row(event_id, 'N/A', 'Loading...');
+			});
+		}
+		return true;
+	}
+	catch (error)
+	{
+		console.error(`Error fetching static event details for ${event_fil}:`, error);
+		const error_row = event_info_table_body.insertRow();
+        const cell = error_row.insertCell();
+        cell.colSpan = 3;
+        cell.textContent = `Error loading ${event_file}.`;
+		return false;
+	}
 }
 
 async function fetch_files_for_modal()
@@ -889,13 +893,14 @@ async function update_dashboard()
         update_cameras_ui(dashboard_data.detected_cameras);
     }
 
-    if (event_row_map.size === 0 && event_file && seq_file)
+    if (!is_event_table_initialized && event_file && seq_file)
     {
         console.log('Initial load detected for files:');
         console.log('    ' + event_file);
         console.log('    ' + seq_file);
         await populate_static_event_details(event_file, seq_file);
         load_event_file_button.classList.add('loaded');
+        is_event_table_initialized = true;
     }
     if (seq_file)
     {
@@ -906,7 +911,7 @@ async function update_dashboard()
         load_camera_sequence_button.classList.remove('loaded');
     }
 
-    if (dashboard_data.events && event_row_map.size > 0)
+    if (dashboard_data.events)
     {
         update_events_ui(dashboard_data.events);
     }

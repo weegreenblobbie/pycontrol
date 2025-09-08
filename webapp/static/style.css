@@ -89,6 +89,11 @@ td pre {
     background-color: #f0f8ff;
 }
 
+#cameras td.cell-pending-update {
+    background-color: #ffebee !important;
+    transition: background-color 0.2s ease-in-out;
+}
+
 #event_table {
     table-layout: fixed;
 }
@@ -117,8 +122,12 @@ td pre {
     height: 100%;
     overflow: auto;
     background-color: rgba(0, 0, 0, 0.4);
+
     justify-content: center;
     align-items: center;
+
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .modal-content {
@@ -222,10 +231,10 @@ td pre {
 .event-eta-pre {
     margin: 0;
     padding: 2px;
-    background-color: #f0f0f0;
+    background-color: transparent;
     border-radius: 3px;
-    font-size: 0.9em;
-    color: #333;
+    font-size: 1.1em;
+    color: black;
     white-space: pre-wrap;
 }
 
@@ -412,7 +421,91 @@ td pre {
     cursor: not-allowed;
 }
 
-.cell-pending-update {
-     /* A light, non-intrusive red */
+/*
+This style previously had a typo (.cell-pending-update)
+and has been corrected to #cameras td.cell-pending-update
+for proper specificity.
+*/
+#cameras td.cell-pending-update {
     background-color: #ffebee !important;
+    transition: background-color 0.2s ease-in-out;
+}
+
+
+/* This block of rules applies only to screens 768px wide or smaller */
+@media screen and (max-width: 768px) {
+    body {
+        margin: 10px; /* Reduce side margins */
+        font-size: 14px; /* Slightly smaller base font for mobile */
+    }
+
+    h1 {
+        font-size: 1.5em; /* Make main title smaller */
+    }
+
+    h2 {
+        font-size: 1.2em; /* Make section titles smaller */
+    }
+
+    /* Make all tables use the full width of the screen */
+    table {
+        width: 100%;
+    }
+
+    /* Stack the camera control tables vertically instead of side-by-side */
+    #control_tables_container {
+        flex-direction: column;
+        align-items: center; /* Center the stacked tables */
+    }
+
+    /* Allow each control table to take up most of the screen width */
+    .control-table {
+        max-width: 95%;
+    }
+
+    /* Stack the main action buttons vertically */
+    #master_button_container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px; /* Add space between the stacked buttons */
+        align-items: center; /* Center the buttons */
+    }
+
+    .action-button {
+        width: 80%; /* Make buttons wider for easier tapping */
+        margin: 0;
+    }
+
+    .event-time-pre,
+    .event-eta-pre {
+        font-weight: bold;
+    }
+}
+
+#error_modal .error-modal-content {
+    border: 2px solid #d32f2f; /* Red border */
+    max-width: 400px;
+    text-align: center;
+}
+
+#error_modal h2 {
+    color: #d32f2f; /* Red title */
+    margin-top: 0;
+    border-bottom: none;
+}
+
+#error_modal .modal-buttons {
+    justify-content: center;
+    display: flex;
+}
+
+#reload_button {
+    background-color: #007bff; /* Blue */
+    color: white;
+    font-size: 1.1em;
+    min-width: 120px;
+}
+
+#reload_button:hover {
+    background-color: #0056b3;
 }

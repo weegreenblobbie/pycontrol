@@ -15,7 +15,7 @@ def read_kv_config(filename):
         if not line or line.startswith("#"):
             continue
         tokens = line.split()
-        assert len(tokens) >= 2
+        assert len(tokens) >= 2, f"Failed to parse '{filename}', expected 2 tokens, got only {tokens}"
         out[tokens[0]] = tokens[1]
 
     return out

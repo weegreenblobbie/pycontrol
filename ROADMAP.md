@@ -4,13 +4,7 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Conditional use shutterspeed2, burstnumb, num_avail
-
-- Add burstnumber property.
-
-- Turns out not all cameras support shutterspeed2, avialablephotos.
-  - I'll have to make a map for fraction shutter string shutterspeed.
-  - Or make a branch of libgphoto2 to add these props to the Z8 camera.
+- loading the eclipse event button doesn't delete the previous table rows
 
 - speed test with z7 + z8 to see if they hit 2.33 and 4.66 FPS.
 
@@ -18,7 +12,7 @@ Make it work
 
 - Count and report number of errors to UI
 
-- Loading a camera sequence that fails, is not fed back to UI
+- Failing to load a camera sequence is not fed back to UI
 
 - Add message about when it's okay to turn off camera
 
@@ -71,6 +65,15 @@ Make it work
 Make it work well
 ^^^^^^^^^^^^^^^^^
 
+- Add link to Xjubier's website for the given gps location for cross checking.
+    http://xjubier.free.fr/en/site_pages/solar_eclipses/TSE_2026_GoogleMapFull.html?Lat=42.97578&Lng=-5.01321&Elv=1095.0&Zoom=15&LC=1
+
+- Turns out not all cameras support shutterspeed2, avialablephotos.
+  - I'll have to make a map for fraction shutter string shutterspeed.
+  - Or make a branch of libgphoto2 to add these props to the Z8 camera.
+
+- Conditional use shutterspeed2, burstnumb, num_avail
+
 - unit tests for everything
 
 - Add a graphical system diagram for documentation.
@@ -112,6 +115,8 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Add burst_number property.
 
 * Add the trigger command to unit tests.
 

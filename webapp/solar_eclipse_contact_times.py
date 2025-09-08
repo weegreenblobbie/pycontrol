@@ -73,8 +73,8 @@ def calculate_contact_times(
     # Course search +/- 12 hours
     c1_c2_course_times = astropy.time.Time(
         np.arange(
-            time_search_start - 12 * u.hour,
-            time_search_start + 12 * u.hour,
+            time_search_start - 24 * u.hour,
+            time_search_start + 24 * u.hour,
             step = 15 * u.min
         )
     )
