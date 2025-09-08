@@ -37,23 +37,22 @@ the count down timers.
 
 4. **Default is real-world** When the Raspberry PI boots, it loads the last event
 and sequence setup and uses the GPS antenna and is ready to go!  Running any
-simulation turns the user interface
-<span style="color: #ff1111;"><strong>RED</strong><span> to let you know.
+simulation turns the user interface **RED** to let you know.
 
-5. **High Contrast UI** When things are
-<span style="color: #96d53f;"><strong>GREEN</strong><span>, you're good to go!
-See any <span style="color: #ff1111;"><strong>RED</strong><span>, and you've got
-to take action!
+5. **High Contrast UI** When things are **GREEN**, you're good to go!
+See any **RED**, and you've got to take action!
 
 Design
 ======
 
-![Design overview](./docs/design.svg)<img src="./docs/design.svg">
+<a href="docs/design.svg"><img src="docs/design.svg" align="center" width="80%"></a>
 
 Using systemd startup configuration files, on boot up, the raspberry pi will launch
-the Python Flask webapp and C++ camera_control_bin.  Connecting to the WiFi network
+the Python Flask webapp and C++ `camera_control_bin`.  Connecting to the WiFi network
 `pycontrol` using the wifi password `spain2026` will bring you to the webapp user
 interface.  From here you will see something similar to:
+
+<a href="docs/pycontrol-webapp-sim.png"><img src="docs/pycontrol-webapp-sim.png" align="center" width="80%"></a>
 
 
 Configuration files
@@ -240,7 +239,7 @@ Getting Started
 6) Configure an ssh key on your development box and transfer the trusted public
    key to your raspberry pi, also known as passwordless login. See `ssh-copy-id`.
 7) Apply the system configuration as I've tried to document via `ansbile`, see
-   the [ansible/README.md](Raspberry-pi-4/ansible/README.md).
+   the [ansible/README.md](raspberry-pi-4/ansible/README.md).
 8) Now you can try building the project.
 
 

@@ -13,8 +13,8 @@ external/share
 external/venv
 webapp/venv
 webapp/__pycache__
-rasberry-pi-4/ansible/venv
-rasberry-pi-4/rpi4-64-bit-fresh.img.bz2
+raspberry-pi-4/ansible/venv
+raspberry-pi-4/rpi4-64-bit-fresh.img.bz2
 *.d
 *.o
 lib*.a
