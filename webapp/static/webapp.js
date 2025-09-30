@@ -251,6 +251,8 @@ function update_cameras_ui(data)
 
 function update_events_ui(events_data)
 {
+    console.log("update_events_ui(events_data): " + events_data);
+
     if (events_data && events_data.length > 0)
     {
         for (const event_info of events_data)
@@ -595,6 +597,8 @@ function update_event_table_row(event_id, event_time, eta = 'N/A')
 
 async function populate_static_event_details(event_file, seq_file)
 {
+    console.log("populate_static_event_details(" + event_file + ", " + seq_file + ")");
+
 	// Clear both tables
 	event_info_table_body.innerHTML = '';
 	event_row_map.clear();
@@ -614,14 +618,45 @@ async function populate_static_event_details(event_file, seq_file)
         info_row.insertCell().textContent = event_data.type || 'N/A';
         info_row.insertCell().textContent = seq_file || 'N/A';
 
-		// Populate the main event list table
-		if (event_data.events && Array.isArray(event_data.events))
+        console.log("    event_data: " + event_data.events + " :");
+        console.log("    erasing event table tbody");
+        // Erase any rows first.
+        const tbody = document.querySelector("#event_table tbody");
+        if (tbody)
+        {
+            tbody.innerHTML = "";
+        }
+        else
+        {
+            console.log("    nothing matched selector: '#event_table tbody'");
+        }
+
+        /*
+
+		// Populate the main event list table.
+		if (event_data && Array.isArray(event_data))
 		{
-			event_data.events.forEach(event_id =>
+		    console.log("    erasing evente table tbody");
+		    // Erase any rows first.
+            const tbody = document.querySelector("#event_table tbody");
+            if (tbody)
+            {
+                tbody.innerHTML = "";
+            }
+
+            console.log("    adding event rows ...");
+
+            // Add rows for each event.
+			event_data.forEach(event_row =>
 			{
-				update_event_table_row(event_id, 'N/A', 'Loading...');
+				update_event_table_row(event_row, 'N/A', 'Loading...');
 			});
 		}
+		else
+		{
+		    console.log("    ignoring event_data");
+		}
+		*/
 		return true;
 	}
 	catch (error)
@@ -881,6 +916,8 @@ async function update_dashboard()
 	    return;
 	}
 
+	console.log("dashbord_data.events: " + dashboard_data.events);
+
     const event_file = dashboard_data.event_filename;
     const seq_file = dashboard_data.sequence_filename;
 
@@ -893,14 +930,21 @@ async function update_dashboard()
         update_cameras_ui(dashboard_data.detected_cameras);
     }
 
-    if (!is_event_table_initialized && event_file && seq_file)
+    if (event_file || seq_file)
     {
-        console.log('Initial load detected for files:');
+        console.log('Detected files:');
         console.log('    ' + event_file);
         console.log('    ' + seq_file);
         await populate_static_event_details(event_file, seq_file);
+    }
+
+    if (event_file)
+    {
         load_event_file_button.classList.add('loaded');
-        is_event_table_initialized = true;
+    }
+    else
+    {
+        load_event_file_button.classList.remove('loaded');
     }
     if (seq_file)
     {

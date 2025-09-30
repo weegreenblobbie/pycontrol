@@ -28,7 +28,8 @@ def write_kv_config(filename, mapping):
     """
     data = []
     for k, v in mapping.items():
-        data.append([k, v])
+        if v:
+            data.append([k, v])
     with open(filename, "w") as fout:
         fout.write(tabulate.tabulate(data, tablefmt="plain") + "\n")
 

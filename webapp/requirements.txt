@@ -7,3 +7,7 @@ python-dateutil
 pytz
 tabulate
 
+# For unit tests
+pytest
+pytest-playwright
+pytest-flask
