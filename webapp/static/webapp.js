@@ -44,8 +44,8 @@ const rename_modal = document.getElementById('rename_modal');
 const rename_input = document.getElementById('rename_input');
 const save_rename_button = document.getElementById('save_rename');
 const cancel_rename_button = document.getElementById('cancel_rename');
-const event_table_body = document.querySelector('#event_table tbody');
 const event_info_table_body = document.getElementById("event_info_table").tBodies[0];
+const event_table_body = document.querySelector('#event_table').tBodies[0];
 const event_selection_modal = document.getElementById('event_selection_modal');
 const file_list_element = document.getElementById('file_list');
 const event_row_map = new Map();
@@ -75,7 +75,6 @@ const camera_choice_list = document.getElementById('camera_choice_list');
 let active_cell_info = null;
 let current_editable_td = null;
 let is_sim_running = false;
-let is_event_table_initialized = false;
 
 // --- Data Fetching ---
 async function fetch_data(url, options = {})
@@ -278,6 +277,7 @@ function create_control_table_for_camera(camera_data)
 {
     const table = document.createElement('table');
     table.classList.add('control-table');
+    table.id = "control_table";
 
     const head = table.createTHead();
     const header_row = head.insertRow();
@@ -580,7 +580,7 @@ function update_event_table_row(event_id, event_time, eta = 'N/A')
     if (!row)
     {
         row = event_table_body.insertRow();
-        row.id = `event_row_${event_id.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}`;
+        row.id = `event_row_${event_id}`;
         event_row_map.set(event_id, row);
 
         row.insertCell(0);
@@ -599,75 +599,61 @@ async function populate_static_event_details(event_file, seq_file)
 {
     console.log("populate_static_event_details(" + event_file + ", " + seq_file + ")");
 
-	// Clear both tables
-	event_info_table_body.innerHTML = '';
-	event_row_map.clear();
-	is_event_table_initialized = false;
+    const event_file_row = event_info_table_body.querySelector("tr");
+    let current_event_file = "";
 
-	try
-	{
-		const event_data = await fetch_data('/api/event_load', {
+    if (event_file_row)
+    {
+        const first_cell = event_file_row.querySelector("td");
+        if (first_cell)
+        {
+            current_event_file = first_cell.textContent.trim();
+        }
+    }
+
+    console.log(`current_event_file: '${current_event_file}'`);
+    console.log(`new_event_file:     '${event_file}'`);
+
+    if (current_event_file !== event_file)
+    {
+        console.log("Erasing event info table due to new event_file");
+        event_table_body.innerHTML = "";
+        event_info_table_body.innerHTML = "";
+        const info_row = event_info_table_body.insertRow();
+        info_row.insertCell().textContent = "N/A";
+        info_row.insertCell().textContent = "N/A";
+        info_row.insertCell().textContent = "N/A";
+    }
+
+    const all_cells = event_info_table_body.querySelectorAll('td');
+    const cell_event_file = all_cells[0];
+    const cell_event_type = all_cells[1];
+    const cell_seq_file = all_cells[2];
+
+    try
+    {
+        const event_data = await fetch_data('/api/event_load', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filename: event_file })
-        });
+         });
 
-        // Populate the new info table
-        const info_row = event_info_table_body.insertRow();
-        info_row.insertCell().textContent = event_file || 'N/A';
-        info_row.insertCell().textContent = event_data.type || 'N/A';
-        info_row.insertCell().textContent = seq_file || 'N/A';
+         // Populate the new info table
+         cell_event_file.textContent = event_file || 'N/A';
+         cell_event_type.textContent = event_data.type || 'N/A';
+         cell_seq_file.textContent = seq_file || 'N/A';
 
-        console.log("    event_data: " + event_data.events + " :");
-        console.log("    erasing event table tbody");
-        // Erase any rows first.
-        const tbody = document.querySelector("#event_table tbody");
-        if (tbody)
-        {
-            tbody.innerHTML = "";
-        }
-        else
-        {
-            console.log("    nothing matched selector: '#event_table tbody'");
-        }
-
-        /*
-
-		// Populate the main event list table.
-		if (event_data && Array.isArray(event_data))
-		{
-		    console.log("    erasing evente table tbody");
-		    // Erase any rows first.
-            const tbody = document.querySelector("#event_table tbody");
-            if (tbody)
-            {
-                tbody.innerHTML = "";
-            }
-
-            console.log("    adding event rows ...");
-
-            // Add rows for each event.
-			event_data.forEach(event_row =>
-			{
-				update_event_table_row(event_row, 'N/A', 'Loading...');
-			});
-		}
-		else
-		{
-		    console.log("    ignoring event_data");
-		}
-		*/
-		return true;
-	}
-	catch (error)
-	{
-		console.error(`Error fetching static event details for ${event_fil}:`, error);
-		const error_row = event_info_table_body.insertRow();
+         return true;
+    }
+    catch (error)
+    {
+        console.error(`Error fetching static event details for ${event_file}:`, error);
+        const error_row = event_info_table_body.insertRow();
         const cell = error_row.insertCell();
         cell.colSpan = 3;
         cell.textContent = `Error loading ${event_file}.`;
-		return false;
-	}
+        return false;
+    }
 }
 
 async function fetch_files_for_modal()

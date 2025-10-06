@@ -311,7 +311,7 @@ class PyControlApp:
 
 LOG_FORMAT = '%(asctime)s: %(levelname)-8s: %(filename)-20s(%(lineno)4d): %(message)s'
 
-def create_app(root_dir="../", gps_reader=None, camera_control=None, add_test_apis=False):
+def create_app(root_dir="../", gps_reader=None, camera_control=None):
     """
     Creates the PycontrolApp and patches in the flask routes to it.
     """
@@ -506,18 +506,6 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None, add_test_ap
         """
         return flask.redirect("/")
 
-
-    if add_test_apis:
-        """
-        In order for unit tests to inject test data, we have to use api
-        endpoints.
-        """
-        @app.route('/api/test_only/set_events', methods=['POST'])
-        def api_test_only_set_events():
-            data = flask.request.get_json()
-            events = data.get('events')
-            app.pycontrol_app._cam_io.test_only_set_events(events)
-            return flask.jsonify([]), 200
 
     return app
 

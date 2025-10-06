@@ -76,7 +76,13 @@
                         <th>Sequence File</th>
                     </tr>
                 </thead>
-                <tbody><!-- to be populated on event load --></tbody>
+                <tbody>
+                    <tr>
+                        <td>Please load an Event file.</td>
+                        <td>N/A</td>
+                        <td>Please load a Sequence file.</td>
+                    </tr>
+                </tbody>
             </table>
 
             <table id="event_table">
@@ -93,6 +99,7 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <!-- to be populated on event load -->
                 </tbody>
             </table>
         </div>
@@ -106,7 +113,9 @@
         <div class="section">
             <h2>Camera Control State: <span id="camera_control_state_value">idle</span></h2>
             <div id="camera_control_container">
-                <div id="control_tables_container"></div>
+                <div id="control_tables_container">
+                    <!-- to be populated on loaded sequence -->
+                </div>
             </div>
         </div>
 

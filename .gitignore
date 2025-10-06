@@ -15,6 +15,7 @@ webapp/venv
 webapp/__pycache__
 webapp/tests/__pycache__
 webapp/defaults.console
+webapp/defaults.html
 webapp/defaults.png
 webapp/run.log
 raspberry-pi-4/ansible/venv
