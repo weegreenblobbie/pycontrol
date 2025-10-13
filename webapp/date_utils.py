@@ -24,7 +24,7 @@ def normalize(obj):
     """
     if isinstance(obj, str):
         obj = make_datetime(obj)
-    return obj.isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+    return obj.isoformat(timespec='milliseconds').replace('+00:00', ' Z').replace('T', ' ')
 
 
 def eta(**kwargs):

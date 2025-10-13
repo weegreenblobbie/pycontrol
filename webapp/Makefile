@@ -18,4 +18,7 @@ real-clean:
 	@echo "$(BOLD)Real Cleaning$(RESET) $(shell pwd)"
 	$(SILENT)rm -rf ./venv
 
+test: venv
+	@PYTHONPATH=`pwd` venv/bin/pytest
+
 # :mode=Makefile:

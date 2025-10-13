@@ -277,13 +277,13 @@ function create_control_table_for_camera(camera_data)
 {
     const table = document.createElement('table');
     table.classList.add('control-table');
-    table.id = "control_table";
+    table.id = `control_table_${camera_data.id}`;
 
     const head = table.createTHead();
     const header_row = head.insertRow();
 
     const first_header = document.createElement('th');
-    first_header.textContent = `${camera_data.id} (# of ${camera_data.num_events || 'N/A'})`;
+    first_header.textContent = `${camera_data.id} (${camera_data.num_events || 'N/A'})`;
     header_row.appendChild(first_header);
 
     const other_headers = ["ETA", "Event ID", "Offset (HH:MM:SS.sss)", "Channel", "Value"];
@@ -599,15 +599,22 @@ async function populate_static_event_details(event_file, seq_file)
 {
     console.log("populate_static_event_details(" + event_file + ", " + seq_file + ")");
 
-    const event_file_row = event_info_table_body.querySelector("tr");
-    let current_event_file = "";
+    const event_info_row = event_info_table_body.querySelector("tr");
+    let current_event_file = "N/A";
+    let current_seq_file = "N/A";
 
-    if (event_file_row)
+    if (event_info_row)
     {
-        const first_cell = event_file_row.querySelector("td");
+        const first_cell = event_info_row.querySelector("td");
         if (first_cell)
         {
             current_event_file = first_cell.textContent.trim();
+        }
+
+        const last_cell = event_info_row.querySelector("td:last-child");
+        if (last_cell)
+        {
+            current_seq_file = last_cell.textContent.trim();
         }
     }
 
@@ -630,30 +637,34 @@ async function populate_static_event_details(event_file, seq_file)
     const cell_event_type = all_cells[1];
     const cell_seq_file = all_cells[2];
 
-    try
-    {
-        const event_data = await fetch_data('/api/event_load', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ filename: event_file })
-         });
+    const result = true;
 
-         // Populate the new info table
-         cell_event_file.textContent = event_file || 'N/A';
-         cell_event_type.textContent = event_data.type || 'N/A';
-         cell_seq_file.textContent = seq_file || 'N/A';
-
-         return true;
-    }
-    catch (error)
+    if (current_event_file !== event_file)
     {
-        console.error(`Error fetching static event details for ${event_file}:`, error);
-        const error_row = event_info_table_body.insertRow();
-        const cell = error_row.insertCell();
-        cell.colSpan = 3;
-        cell.textContent = `Error loading ${event_file}.`;
-        return false;
+        try
+        {
+            const event_data = await fetch_data('/api/event_load', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: event_file })
+            });
+            cell_event_file.textContent = event_file;
+            cell_event_type.textContent = event_data.type;
+
+        }
+        catch (error)
+        {
+            console.error(`Error fetching static event details for ${event_file}:`, error);
+            const error_row = event_info_table_body.insertRow();
+            const cell = error_row.insertCell();
+            cell.colSpan = 2;
+            cell.textContent = `Error loading ${event_file}.`;
+            result = false;
+        }
     }
+    cell_seq_file.textContent = seq_file || current_seq_file;
+
+    return result;
 }
 
 async function fetch_files_for_modal()
