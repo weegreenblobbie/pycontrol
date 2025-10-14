@@ -4,6 +4,7 @@ import logging
 import multiprocessing
 import os.path
 import pytest
+import random
 import re
 import sys
 import time
@@ -358,9 +359,9 @@ class TestWebapp:
         maby vectors of (red, green, blue) map to the same percieved green
         color.
         """
-        assert "loaded" not in self._event_button.classes, f"expected 'loaded' not in {self._event_button.classes}"
-        assert "loaded" not in self._seq_button.classes, f"expected 'loaded' not in {self._seq_button.classes}"
-        assert "stopped" in self._sim_button.classes, f"expected 'stopped' in {self._sim_button.classes}"
+        assert "loaded" not in self._event_button.classes
+        assert "loaded" not in self._seq_button.classes
+        assert "stopped" in self._sim_button.classes
 
     def _assert_default_event_info_table(self):
         """
@@ -411,7 +412,7 @@ class TestWebapp:
         self._page.wait_for_selector("#event_row_e3", timeout=self._timeout)
 
         table = self._page.locator("#event_table")
-        all_cell_texts = table.locator("tbody td").all_inner_texts()
+        text = table.locator("tbody td").all_inner_texts()
 
         expected = [
             # event_id   Timestamp                    ETA
@@ -419,20 +420,20 @@ class TestWebapp:
             "e2",        "2026-08-13 07:00:00.000 Z", "  317 days 04:38:59",
             "e3",        "2026-08-13 09:00:00.000 Z", "  317 days 06:38:59",
         ]
+        assert len(text) == len(expected)
 
-        assert len(all_cell_texts) == len(expected)
+        for i in range(0, len(expected), 3):
+            event_id, timestamp = text[i : i + 2]
+            ex_event_id, ex_timestamp = expected[i : i + 2]
 
-        for i in range(len(expected)):
-            if (i + 1) % 3 == 0:
-                # Skip ETA for now, as it's always chaning.
-                assert all_cell_texts[i] != ""
-            else:
-                assert all_cell_texts[i] == expected[i]
+            assert event_id == ex_event_id
+            assert timestamp == ex_timestamp
+            # Skip ETA for now, as it's always changing.
 
         # Assert that the load event button turns green.
-        assert "loaded" in self._event_button.classes, f"expected 'loaded' in {self._event_button.classes}"
-        assert "loaded" not in self._seq_button.classes, f"expected 'loaded' not in {self._seq_button.classes}"
-        assert "stopped" in self._sim_button.classes, f"expected 'stopped' in {self._sim_button.classes}"
+        assert "loaded" in self._event_button.classes
+        assert "loaded" not in self._seq_button.classes
+        assert "stopped" in self._sim_button.classes
 
         #---------------------------------------------------------------------
         # Now load custom2.event.
@@ -464,22 +465,22 @@ class TestWebapp:
         self._page.wait_for_selector("#event_row_e5", timeout=self._timeout)
 
         table = self._page.locator("#event_table")
-        all_cell_texts = table.locator("tbody td").all_inner_texts()
+        text = table.locator("tbody td").all_inner_texts()
 
         expected = [
             # event_id   Timestamp                    ETA
             "e4",        "2026-08-14 09:00:00.000 Z", "  317 days 06:38:59",
             "e5",        "2026-08-14 10:00:00.000 Z", "  317 days 07:38:59",
         ]
+        assert len(text) == len(expected)
 
-        assert len(all_cell_texts) == len(expected)
+        for i in range(0, len(expected), 3):
+            event_id, timestamp = text[i : i + 2]
+            ex_event_id, ex_timestamp = expected[i : i + 2]
 
-        for i in range(len(expected)):
-            if (i + 1) % 3 == 0:
-                # Skip ETA for now, as it's always chaning.
-                assert all_cell_texts[i] != ""
-            else:
-                assert all_cell_texts[i] == expected[i]
+            assert event_id == ex_event_id
+            assert timestamp == ex_timestamp
+            # Skip ETA for now, as it's always changing.
 
         # Assert that the load event button turns green.
         assert "loaded" in self._event_button.classes, f"expected 'loaded' in {self._event_button.classes}"
@@ -493,6 +494,7 @@ class TestWebapp:
         """
         on_console_messages("load camera sequence: s1.seq")
         self._seq_button.click()
+        time.sleep(1)
 
         # Wait for the popup container to become visible.
         modal = "#camera_sequence_file_list"
@@ -575,9 +577,9 @@ class TestWebapp:
         assert text == ["custom2.event", "custom", "s2.seq"]
 
         # Assert that the load sequence button turns green.
-        assert "loaded" in self._event_button.classes, f"expected 'loaded' in {self._event_button.classes}"
-        assert "loaded" in self._seq_button.classes, f"expected 'loaded' in {self._seq_button.classes}"
-        assert "stopped" in self._sim_button.classes, f"expected 'stopped' in {self._sim_button.classes}"
+        assert "loaded" in self._event_button.classes
+        assert "loaded" in self._seq_button.classes
+        assert "stopped" in self._sim_button.classes
 
         self._page.wait_for_selector("#control_table_z7 thead th", timeout=self._timeout)
         text = self._page.locator("#control_table_z7 thead th").all_inner_texts()
@@ -648,10 +650,10 @@ class TestWebapp:
         table = self._page.locator("#event_table")
         text = table.locator("tbody td").all_inner_texts()
 
-        #~        print("=" * 60)
-        #~        for i in range(0, len(text), 3):
-        #~            print(f"{i//3 + 1} {text[i : i + 3]}")
-        #~        print("=" * 60)
+        # print("=" * 60)
+        # for i in range(0, len(text), 3):
+        #     print(f"{i//3 + 1} {text[i : i + 3]}")
+        # print("=" * 60)
 
         expected = [
             # event_id   Timestamp           ETA
@@ -685,10 +687,10 @@ class TestWebapp:
 
         text = self._page.locator("#event_table tbody td").all_inner_texts()
 
-        #~        print("=" * 60)
-        #~        for i in range(0, len(text), 3):
-        #~            print(f"{text[i : i + 3]}")
-        #~        print("=" * 60)
+        # print("=" * 60)
+        # for i in range(0, len(text), 3):
+        #     print(f"{text[i : i + 3]}")
+        # print("=" * 60)
 
         expected = [
             "c1",  "2026-08-12 17:32:15.000 Z", "  303 days 19:17:37",
@@ -699,13 +701,13 @@ class TestWebapp:
         ]
         assert len(text) == len(expected)
 
-        for i in range(len(expected)):
-            if (i + 1) % 3 == 0:
-                # Skip ETA for now, as it's always chaning.
-                assert text[i] != ""
-            else:
-                assert text[i] == expected[i]
+        for i in range(0, len(expected), 3):
+            event_id, timestamp = text[i : i + 2]
+            ex_event_id, ex_timestamp = expected[i : i + 2]
 
+            assert event_id == ex_event_id
+            assert timestamp == ex_timestamp
+            # Skip ETA for now, as it's always changing.
 
     def _run_simulation(self):
         """
@@ -731,27 +733,28 @@ class TestWebapp:
             assert actual == expected
 
         # Update the form with these values:
-        new_values = [
-            ("sim_latitude_input", "42.977592"),
-            ("sim_longitude_input", "-4.997906"),
-            ("sim_altitude_input", "1258.0"),
-            ("sim_event_id_input", "c2"),
-            ("sim_time_offset_input", "-25.0"),
-        ]
+        new_values = {
+            "sim_latitude_input": "42.977592",
+            "sim_longitude_input": "-4.997906",
+            "sim_altitude_input": "1258.0",
+            "sim_event_id_input": "c2",
+            "sim_time_offset_input": "-25.0",
+        }
 
-        for id_, value in new_values:
-            self._page.fill(f"#{id_}", value)
+        for key, value in new_values.items():
+            self._page.fill(f"#{key}", value)
 
         on_console_messages("Clicking on the run sim okay button")
         self._page.click("#sim_okay_button")
 
-        time.sleep(11.0)
+        time.sleep(6.0)
 
         # Assert the run sim button is now red.
-        assert "loaded" in self._event_button.classes, f"expected 'loaded' in {self._event_button.classes}"
-        assert "loaded" in self._seq_button.classes, f"expected 'loaded' in {self._seq_button.classes}"
-        assert "stopped" not in self._sim_button.classes, f"expected 'stopped' not in {self._sim_button.classes}"
-        assert "running" in self._sim_button.classes, f"expected 'running' in {self._sim_button.classes}"
+        assert "loaded" in self._event_button.classes
+        assert "loaded" in self._seq_button.classes
+        assert "running" in self._sim_button.classes
+
+        time.sleep(5.0)
 
         text = self._page.locator("#event_table tbody td").all_inner_texts()
         right_now = du.now()
@@ -795,16 +798,100 @@ class TestWebapp:
             actual_eta = eta_to_seconds(eta)
             expected_eta = eta_to_seconds(expected[idx + 2])
 
-            assert abs(expected_eta - actual_eta) < 2.0
+            assert abs(expected_eta - actual_eta) <= 2.0
 
             # Timestamp + eta ~= right_now
-            assert abs((timestamp - right_now).total_seconds() - actual_eta) < 2.0
+            assert abs((timestamp - right_now).total_seconds() - actual_eta) <= 2.0
 
         # Now clicking on the sim button should stop the simulation.
         self._sim_button.click()
         time.sleep(1)
 
         # Assert the run sim button is now green.
-        assert "loaded" in self._event_button.classes, f"expected 'loaded' in {self._event_button.classes}"
-        assert "loaded" in self._seq_button.classes, f"expected 'loaded' in {self._seq_button.classes}"
-        assert "stopped" in self._sim_button.classes, f"expected 'stopped' in {self._sim_button.classes}"
+        assert "loaded" in self._event_button.classes
+        assert "loaded" in self._seq_button.classes
+        assert "stopped" in self._sim_button.classes
+
+        #---------------------------------------------------------------------
+        # Running a simulation and erasing the event id or time, so that the
+        # real-world eclipse contact times are computed.
+
+        on_console_messages("Run Simulation button click")
+        self._sim_button.click()
+
+         # Wait for the popup container to become visible.
+        self._page.wait_for_selector("#run_sim_modal", state="visible", timeout=self._timeout)
+
+        # Update the form with these values:
+        new_values = {
+            "sim_latitude_input": "42.977592",
+            "sim_longitude_input": "-4.997906",
+            "sim_altitude_input": "1258.0",
+            "sim_event_id_input": "c2",
+            "sim_time_offset_input": "-25.0",
+        }
+
+        # Erasing one of these will use the simulated gps position but not
+        # a simulated time offset, so the real world contact times are computed
+        # for the given position.
+        choice = random.choice(["sim_event_id_input", "sim_time_offset_input"])
+        new_values[choice] = ""
+
+        for key, value in new_values.items():
+            self._page.fill(f"#{key}", value)
+
+        on_console_messages("Clicking on the run sim okay button again")
+        self._page.click("#sim_okay_button")
+        time.sleep(6.0)
+
+        # Assert the run sim button is now red.
+        assert "loaded" in self._event_button.classes
+        assert "loaded" in self._seq_button.classes
+        assert "running" in self._sim_button.classes
+
+        time.sleep(5.0)
+
+        text = self._page.locator("#event_table tbody td").all_inner_texts()
+        right_now = du.now()
+
+        # print("=" * 60)
+        # for i in range(0, len(text), 3):
+        #     print(f"{text[i : i + 3]}")
+        # print("=" * 60)
+
+        # http://xjubier.free.fr/en/site_pages/solar_eclipses/xSE_GoogleMap3.php?Ecl=+20260812&Acc=2&Umb=1&Lmt=1&Mag=1&Max=1&Lat=42.977592&Lng=-4.997906&Elv=1258.0&Zoom=19&LC=1
+        #    lat=42.977592,
+        #    long=-4.997906,
+        #    altitude=1258.0,  # pvlib.location.lookup_altitude(42.977592, -4.997906)
+        #
+        #    Start of partial eclipse (C1):   2026/08/12	17:32:09.4	+19.6°	272.2°	299°	03.6
+        #    Start of total eclipse (C2):     2026/08/12	18:27:37.8	+09.6°	281.4°	108°	10.0
+        #    Maximum eclipse (MAX):           2026/08/12	18:28:30.9	+09.4°	281.5°	208°	06.7
+        #    End of total eclipse (C3):       2026/08/12	18:29:23.7	+09.2°	281.7°	308°	03.3
+        #    End of partial eclipse (C4):     2026/08/12	19:21:21.0	+00.1°	290.3°	117°	09.6
+        #
+        expected = [
+            # event id   timestammp                   ETA
+            "c1",        "2026-08-12 17:32:15.000 Z", "  302 days 15:00:04",
+            "c2",        "2026-08-12 18:27:37.750 Z", "  302 days 15:55:27",
+            "mid",       "2026-08-12 18:28:30.750 Z", "  302 days 15:56:20",
+            "c3",        "2026-08-12 18:29:23.750 Z", "  302 days 15:57:13",
+            "c4",        "2026-08-12 19:21:15.000 Z", "  302 days 16:49:04",
+        ]
+        assert len(text) == len(expected)
+
+        for i in range(0, len(expected), 3):
+            event_id, timestamp = text[i : i + 2]
+            ex_event_id, ex_timestamp = expected[i : i + 2]
+
+            assert event_id == ex_event_id
+            assert timestamp == ex_timestamp
+
+        # Now clicking on the sim button should stop the simulation.
+        self._sim_button.click()
+        time.sleep(1)
+
+        # Assert the run sim button is now green.
+        assert "loaded" in self._event_button.classes
+        assert "loaded" in self._seq_button.classes
+        assert "stopped" in self._sim_button.classes

@@ -211,12 +211,10 @@ class PyControlApp:
 
         sim_time_offset = datetime.timedelta(seconds=0)
 
-        if event_id:
+        if event_id and event_time_offset is not None:
             event_time = solution.get(event_id)
             if event_time is None:
-                return make_response("Failure", f"No event time for {event_id}", 400)
-            if event_time_offset is None:
-                return make_response("Failure", "Event time offset cannot be None", 400)
+                return self._make_response("Failure", f"No event time for {event_id}", 400)
 
             event_time_offset_delta = datetime.timedelta(seconds=event_time_offset)
             sim_time_offset = du.now() - event_time - event_time_offset_delta
@@ -404,7 +402,7 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
             # Correctly call the public method
             return app.pycontrol_app.load_sequence(filename)
         except FileNotFoundError as e:
-            return make_response("error", str(e), 404)
+            return app.pycontrol_app._make_response("error", str(e), 404)
         except Exception as e:
             app.logger.error(f"Failed to load camera sequence {filename}: {e}")
             return app.pycontrol_app._make_response("error", "Failed to load camera sequence", 500)
