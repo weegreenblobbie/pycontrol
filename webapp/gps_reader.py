@@ -6,13 +6,18 @@ import datetime
 
 from pyproj import Transformer
 
+import date_utils as du
 
-def format_timedelta_to_hms(td):
+
+def format_delta_to_hms(td):
     """Formats a timedelta object into a HH:MM:SS string."""
     # Updated to use datetime.timedelta
-    if not isinstance(td, datetime.timedelta):
+    if isinstance(td, float):
+        total_seconds = int(td + 0.5)
+    elif not isinstance(td, datetime.timedelta):
         return "00:00:00"
-    total_seconds = int(td.total_seconds())
+    else:
+        total_seconds = int(td.total_seconds() + 0.5)
     hours, remainder = divmod(total_seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{hours:02}:{minutes:02}:{seconds:02}"
@@ -43,7 +48,7 @@ class GpsReader:
         self._lat = 0.0
         self._long = 0.0
         self._altitude = 0.0
-        self._time_err = None
+        self._delta_t = 0.0
         self._device = None
         self._path = None
         self._satellites_used = 0
@@ -82,7 +87,7 @@ class GpsReader:
                 lat=self._lat,
                 long=self._long,
                 altitude=self._altitude,
-                time_err=self._time_err,
+                delta_t=self._delta_t,
                 device=self._device,
                 path=self._path,
                 sats_used=self._satellites_used,
@@ -93,7 +98,6 @@ class GpsReader:
     def _run(self):
         """The main loop for the background thread."""
         sock = None
-        last_data_timestamp = datetime.datetime.now()
 
         # Pre-compute the timedelta object before the loop starts
         timeout_delta = datetime.timedelta(seconds=self.DATA_TIMEOUT_SECONDS)
@@ -113,7 +117,6 @@ class GpsReader:
                     raise ConnectionError("gpsd disconnected")
 
                 report = json.loads(line)
-                last_data_timestamp = datetime.datetime.now()
 
                 updates_to_commit = {}
                 if report.get('class') == 'TPV':
@@ -150,6 +153,7 @@ class GpsReader:
     def _process_tpv_report(self, report):
         """Processes a TPV report and returns a dict of updates."""
         updates = {'connected': True, 'error': False}
+        right_now = du.now()
 
         current_mode = report.get('mode', 0)
 
@@ -184,8 +188,32 @@ class GpsReader:
 
         time_in_mode = datetime.datetime.now() - self._mode_change_time
         updates['mode'] = self.MODES[current_mode]
-        updates['mode_time'] = format_timedelta_to_hms(time_in_mode)
-        updates['time'] = report.get('time')
+        updates['mode_time'] = format_delta_to_hms(time_in_mode)
+
+        gps_time = report.get('time')
+
+        # Try to convert time to a datetime object.
+        try:
+            gps_time = du.make_datetime(gps_time)
+        except:
+            pass
+
+        # Compute delta_t if successful.
+        if isinstance(gps_time, datetime.datetime):
+            delta_t = (gps_time - right_now).total_seconds()
+            if abs(delta_t) < 60.0:
+                delta_t = f"{delta_t:5.3f}"
+            else:
+                delta_t = format_delta_to_hms(delta_t)
+            updates['delta_t'] = delta_t
+        else:
+            updates['delta_t'] = 'N/A'
+
+        # Normalize the datetime object to string.
+        try:
+            updates['time'] = du.normalize(gps_time)
+        except:
+            pass
 
         return updates
 

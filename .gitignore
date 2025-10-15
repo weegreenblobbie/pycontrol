@@ -11,6 +11,7 @@ external/json_build
 external/libgphoto2
 external/share
 external/venv
+.pytest_cache
 webapp/venv
 webapp/__pycache__
 webapp/tests/__pycache__

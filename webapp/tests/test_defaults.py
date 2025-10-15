@@ -44,12 +44,12 @@ class FakeGpsReader:
             connected=True,
             mode="3D FIX",
             mode_time="01:00:00",
-            time=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds').replace("+00:00", " UTC"),
+            time=du.normalize(du.now()),
             # http://xjubier.free.fr/en/site_pages/solar_eclipses/xSE_GoogleMap3.php?Ecl=+20260812&Acc=2&Umb=1&Lmt=1&Mag=1&Max=1&Lat=42.977592&Lng=-4.997906&Elv=1258.0&Zoom=19&LC=1
             lat=42.977592,
             long=-4.997906,
             altitude=1258.0,  # pvlib.location.lookup_altitude(42.977592, -4.997906)
-            time_err=None,
+            delta_t=0.5,
             device="/dev/ttyACM0",
             path=None,
             sats_used=4,

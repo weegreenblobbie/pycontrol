@@ -35,6 +35,7 @@ const gps_mode = document.getElementById("gps-mode");
 const gps_mode_time = document.getElementById("gps-mode-time");
 const gps_sats = document.getElementById("gps-sats");
 const gps_time = document.getElementById("gps-time");
+const gps_delta_t = document.getElementById("gps-delta-t");
 const gps_latitude = document.getElementById("gps-latitude");
 const gps_longitude = document.getElementById("gps-longitude");
 const gps_altitude = document.getElementById("gps-altitude");
@@ -156,6 +157,7 @@ function update_gps_ui(data)
         gps_mode_time.textContent = data.mode_time || "N/A";
         gps_sats.textContent = "N/A";
         gps_time.textContent = "N/A";
+        gps_delta_t.textContent = "N/A";
         gps_latitude.textContent = "N/A";
         gps_longitude.textContent = "N/A";
         gps_altitude.textContent = "N/A";
@@ -179,6 +181,7 @@ function update_gps_ui(data)
     gps_mode_time.textContent = data.mode_time;
     gps_sats.textContent = format_string("%d/%d", data.sats_used, data.sats_seen);
     gps_time.textContent = data.time;
+    gps_delta_t.textContent = data.delta_t;
     gps_latitude.textContent = data.lat !== undefined ? data.lat.toFixed(6) : "N/A";
     gps_longitude.textContent = data.long !== undefined ? data.long.toFixed(6) : "N/A";
     gps_altitude.textContent = data.altitude !== undefined ? data.altitude.toFixed(2) : "N/A";
