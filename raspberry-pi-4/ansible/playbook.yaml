@@ -144,6 +144,38 @@
         - install
         - wifi
 
+    - name: IpV4 - Setup IpV4 Multicast Route
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/systemd/network/10-loopback.network
+        content: |
+          # By default, the operating system doesn't know which network
+          # interface to use for sending multicast packets. When no other
+          # network is up, it has nowhere to send them, which causes a
+          # "Network is unreachable" error.
+          #
+          # To fix this, we need to add a route that explicitly tells the
+          # kernel: "Any traffic destined for the private multicast range
+          # (239.0.0.0 to 239.255.255.255) should be sent through the loopback
+          # device."
+          #
+          [Match]
+          Name=lo
+
+          [Network]
+          # Empty, we're only adding route with this file.
+
+          # All multicast Ipv4 traffic is sent to the loopback device.
+          [Route]
+          Destination=239.0.0.0/8
+        mode: '0644'
+        owner: root
+        group: root
+      notify:
+        - restart systemd-networkd
+      tags:
+        - ipv4
+
     - name: Wifi - Setup static IP
       become: true
       ansible.builtin.copy:
@@ -154,7 +186,6 @@
 
           [Network]
           Address={{wlan0_ip}}/24
-          interface wlan0
         mode: '0644'
         owner: root
         group: root
