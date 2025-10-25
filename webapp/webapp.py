@@ -69,7 +69,7 @@ class PyControlApp:
         else:
             status = status_or_obj
             data = None
-        self._app.logger.info(f"status: {status} return_code: {return_code} message: {message} data: {data}")
+        #self._app.logger.info(f"status: {status} return_code: {return_code} message: {message} data: {data}")
         if data:
             return (flask.jsonify(data), return_code)
         return (flask.jsonify(status=status, message=message), return_code)
@@ -96,12 +96,12 @@ class PyControlApp:
 
     def get_dashboard_data(self):
         """Gathers all data needed for the main dashboard update."""
-        self._app.logger.info("get_dashboard_data()")
+        #self._app.logger.info("get_dashboard_data()")
         telem = self._cam_io.read()
-        self._app.logger.info(f"    telem: {telem}")
+        #self._app.logger.info(f"    telem: {telem}")
         detected_cameras = telem.pop("detected_cameras", [])
         events = self._read_events(self._event_solver.read())
-        self._app.logger.info(f"    events: {events}")
+        #self._app.logger.info(f"    events: {events}")
         camera_control = dict(
             state = telem.pop("state", "unknown"),
             sequence = telem.pop("sequence", ""),
@@ -173,7 +173,7 @@ class PyControlApp:
 
     def load_sequence(self, filename=None):
         """Public method to load a camera sequence and re-trigger the solver."""
-        self._app.logger.info(f"load_sequence({filename})")
+        #self._app.logger.info(f"load_sequence({filename})")
         if filename is None:
             return
         full_path = os.path.abspath(os.path.join(self._root_dir, "sequences", filename))
@@ -262,7 +262,7 @@ class PyControlApp:
         out = []
         for event_id in event_ids:
             event_time = event_map.get(event_id, EventSolver.COMPUTING)
-            self._app.logger.info(f"    event_time: {event_time}")
+            #self._app.logger.info(f"    event_time: {event_time}")
             if event_time == EventSolver.COMPUTING:
                 out.append( (event_id, event_time, "") )
             elif event_time is None:
@@ -378,7 +378,7 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
 
         try:
             data = app.pycontrol_app.load_event_file(filename)
-            app.logger.info(f"loaded event {filename}")
+            #app.logger.info(f"loaded event {filename}")
             return flask.jsonify(data), 200
         except Exception as e:
             return app.pycontrol_app._make_response("Failure", f"Failed to load event file: {e}", 500)
@@ -398,7 +398,7 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
         if not filename:
             return app.pycontrol_app._make_response("error", "Filename not provided", 400)
         try:
-            app.logger.info(f"loading {filename}")
+            #app.logger.info(f"loading {filename}")
             # Correctly call the public method
             return app.pycontrol_app.load_sequence(filename)
         except FileNotFoundError as e:

@@ -164,11 +164,11 @@ function update_gps_ui(data)
         return;
     }
 
-    if (data.mode == "2D FIX")
+    if (data.mode == "3D Fix")
     {
         gps_connection.src = "/static/gps-degraded.svg";
     }
-    else if (data.mode == "3D FIX")
+    else if (data.mode == "3D Sync")
     {
         gps_connection.src = "/static/gps-connected.svg";
     }

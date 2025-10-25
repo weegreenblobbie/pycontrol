@@ -1,8 +1,9 @@
-import socket
-import json
-import time
-import threading
 import datetime
+import enum
+import json
+import socket
+import threading
+import time
 
 from pyproj import Transformer
 
@@ -23,6 +24,22 @@ def format_delta_to_hms(td):
     return f"{hours:02}:{minutes:02}:{seconds:02}"
 
 
+class GpsMode(enum.IntEnum):
+    NOT_SEEN = 0
+    NO_FIX = 1
+    FIX_2D = 2
+    FIX_3D = 3
+    SYNC_3D = 4
+
+# I want to customize the string representation so I'll use this map.
+MODE_STRINGS = {
+    GpsMode.NOT_SEEN: "Not Seen",
+    GpsMode.NO_FIX: "No Fix",
+    GpsMode.FIX_2D: "2D Fix",
+    GpsMode.FIX_3D: "3D Fix",
+    GpsMode.SYNC_3D: "3D Sync",
+}
+
 class GpsReader:
     """
     A class to read GPS data directly from the gpsd socket in a separate thread.
@@ -30,8 +47,6 @@ class GpsReader:
     """
     DATA_TIMEOUT_SECONDS = 1.25
     FLOAT_TOLERANCE = 1e-7
-    MODES = ("NOT SEEN", "NO FIX", "2D FIX", "3D FIX")
-    NO_FIX = 1
 
     def __init__(self, host="127.0.0.1", port="2947"):
         self._host = host
@@ -42,8 +57,10 @@ class GpsReader:
 
         self._connected = False
         self._error = False
-        self._mode = self.MODES[0]
+        self._mode = GpsMode.NOT_SEEN
         self._mode_time = "00:00:00"
+        self._mode_change_time = du.now()
+        self._last_known_mode = self._mode
         self._time = None
         self._lat = 0.0
         self._long = 0.0
@@ -54,13 +71,12 @@ class GpsReader:
         self._satellites_used = 0
         self._satellites_seen = 0
 
-        self._last_known_mode = 0
-        # Updated to use datetime.datetime
-        self._mode_change_time = datetime.datetime.now()
-
         ecef_crs = "EPSG:4978"
         lla_crs = "EPSG:4326"
         self._transformer = Transformer.from_crs(ecef_crs, lla_crs, always_xy=True)
+
+        # Assume the system time has not synced yet with GPS time via gpsd.
+        self._gpsd_synced = False
 
     def start(self):
         if self._running:
@@ -81,7 +97,7 @@ class GpsReader:
         with self._lock:
             data = dict(
                 connected=self._connected and not self._error,
-                mode=self._mode,
+                mode=MODE_STRINGS[self._mode.value],
                 mode_time=self._mode_time,
                 time=self._time,
                 lat=self._lat,
@@ -123,6 +139,8 @@ class GpsReader:
                     updates_to_commit.update(self._process_tpv_report(report))
                 elif report.get('class') == 'SKY':
                     updates_to_commit.update(self._process_sky_report(report))
+                #else:
+                #    print(f"report: {report}")
 
                 if updates_to_commit:
                     with self._lock:
@@ -137,17 +155,19 @@ class GpsReader:
                 with self._lock:
                     self._error = True
                     self._connected = False
-                    if self._last_known_mode != 0:
-                        self._last_known_mode = 0
-                        self._mode_change_time = datetime.datetime.now()
-                        self._mode = self.MODES[0]
+                    if self._last_known_mode.value != 0:
+                        self._mode_change_time = du.now()
+                        self._mode = GpsMode.NOT_SEEN,
                         self._mode_time = "00:00:00"
+                        self._last_known_mode = self._mode
                     self._time = "N/A"
                     self._lat = "N/A"
                     self._long = "N/A"
                     self._altitude = "N/A"
                     self._satellites_used = 0
                     self._satellites_seen = 0
+                    self._delta_t = 9999.9
+                    self._gpsd_synced = False
 
 
     def _process_tpv_report(self, report):
@@ -155,9 +175,14 @@ class GpsReader:
         updates = {'connected': True, 'error': False}
         right_now = du.now()
 
-        current_mode = report.get('mode', 0)
+        md = report.get('mode', 0)
+        if not isinstance(md, int):
+            print(f"Unexpected mode {md}, ingoring")
+            md = 0
 
-        has_fix = current_mode >= 2
+        current_mode = GpsMode(md)
+
+        has_fix = current_mode >= GpsMode.FIX_2D
         lat_from_report = report.get('lat', 0.0)
         has_valid_lat_lon = abs(lat_from_report) > self.FLOAT_TOLERANCE
         ecefx = report.get('ecefx', 0.0)
@@ -179,16 +204,8 @@ class GpsReader:
         else:
             # Oh no!  We don't have either!  Consider the GPS disconnected to
             # bring attention to the user.
-            current_mode = self.NO_FIX
+            current_mode = GpsMode.NO_FIX
             updates['lat'], updates['long'], updates['altitude'] = 0.0, 0.0, 0.0
-
-        if current_mode != self._last_known_mode:
-            self._last_known_mode = current_mode
-            self._mode_change_time = datetime.datetime.now()
-
-        time_in_mode = datetime.datetime.now() - self._mode_change_time
-        updates['mode'] = self.MODES[current_mode]
-        updates['mode_time'] = format_delta_to_hms(time_in_mode)
 
         gps_time = report.get('time')
 
@@ -201,7 +218,9 @@ class GpsReader:
         # Compute delta_t if successful.
         if isinstance(gps_time, datetime.datetime):
             delta_t = (gps_time - right_now).total_seconds()
-            if abs(delta_t) < 60.0:
+            error_t = abs(delta_t)
+            self._gpsd_synced = error_t < 1.0
+            if error_t < 60.0:
                 delta_t = f"{delta_t:5.3f}"
             else:
                 delta_t = format_delta_to_hms(delta_t)
@@ -214,6 +233,20 @@ class GpsReader:
             updates['time'] = du.normalize(gps_time)
         except:
             pass
+
+        # Upgrade current mode if we have 3D Fix and the system time is in sync
+        # with gpsd.
+        if current_mode >= GpsMode.FIX_3D and self._gpsd_synced:
+            current_mode = GpsMode.SYNC_3D
+
+        # Track time in GpsMode.
+        if current_mode != self._last_known_mode:
+            self._last_known_mode = current_mode
+            self._mode_change_time = du.now()
+
+        time_in_mode = du.now() - self._mode_change_time
+        updates['mode'] = current_mode
+        updates['mode_time'] = format_delta_to_hms(time_in_mode)
 
         return updates
 
@@ -252,3 +285,4 @@ if __name__ == "__main__":
     finally:
         if gps_reader:
             gps_reader.stop()
+
