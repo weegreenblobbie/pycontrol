@@ -1,6 +1,9 @@
 # Treat warnings as errors.
-#import warnings
-#warnings.filterwarnings("error")
+import warnings
+from astropy.time import TimeDeltaMissingUnitWarning
+
+# Tell Python to treat this specific warning as an error
+warnings.simplefilter('error', TimeDeltaMissingUnitWarning)
 
 import numpy as np
 #~import scipy.optimize
@@ -14,7 +17,11 @@ import dateutil as du
 astropy.coordinates.solar_system_ephemeris.set("de430")
 
 RADIUS_SUN = astropy.constants.R_sun
-RADIUS_MOON = 1736.0 * u.km
+
+# Manually tweaked to match C2, MID and C3 times to match Xavier M. Jubier's
+# calculated contact times.
+#     http://xjubier.free.fr/en/site_pages/solar_eclipses
+RADIUS_MOON = 1735.8 * u.km
 
 
 def distance_calc(
@@ -33,20 +40,23 @@ def distance_calc(
     alt_az_sun = coordinate_sun.transform_to(frame_local)
     alt_az_moon = coordinate_moon.transform_to(frame_local)
 
-    angular_size_sun = np.arctan2(RADIUS_SUN, alt_az_sun.distance).to(u.deg)
-    angular_size_moon = np.arctan2(RADIUS_MOON, alt_az_moon.distance).to(u.deg)
+    angular_radius_sun = np.arctan2(RADIUS_SUN, alt_az_sun.distance).to(u.deg)
+    angular_radius_moon = np.arctan2(RADIUS_MOON, alt_az_moon.distance).to(u.deg)
 
     separation = alt_az_moon.separation(alt_az_sun).deg * u.deg
 
     if mode == "overlap":
+        # Any overlap: R_sun + R_moon - Separation
         # C1, C4, any_overlap >= 0.0
-        return angular_size_sun + angular_size_moon - separation
+        return angular_radius_sun + angular_radius_moon - separation
 
     elif mode == "totality":
+        # any_totality: R_moon - R_sun - Separation
+        # c2, c3, any_totality >= 0.0
         return (
-            angular_size_moon - angular_size_sun - separation,
-            angular_size_sun,
-            angular_size_moon,
+            angular_radius_moon - angular_radius_sun - separation,
+            angular_radius_sun,
+            angular_radius_moon,
         )
 
     raise ValueError(f"Unkown mode '{mode}'")
@@ -145,7 +155,7 @@ def calculate_contact_times(
         )
     )
 
-    any_totality, angular_size_sun, angular_size_moon = distance_calc(
+    any_totality, angular_radius_sun, angular_radius_moon = distance_calc(
         location=location,
         time=totality_times,
         mode="totality",
@@ -154,12 +164,12 @@ def calculate_contact_times(
     mid_index = np.argmax(any_totality)
     mid = totality_times[mid_index]
 
-    as_moon = angular_size_moon[mid_index]
-    as_sun = angular_size_sun[mid_index]
+    r_moon = angular_radius_moon[mid_index]
+    r_sun = angular_radius_sun[mid_index]
 
     # Detect the type of elipse at max.
     type_ = None
-    if as_moon >= as_sun:
+    if r_moon >= r_sun:
         type_ = "totality"
     elif np.any(any_totality >= 0):
         type_ = "annular"
@@ -184,12 +194,14 @@ def find_contact_times(start, lat, lon, alt):
     assert isinstance(start, astropy.time.Time)
 
     return calculate_contact_times(
-        location=astropy.coordinates.EarthLocation(lat=lat * u.deg, lon=lon * u.deg, height=alt * u.m),
+        location=astropy.coordinates.EarthLocation.from_geodetic(
+            lat=lat * u.deg,
+            lon=lon * u.deg,
+            height=alt * u.m),
         time_search_start=start,
     )
 
-if __name__ == "__main__":
-
+def run_test():
     import datetime
 
     d0 = datetime.datetime.now()
@@ -298,6 +310,10 @@ if __name__ == "__main__":
         ),
     ]
 
+    total_c2_error = 0.0
+    total_mid_error = 0.0
+    total_c3_error = 0.0
+
     for tc in test_cases:
 
         lat = tc["lat"]
@@ -317,7 +333,7 @@ if __name__ == "__main__":
         print(f"Longitude: {lon:.6f}")
         print(f"Altitude:  {alt:.2f}")
 
-        for label in ["C1", "C2", "MID", "C2", "C4"]:
+        for label in ["C1", "C2", "MID", "C3", "C4"]:
             if label not in tc:
                 continue
             computed_time = contact_times[label]
@@ -327,8 +343,38 @@ if __name__ == "__main__":
 
             print(f"{label:3s}: {computed_time}, error: {delta.sec:.1f}")
 
+            if label == "C2":
+                total_c2_error += delta.sec
+            if label == "MID":
+                total_mid_error += delta.sec
+            if label == "C3":
+                total_c3_error += delta.sec
 
     d1 = datetime.datetime.now()
     delta = (d1 - d0).total_seconds()
     avg = delta / len(test_cases)
     print(f"Average call time: {avg:.1f}")
+
+    N = float(len(test_cases))
+    print(f"Average C2  error: {total_c2_error / N:.3f}")
+    print(f"Average MID error: {total_mid_error / N:.3f}")
+    print(f"Average C3  error: {total_c3_error / N:.3f}")
+
+    with open("data.txt", "a") as fout:
+        fout.write(f"RADIUS_MOON: {RADIUS_MOON:.3f}\n")
+        fout.write(f"    Average C2  error: {total_c2_error / N:.3f}\n")
+        fout.write(f"    Average MID error: {total_mid_error / N:.3f}\n")
+        fout.write(f"    Average C3  error: {total_c3_error / N:.3f}\n")
+        fout.write(f"    total error: {total_c2_error + total_mid_error + total_c3_error:.3f}\n")
+
+if __name__ == "__main__":
+
+#~    offsets = np.arange(-0.15, 0.15, 0.05)
+
+#~    R_moon = 1735.8 * u.km
+
+#~    for r_offset in offsets:
+#~        RADIUS_MOON = R_moon + r_offset * u.km
+#~        run_test()
+
+    run_test()

@@ -84,5 +84,33 @@ GPhoto2Cpp::wait_for_event(
     return gphoto2cpp::wait_for_event(camera, timeout_ms, out);
 }
 
+struct FileCapture : public pycontrol::interface::FileCapture
+{
+private:
+    gphoto2cpp::FileCapture _gp2_file_capture;
+
+public:
+    explicit FileCapture(const gphoto2cpp::camera_ptr& ptr)
+        : _gp2_file_capture(ptr) {}
+
+    bool capture() override {
+        return _gp2_file_capture.capture();
+    }
+
+    bool decompress_jpeg(std::vector<unsigned char>& output, unsigned int& num_channels) override {
+        return _gp2_file_capture.decompress_jpeg(output, num_channels);
+    }
+
+    bool delete_last_capture() override {
+        return _gp2_file_capture.delete_last_capture();
+    }
+};
+
+std::unique_ptr<pycontrol::interface::FileCapture>
+GPhoto2Cpp::make_file_capture(const gphoto2cpp::camera_ptr & ptr)
+{
+    return std::make_unique<pycontrol::FileCapture>(ptr);
+}
+
 
 } /*  namespace pycontrol */

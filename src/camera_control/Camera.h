@@ -12,6 +12,9 @@ namespace pycontrol
 
 class Event;
 
+using hist_vec = std::vector<std::uint64_t>;
+using pixel_vec = std::vector<std::uint8_t>;
+
 
 class Camera
 {
@@ -31,6 +34,7 @@ public:
         std::string battery_level  {"N/A"};
         std::string capture_mode   {"N/A"};
         std::string shooting_speed {"N/A"};
+        std::string capture_target {"N/A"};
 
         int num_avail             {0};
         int num_photos            {0};
@@ -44,6 +48,7 @@ public:
         const std::string & serial,
         const std::string & config_file
     );
+    ~Camera();
 
     const Info & info() { return _info; }
 
@@ -63,8 +68,12 @@ public:
     result trigger();
     result drain_events();
 
+    result capture_histogram();
+    const hist_vec & histogram() const { return _hist; }
+
     void set_burst_number(const std::string & burst_number);
     void set_capture_mode(const std::string & capture_mode);
+    void set_capture_target(const std::string & capture_target);
     void set_fstop(const std::string & fstop);
     void set_iso(const std::string & iso);
     void set_mode(const std::string & mode);
@@ -77,9 +86,17 @@ public:
     bool have_capture_mode() const { return _have_capture_mode; }
     bool have_shooting_speed() const { return _have_shooting_speed; }
 
+    float shutter_speed(const std::string & value="") const;
+    unsigned int iso(const std::string & value="") const;
+
+    // Not stops, the minimum step adjustemnt, usually 1/3 stops.
+    void step_shutter_speed(int steps);
+    void step_iso(int steps);
+
 private:
 
     void _query_props();
+    void _step_camera_property(const std::string & property, int step);
 
     interface::GPhoto2Cpp &        _gp2cpp;
     gphoto2cpp::camera_ptr         _camera;
@@ -90,6 +107,11 @@ private:
     bool                           _have_burst_number {false};
     bool                           _have_capture_mode {false};
     bool                           _have_shooting_speed {false};
+    bool                           _have_capturetarget {false};
+
+    pixel_vec                                          _pixels {};
+    hist_vec                                           _hist {};
+    std::unique_ptr<pycontrol::interface::FileCapture> _hist_capture {nullptr};
 };
 
 

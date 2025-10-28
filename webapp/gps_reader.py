@@ -7,7 +7,7 @@ import time
 
 from pyproj import Transformer
 
-import date_utils as du
+from webapp import date_utils as du
 
 
 def format_delta_to_hms(td):
@@ -94,10 +94,19 @@ class GpsReader:
 
     def read(self):
         """Returns a dictionary containing the latest GPS data. Thread-safe."""
+
         with self._lock:
+
+            # DEBUG THIS
+            try:
+                mode = MODE_STRINGS[self._mode.value]
+            except AttributeError:
+                print(f"AttributeError: self._mode: {repr(self._mode)}")
+                mode = MODE_STRINGS[GpsMode.NO_FIX]
+
             data = dict(
                 connected=self._connected and not self._error,
-                mode=MODE_STRINGS[self._mode.value],
+                mode=mode,
                 mode_time=self._mode_time,
                 time=self._time,
                 lat=self._lat,
@@ -151,6 +160,15 @@ class GpsReader:
                 print(f"gps_reader.py error: {err}")
                 sock.close()
                 sock = None
+
+                time.sleep(1)
+
+                try:
+                    if self._last_known_mode.value != 0:
+                        self._last_known_mode = self._mode
+                except:
+                    print(f"self._last_known_mode: {repr(self._last_known_mode)}")
+                    self._last_known_mode = GpsMode.NOT_SEEN
 
                 with self._lock:
                     self._error = True
@@ -217,7 +235,7 @@ class GpsReader:
 
         # Compute delta_t if successful.
         if isinstance(gps_time, datetime.datetime):
-            delta_t = (gps_time - right_now).total_seconds()
+            delta_t = (gps_time - right_now).total_seconds() + 0.5
             error_t = abs(delta_t)
             self._gpsd_synced = error_t < 1.0
             if error_t < 60.0:

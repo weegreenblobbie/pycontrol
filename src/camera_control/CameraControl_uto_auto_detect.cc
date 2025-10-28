@@ -13,8 +13,9 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
 
     CHECK( data.state == "scan" );
     CHECK( data.time == 0 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     CHECK( data.detected_cameras.empty() );
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -24,8 +25,9 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 1'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7
@@ -56,8 +58,9 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 3'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7
@@ -89,8 +92,9 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 5'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7
@@ -122,8 +126,9 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 7'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 2 );
 
     // z7
@@ -169,8 +174,9 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 9'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 2 );
 
     // z7
@@ -216,8 +222,9 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 11'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 2 );
 
     // z7
@@ -277,8 +284,9 @@ TEST_CASE("CameraControl", "[CameraControl][auto_detect]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 13'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 2 );
 
     // z7

@@ -113,6 +113,9 @@ struct UtoGp2Cpp : interface::GPhoto2Cpp
         const int timeout_ms,
         gphoto2cpp::Event & out) override;
 
+    std::unique_ptr<pycontrol::interface::FileCapture>
+    make_file_capture(const gphoto2cpp::camera_ptr & ptr) override;
+
 private:
 
     std::set<test_camera_ptr> _test_cams;

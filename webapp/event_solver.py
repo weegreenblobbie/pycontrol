@@ -9,10 +9,10 @@ import time
 
 import astropy.time
 
-from solar_eclipse_contact_times import find_contact_times as solar_contact_times
-import date_utils as du
+from webapp.solar_eclipse_contact_times import find_contact_times as solar_contact_times
+from webapp import date_utils as du
 
-import utils
+from webapp import utils
 
 
 def rounded_args_cache(num_decimal_places=4, maxsize=128):

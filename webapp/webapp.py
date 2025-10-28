@@ -10,11 +10,12 @@ import threading
 import time
 
 # These imports can remain at the top level
-import date_utils as du
-from camera_control_io import CameraControlIo
-from event_solver import EventSolver
-from gps_reader import GpsReader
-import utils
+import webapp.date_utils as du
+from webapp.camera_control_io import CameraControlIo
+from webapp.event_solver import EventSolver
+from webapp.gps_reader import GpsReader
+from webapp.make_histogram import make_histogram
+from webapp import utils
 
 # These dataclasses are also fine at the top level as they define data structures
 @dataclasses.dataclass(kw_only=True)
@@ -54,6 +55,7 @@ class PyControlApp:
         self._event_file = None
         self._seq_file = None
         self._defaults_loaded = False
+        self._histogram = []
 
         # Read in gui config to load previous event and sequence files.
         self._gui_config_filename = os.path.join(root_dir, "config", "gui.config")
@@ -96,24 +98,30 @@ class PyControlApp:
 
     def get_dashboard_data(self):
         """Gathers all data needed for the main dashboard update."""
-        #self._app.logger.info("get_dashboard_data()")
         telem = self._cam_io.read()
-        #self._app.logger.info(f"    telem: {telem}")
-        detected_cameras = telem.pop("detected_cameras", [])
-        events = self._read_events(self._event_solver.read())
-        #self._app.logger.info(f"    events: {events}")
-        camera_control = dict(
-            state = telem.pop("state", "unknown"),
-            sequence = telem.pop("sequence", ""),
-            sequence_state = telem.pop("sequence_state", []),
-        )
+
+        timelapse = telem.pop("timelapse", {})
+
+        if timelapse and timelapse.get("histogram", []) != self._histogram:
+            self._histogram = timelapse["histogram"]
+            if self._histogram:
+                make_histogram(timelapse, "/tmp/histogram.jpg")
+
+        if self._histogram:
+            timelapse["histogram_url"] = "/tmp/histogram.jpg"
+
         return {
             "gps": self._gps_reader.read(),
-            "detected_cameras": detected_cameras,
+            "detected_cameras": telem.pop("detected_cameras", []),
             "event_filename": self._event_file,
             "sequence_filename": self._seq_file,
-            "events": events,
-            "camera_control": camera_control,
+            "events": self._read_events(self._event_solver.read()),
+            "camera_control": dict(
+                state = telem.pop("state", "unknown"),
+                sequence = telem.pop("sequence", ""),
+                sequence_state = telem.pop("sequence_state", []),
+            ),
+            "timelapse": timelapse,
         }
 
     def set_camera_id(self, serial, cam_id):
@@ -280,6 +288,10 @@ class PyControlApp:
         latitude = gps["lat"]
         longitude = gps["long"]
         altitude = gps["altitude"]
+        type_ = kwargs["type"]
+        datetime_ = kwargs["datetime"]
+        event_ids = kwargs["event_ids"]
+        event_map = kwargs["event_map"]
 
         with self._lock:
             sim_is_running = self._run_sim.is_running
@@ -293,15 +305,30 @@ class PyControlApp:
             altitude = sim_pos.altitude + (sim_offset.altitude - altitude)
 
         self._event_solver.update_and_trigger(
-            type = kwargs["type"],
-            datetime = kwargs["datetime"],
+            type = type_,
+            datetime = datetime_,
             lat = latitude,
             long = longitude,
             altitude = altitude,
-            event_ids = kwargs["event_ids"],
-            event_map = kwargs["event_map"],
+            event_ids = event_ids ,
+            event_map = event_map,
             sim_time_offset = sim_time_offset,
         )
+
+    def timelapse_enable(self):
+        return self._make_response(self._cam_io.timelapse_enable())
+
+    def timelapse_disable(self):
+        return self._make_response(self._cam_io.timelapse_disable())
+
+    def timelapse_update(self, **kwargs):
+        return self._make_response(self._cam_io.timelapse_update(**kwargs))
+
+    def timelapse_start(self, **kwargs):
+        return self._make_response(self._cam_io.timelapse_start(**kwargs))
+
+    def timelapse_stop(self, **kwargs):
+        return self._make_response(self._cam_io.timelapse_stop(**kwargs))
 
 #------------------------------------------------------------------------------
 # Global Flask app and PyControlApp instance
@@ -318,7 +345,7 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
 
     app = flask.Flask(__name__)
     app.config['USE_RELOADER'] = False
-    app.config['DEBUG'] = False
+    app.config['DEBUG'] = True
 
     logging.getLogger().handlers = []
     app.logger.handlers = []
@@ -494,6 +521,27 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
 
         return app.pycontrol_app.trigger(serial)
 
+
+    @app.route("/api/timelapse/<action>", methods=["POST"])
+    def api_timelapse_action(action):
+        data = flask.request.get_json(silent=True) or {}
+        if action == "enable":
+            return app.pycontrol_app.timelapse_enable()
+        elif action == "disable":
+            return app.pycontrol_app.timelapse_disable()
+        elif action == "update":
+            return app.pycontrol_app.timelapse_update(**data)
+        elif action == "start":
+            return app.pycontrol_app.timelapse_start(**data)
+        elif action == "stop":
+            return app.pycontrol_app.timelapse_stop(**data)
+
+        return app.pycontrol_app._make_response("Failure", f"Unknown action: {action}", 400)
+
+
+    @app.route('/tmp/<path:filename>')
+    def api_temp_file(filename):
+        return flask.send_from_directory('/tmp', filename)
 
     # Catch all route.
     @app.route('/<path:path>')

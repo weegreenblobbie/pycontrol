@@ -11,3 +11,7 @@ tabulate
 pytest
 pytest-playwright
 pytest-flask
+
+# For making histogram graphics.
+# PyGObject - for graphical plot windows / debugging
+matplotlib

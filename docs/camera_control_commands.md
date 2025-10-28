@@ -26,8 +26,9 @@ javascript or python, a pretty printed example:
     "state": "execute_ready",
     "time": 1000,
     "command_response": {
-        "id": 1,
-        "success": true,
+        "last_accepted_id": 1,
+        "last_rejected_id": 0,
+        "message": ""
     },
     "detected_cameras": [
         {
@@ -137,13 +138,13 @@ For example:
 
 CameraControl should respond with:
 ```
-{"id":1,"success":true}
+{"last_accepted_id":1,"last_rejected_id":0,"message":""}
 ```
 
 This command will fail if another camera is already mapped to this id, the response
 will be:
 ```
-{"id":1,"success":false,"message":"Failure, \"z7\" is already in use"}
+{"last_accepted_id":0,"last_rejected_id":1,"message":"Failure, 'z7' is already in use"}
 ```
 
 Command: Set events
@@ -165,7 +166,7 @@ For example:
 
 CameraControl should respond with:
 ```
-{"id":2,"success":true}
+{"last_accepted_id":2,"last_rejected_id":0,"message":""}
 ```
 
 Command: load camera sequence file
@@ -186,13 +187,13 @@ For example:
 
 CameraControl should respond with:
 ```
-{"id":3,"success":true}
+{"last_accepted_id":3,"last_rejected_id":0,"message":""}
 ```
 
 If the sequence file fails to validate, an error message thats one or more lines
 is returned:
 ```
-{"id":3,"success":false,"message":"Failed to load sequences/spain-2026.seq\nsequences/spain-2026.seq(16): bad event_id 'u1'"}
+{"last_accepted_id":2,"last_rejected_id":3,"message":"Failed to load sequences/spain-2026.seq\nsequences/spain-2026.seq(16): bad event_id 'u1'"}
 ```
 
 Command: Reset camera sequence
@@ -214,7 +215,7 @@ For example:
 
 The successful response would be:
 ```
-{"id":4,"success":true}
+{"last_accepted_id":4,"last_rejected_id":0,"message":""}
 ```
 
 Command: Read camera choices
@@ -237,12 +238,12 @@ For example:
 
 The successful response would be:
 ```
-{"id":5,"success":true,"data":["JPEG Fine","JPEG Basic", "NEF (Raw)"]}
+{"last_accepted_id":5,"last_rejected_id":0,"message":"","data":["JPEG Fine","JPEG Basic", "NEF (Raw)"]}
 ```
 
 If an error was encountered, the response would be:
 ```
-{"id":5,"success":false,"message":"Unknown perperty 'imagequality'"}
+{"last_accepted_id":4,"last_rejected_id":5,"message":"Unknown perperty 'imagequality'"}
 ```
 
 
@@ -264,10 +265,90 @@ For example:
 
 The successful response would be:
 ```
-{"id":6,"success":true}
+{"last_accepted_id":6,"last_rejected_id":0,"message":""}
 ```
 
 If an error was encountered, the response would be:
 ```
-{"id":6,"success":false,"message":"Some kind of error message."}
+{"last_accepted_id":5,"last_rejected_id":6,"message":"Some kind of error message."}
+```
+
+
+Command: Timelapse Enable
+--------------------------
+
+Enter timelapse mode, exits event mode and enters timelapse mode, and is idle.
+
+```
+[sequence id: int]
+timelapse_enable
+```
+
+For example:
+```
+7 timelapse_enable
+```
+
+The successful response would be:
+```
+{"last_accepted_id":7,"last_rejected_id":0,"message":""}
+```
+
+If an error was encountered, the response would be:
+```
+{"last_accepted_id":6,"last_rejected_id":7,"message":"Some kind of error message."}
+```
+
+Command: Timelapse Monitor
+--------------------------
+
+Sets the camera id to monitor for timelapse mode, starts capturing and computing
+histograms.
+
+```
+[sequence id: int]
+timelapse_monitor
+[serial: str]
+```
+
+For example:
+```
+8 timelapse_monitor 3006513
+```
+
+The successful response would be:
+```
+{"last_accepted_id":8,"last_rejected_id":0,"message":""}
+```
+
+If an error was encountered, the response would be:
+```
+{"last_accepted_id":7,"last_rejected_id":8,"message":"message":"Some kind of error message."}
+```
+
+
+Command: Timelapse Start
+--------------------------
+
+Starts a timelapse on the specified camera and settings.
+
+```
+[sequence id: int]
+timelapse_start
+[serial: str] [interval:int] [max_shutter:str] [max_iso:str]
+```
+
+For example:
+```
+9 timelapse_start 3006513 30000 15 6400
+```
+
+The successful response would be:
+```
+{"last_accepted_id":9,"last_rejected_id":0,"message":""}
+```
+
+If an error was encountered, the response would be:
+```
+{"last_accepted_id":8,"last_rejected_id":9,"message":"Some kind of error message."}
 ```

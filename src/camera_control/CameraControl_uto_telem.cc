@@ -25,8 +25,8 @@ Telem parse_telem(const std::string & json_str)
 
     auto cmd = data["command_response"];
 
-    out.command_response.id = cmd["id"];
-    out.command_response.success = cmd["success"];
+    out.command_response.last_accepted_id = cmd["last_accepted_id"];
+    out.command_response.last_rejected_id = cmd["last_rejected_id"];
     out.command_response.message = cmd.value("message", "");
     out.command_response.data = cmd.value("data", str_vec());
 

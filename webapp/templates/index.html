@@ -68,60 +68,203 @@
             </table>
         </div>
 
-        <div class="section">
-            <h2>Events</h2>
-            <table id="event_info_table">
-                <thead>
-                    <tr>
-                        <th>Event File</th>
-                        <th>Type</th>
-                        <th>Sequence File</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Please load an Event file.</td>
-                        <td>N/A</td>
-                        <td>Please load a Sequence file.</td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <table id="event_table">
-                <colgroup>
-                    <col style="width: 25%;">
-                    <col style="width: 40%;">
-                    <col style="width: 35%;">
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th>Event ID</th>
-                        <th>Event Time (UTC)</th>
-                        <th>ETA</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- to be populated on event load -->
-                </tbody>
-            </table>
+        <div class="tab-container">
+            <button id="tab_events" class="tab-button active">Events</button>
+            <button id="tab_timelapse" class="tab-button">Timelapse</button>
         </div>
 
-        <div id="master_button_container">
-            <button id="load_event_file_button" class="action-button">Load Event File</button>
-            <button id="load_camera_sequence_button" class="action-button">Load Camera Sequence</button>
-            <button id="run_sim_button" class="action-button">Run Sim</button>
-        </div>
+        <div id="events_view_container">
+            <div class="section">
+                <h2>Events</h2>
+                <table id="event_info_table">
+                    <thead>
+                        <tr>
+                            <th>Event File</th>
+                            <th>Type</th>
+                            <th>Sequence File</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Please load an Event file.</td>
+                            <td>N/A</td>
+                            <td>Please load a Sequence file.</td>
+                        </tr>
+                    </tbody>
+                </table>
 
-        <div class="section">
-            <h2>Camera Control State: <span id="camera_control_state_value">idle</span></h2>
-            <div id="camera_control_container">
-                <div id="control_tables_container">
-                    <!-- to be populated on loaded sequence -->
+                <table id="event_table">
+                    <colgroup>
+                        <col style="width: 25%;">
+                        <col style="width: 40%;">
+                        <col style="width: 35%;">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Event ID</th>
+                            <th>Event Time (UTC)</th>
+                            <th>ETA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+
+            <div id="master_button_container">
+                <button id="load_event_file_button" class="action-button">Load Event File</button>
+                <button id="load_camera_sequence_button" class="action-button">Load Camera Sequence</button>
+                <button id="run_sim_button" class="action-button">Run Sim</button>
+            </div>
+
+            <div class="section">
+                <h2>Camera Control State: <span id="camera_control_state_value">idle</span></h2>
+                <div id="camera_control_container">
+                    <div id="control_tables_container">
+                        </div>
                 </div>
             </div>
         </div>
 
-    </div>
+        <div id="timelapse_view_container" style="display: none;">
+            <div class="section">
+                <h2>Timelapse Settings</h2>
+                <table id="timelapse_settings_table" style="width: 100%; min-width: 600px;">
+                    <tbody>
+                        <tr>
+                            <td class="column_1">Camera:</td>
+                            <td>
+                                <select id="timelapse_camera_select">
+                                    <option value="">-- Select Camera --</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Interval (seconds):</td>
+                            <td>
+                                <input type="text" id="timelapse_interval" value="30" inputmode="decimal" style="width: 60px;">
+                                <span style="margin-left: 15px;">Act: <span id="timelapse_interval_telem">--</span></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Hardware Limits:</td>
+                            <td>
+                                <table border="1" cellpadding="3" style="border-collapse: collapse; text-align: center; width: 100%;">
+                                    <thead>
+                                        <tr>
+                                            <th>Setting</th>
+                                            <th>Min</th>
+                                            <th>Max</th>
+                                            <th>Cam Min</th>
+                                            <th>Cam Max</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Shutter</td>
+                                            <td><select id="timelapse_min_shutter" style="width: 100%;"><option value="">--</option></select></td>
+                                            <td><select id="timelapse_max_shutter" style="width: 100%;"><option value="">--</option></select></td>
+                                            <td id="timelapse_min_shutter_telem">--</td>
+                                            <td id="timelapse_max_shutter_telem">--</td>
+                                        </tr>
+                                        <tr>
+                                            <td>ISO</td>
+                                            <td><select id="timelapse_min_iso" style="width: 100%;"><option value="">--</option></select></td>
+                                            <td><select id="timelapse_max_iso" style="width: 100%;"><option value="">--</option></select></td>
+                                            <td id="timelapse_min_iso_telem">--</td>
+                                            <td id="timelapse_max_iso_telem">--</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Hist Mask</td>
+                                            <td><input type="number" id="timelapse_min_hist_mask" min="-1" max="256" value="-1" style="width: 50px;"></td>
+                                            <td><input type="number" id="timelapse_max_hist_mask" min="-1" max="256" value="256" style="width: 50px;"></td>
+                                            <td id="timelapse_min_hist_mask_telem">--</td>
+                                            <td id="timelapse_max_hist_mask_telem">--</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Deadband</td>
+                                            <td><input type="number" id="timelapse_min_deadband" min="0" max="255" value="15" style="width: 50px;"></td>
+                                            <td><input type="number" id="timelapse_max_deadband" min="0" max="255" value="5" style="width: 50px;"></td>
+                                            <td id="timelapse_min_deadband_telem">--</td>
+                                            <td id="timelapse_max_deadband_telem">--</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Exposure Target:</td>
+                            <td>
+                                Target %: <input type="number" step="0.01" id="timelapse_target_percent" value="0.05" style="width: 60px;">
+                                <span style="margin-left: 15px;">Act: <span id="timelapse_target_percent_telem">--</span></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Target Offset (Bins):</td>
+                            <td>
+                                <button type="button" onclick="adjust_timelapse_target_offset(-1)">-</button>
+                                <span id="timelapse_target_offset" style="display: inline-block; width: 40px; text-align: center;">0</span>
+                                <button type="button" onclick="adjust_timelapse_target_offset(1)">+</button>
+                                <span style="margin-left: 15px;">Act: <span id="timelapse_target_offset_telem">--</span></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Current Bin:</td>
+                            <td id="timelapse_current_bin">0</td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Target Bin Error:</td>
+                            <td id="timelapse_target_error">0</td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Valid Pixels (Masked):</td>
+                            <td id="timelapse_pixel_count">0</td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Video FPS:</td>
+                            <td>
+                                <input type="number" id="timelapse_fps" value="30" inputmode="decimal" style="width: 60px;">
+                                <span style="margin-left: 15px;">Act: <span id="timelapse_fps_telem">--</span></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Capture count:</td>
+                            <td id="timelapse_num_captures">0</td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Est. Duration:</td>
+                            <td id="timelapse_duration">00:00</td>
+                        </tr>
+                        <tr>
+                            <td class="column_1">Status:</td>
+                            <td id="timelapse_status">Idle</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div id="timelapse_button_container">
+                    <button id="timelapse_trigger_button" class="action-button trigger-button">Trigger</button>
+                    <button id="timelapse_start_button" class="action-button trigger-button">Start</button>
+                    <button id="timelapse_stop_button" class="action-button trigger-button">Stop</button>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Timelapse Capture Status</h2>
+
+                <div id="timelapse_capture_container">
+                    <div style="align-items: center; display: flex; flex-direction: column; gap: 20px; margin-bottom: 10px;">
+                        <div>
+                            <h4>Histogram</h4>
+                            <img id="timelapse_histogram" src="/tmp/histogram.jpg" alt="Waiting for capture..." style="max-width: 90%;" />
+                        </div>
+                        <div>
+                            <h4>Last Capture</h4>
+                            <img id="timelapse_preview" src="/tmp/latest_preview.jpg" alt="Waiting for capture..." style="max-width: 90%;" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
     <div id="rename_modal" class="modal">
         <div class="modal-content">

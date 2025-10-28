@@ -42,7 +42,7 @@ result
 as_type(const std::string & input, T & output)
 {
     auto sstream = std::stringstream(input);
-    ABORT_IF_NOT(sstream >> output, "conversion failed", result::failure);
+    ABORT_IF_NOT(sstream >> output, "conversion failed '" << input << "'", result::failure);
     return result::success;
 }
 

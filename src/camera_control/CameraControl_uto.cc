@@ -357,6 +357,53 @@ UtoGp2Cpp::wait_for_event(
     return true;
 }
 
+// A fake capture object that simulates taking a photo.
+struct FakeFileCapture : public pycontrol::interface::FileCapture
+{
+    std::uint32_t capture_call_count {};
+    std::uint32_t decompress_call_count {};
+    std::uint32_t delete_call_count {};
+
+    // Allow the test to dictate if calls succeed for fail.
+    bool force_capture_failure = false;
+    bool force_decompress_jpeg_failure = false;
+    bool force_delete_last_capture_failure = false;
+
+    // Data that should be returned.
+    std::vector<unsigned char> output = {0xFF, 0xD8, 0xFF, 0xE0};
+    unsigned int num_channels = 3;
+
+    bool capture() override
+    {
+        ++capture_call_count;
+        return not force_capture_failure;
+    }
+
+    bool decompress_jpeg(
+        std::vector<unsigned char> & output_,
+        unsigned int & num_channels_
+    ) override
+    {
+        ++decompress_call_count;
+        output_ = output;
+        num_channels_ = num_channels;
+        return not force_decompress_jpeg_failure;
+    }
+
+    bool delete_last_capture() override
+    {
+        ++delete_call_count;
+        return not force_delete_last_capture_failure;
+    }
+};
+
+
+std::unique_ptr<pycontrol::interface::FileCapture>
+UtoGp2Cpp::make_file_capture(const gphoto2cpp::camera_ptr &)
+{
+    return std::make_unique<FakeFileCapture>();
+}
+
 
 milliseconds
 FakeClock::now()

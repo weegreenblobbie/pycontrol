@@ -11,8 +11,8 @@
 
 struct CommandResponse
 {
-    unsigned int id;
-    bool success;
+    unsigned int last_accepted_id;
+    unsigned int last_rejected_id;
     std::string message;
     std::vector<std::string> data;
 };

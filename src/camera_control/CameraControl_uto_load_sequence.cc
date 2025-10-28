@@ -13,8 +13,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "scan" );
     CHECK( data.time == 0 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     CHECK( data.detected_cameras.empty() );
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -28,8 +29,8 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 50 );
-    CHECK( data.command_response.id == 1 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 1 );
     CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     CHECK( data.detected_cameras.empty() );
     CHECK( data.events.empty() );
@@ -52,8 +53,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 100 );
-    CHECK( data.command_response.id == 2 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 2 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     CHECK( data.detected_cameras.empty() );
     CHECK( data.events.empty() );
     CHECK( data.sequence == seq1.path.string() );
@@ -99,8 +101,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 150 );
-    CHECK( data.command_response.id == 3 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 3 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     CHECK( data.detected_cameras.empty() );
     CHECK( data.events.empty() );
     CHECK( data.sequence == seq2.path.string() );
@@ -155,8 +158,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
     // 19 -  9 -> 10 seconds eta
     CHECK( data.state == "monitor" );
     CHECK( data.time == 1000 );
-    CHECK( data.command_response.id == 4 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 4 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     CHECK( data.detected_cameras.empty() );
 
     REQUIRE( data.events.size() == 1 );
@@ -206,8 +210,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 3'000 );
-    CHECK( data.command_response.id == 4 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 4 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
 
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -269,8 +274,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "executing" );
     CHECK( data.time == 4'000 );
-    CHECK( data.command_response.id == 5 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 5 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
 
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -335,8 +341,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "executing" );
     CHECK( data.time == 9'000 );
-    CHECK( data.command_response.id == 5 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 5 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     cam_data = data.detected_cameras[0];
@@ -394,8 +401,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "executing" );
     CHECK( data.time == 10'000 );
-    CHECK( data.command_response.id == 6 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 6 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     cam_data = data.detected_cameras[0];
@@ -444,8 +452,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "executing" );
     CHECK( data.time == 10'050 );
-    CHECK( data.command_response.id == 7 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 7 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     cam_data = data.detected_cameras[0];
@@ -501,8 +510,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "executing" );
     CHECK( data.time == 10'250 );
-    CHECK( data.command_response.id == 8 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 8 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     cam_data = data.detected_cameras[0];
@@ -559,8 +569,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "executing" );
     CHECK( data.time == 19'250 );
-    CHECK( data.command_response.id == 8 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 8 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     cam_data = data.detected_cameras[0];
@@ -612,8 +623,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "executing" );
     CHECK( data.time == 20'250 );
-    CHECK( data.command_response.id == 8 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 8 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     cam_data = data.detected_cameras[0];
@@ -660,8 +672,9 @@ TEST_CASE("CameraControl", "[CameraControl][load_sequence][reset_sequence]")
 
     CHECK( data.state == "execute_ready" );
     CHECK( data.time == 21'250 );
-    CHECK( data.command_response.id == 8 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 8 );
+    CHECK( data.command_response.last_rejected_id == 1 );
+    CHECK( data.command_response.message == "failed to parse camera sequence file '/nope/does-not-exist.seq'" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     cam_data = data.detected_cameras[0];

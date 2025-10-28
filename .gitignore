@@ -1,3 +1,4 @@
+coverage/
 external/bin
 external/include
 external/lib
@@ -20,8 +21,10 @@ webapp/defaults.html
 webapp/defaults.png
 webapp/run.log
 raspberry-pi-4/ansible/venv
-raspberry-pi-4/rpi4-64-bit-fresh.img.bz2
+coverage.info
 *.d
 *.o
+*.gcno
+*.gcda
 lib*.a
 src/*/*_bin

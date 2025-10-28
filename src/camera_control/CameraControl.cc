@@ -1,6 +1,3 @@
-
-
-
 #include <common/str_utils.h>
 #include <camera_control/Camera.h>
 #include <camera_control/CameraControl.h>
@@ -11,6 +8,8 @@
 #include <interface/GPhoto2Cpp.h>
 #include <interface/WallClock.h>
 
+#include <cmath>
+#include <numeric>
 
 namespace pycontrol
 {
@@ -149,16 +148,7 @@ _send_telemetry()
     //-------------------------------------------------------------------------
     // state
     //
-    _telem_message << "{\"state\":\"";
-    switch(_state)
-    {
-        case State::init: { _telem_message << "init"; break;}
-        case State::scan: { _telem_message << "scan"; break;}
-        case State::monitor: { _telem_message << "monitor"; break;}
-        case State::execute_ready: { _telem_message << "execute_ready"; break;}
-        case State::executing: { _telem_message << "executing"; break;}
-    }
-    _telem_message << "\",";
+    _telem_message << "{\"state\":\"" << _state << "\",";
 
     //-------------------------------------------------------------------------
     // time
@@ -296,7 +286,70 @@ _send_telemetry()
             _telem_message << ",";
         }
     }
-    _telem_message << "]}";
+    _telem_message << "],";
+
+    //-------------------------------------------------------------------------
+    // timelapse
+    //
+    switch (_state)
+    {
+        case State::timelapse_idle:
+        case State::timelapse_running:
+        {
+            _telem_message << "\"timelapse\":{\"histogram\":[";
+
+            if (_cameras.contains(_timelapse_serial))
+            {
+                auto cam = _cameras[_timelapse_serial];
+                const auto hist_vec = cam->histogram();
+                if (not hist_vec.empty())
+                {
+                    for (const auto h : hist_vec)
+                    {
+                        _telem_message << h << ",";
+                    }
+                    // Overwrite last ',';
+                    _telem_message.seekp(-1, std::ios_base::cur);
+                }
+            }
+
+            const std::string serial = _timelapse_serial.empty() ? "none" : _timelapse_serial;
+            const float interval = static_cast<float>(_timelapse_interval) / 1000.0f;
+
+            const int target_bin = _timelapse_target_bin + _timelapse_target_offset;
+            const int current_bin = target_bin + _timelapse_target_error;
+
+            _telem_message
+                << "],"
+                << "\"serial\":\""       << serial                    << "\","
+                << "\"interval\":"       << interval                  << ","
+                << "\"min_shutter\":"    << _timelapse_min_shutter    << ","
+                << "\"max_shutter\":"    << _timelapse_max_shutter    << ","
+                << "\"min_iso\":"        << _timelapse_min_iso        << ","
+                << "\"max_iso\":"        << _timelapse_max_iso        << ","
+                << "\"min_hist_mask\":"  << _timelapse_min_hist_mask  << ","
+                << "\"max_hist_mask\":"  << _timelapse_max_hist_mask  << ","
+                << "\"min_deadband\":"   << _timelapse_min_deadband   << ","
+                << "\"max_deadband\":"   << _timelapse_max_deadband   << ","
+                << "\"current_bin\":"    << current_bin               << ","
+                << "\"target_bin\":"     << target_bin                << ","
+                << "\"target_offset\":"  << _timelapse_target_offset  << ","
+                << "\"target_percent\":" << _timelapse_target_percent << ","
+                << "\"target_error\":"   << _timelapse_target_error   << ","
+                << "\"num_captures\":"   << _timelapse_capture_count  << ","
+                << "\"pixel_count\":"    << _timelapse_pixel_count
+                << "}";
+
+            break;
+        }
+        default:
+        {
+            _telem_message << "\"timelapse\":{}";
+            break;
+        }
+    }
+
+    _telem_message << "}";
 
     // Mark the end of the stream and rewind before sending.
     _telem_message << '\0';
@@ -313,7 +366,7 @@ _send_telemetry()
 
 result
 CameraControl::
-_read_command(bool & got_message)
+_read_command(bool & got_message, State & next_state)
 {
     got_message = false;
 
@@ -341,18 +394,30 @@ _read_command(bool & got_message)
 
     std::istringstream iss(raw_cmd);
 
-    if (not (iss >> cmd_id >> command))
+    if (not (iss >> cmd_id))
     {
-        ++_command_id;
-        oss << "{\"id\":" << _command_id << ",\"success\":false,\"message\":\""
-            << "failed to parse command '" << _command_buffer << "'\"}";
+        ++_last_rejected_command_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"failed to parse command ID from '" << _command_buffer << "'\"}";
+        _command_response = oss.str();
+        got_message = true;
+        return result::success;
+    }
+
+    if (not (iss >> command))
+    {
+        _last_rejected_command_id = cmd_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"failed to parse command from '" << _command_buffer << "'\"}";
         _command_response = oss.str();
         got_message = true;
         return result::success;
     }
 
     // Nothing new to process.  How do we handle cmd_id rollover?
-    if (cmd_id <= _command_id)
+    if (cmd_id <= std::max(_last_accepted_command_id, _last_rejected_command_id))
     {
         return result::success;
     }
@@ -363,9 +428,6 @@ _read_command(bool & got_message)
     // responding to commands.
     got_message = true;
 
-    _command_id = cmd_id;
-    oss << "{\"id\":" << _command_id << ",\"success\":";
-
     //-------------------------------------------------------------------------
     // set_camera_id
     //
@@ -375,22 +437,35 @@ _read_command(bool & got_message)
         std::string cam_id;
         if (not (iss >> serial >> cam_id))
         {
-            oss << "false,\"message\":\""
-                << "Got bad camera rename message: '" << _command_buffer << "'\"}";
+            _last_rejected_command_id = cmd_id;
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"Got bad camera rename message: '" << _command_buffer << "'\"}";
             _command_response = oss.str();
             return result::success;
         }
 
-        if (not _serial_to_id.contains(serial))
+        if (not _cameras.contains(serial))
         {
-            oss << "false,\"message\":\"serial '" << serial << "' does not exist\"}";
+            _last_rejected_command_id = cmd_id;
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"serial '" << serial << "' does not exist\"}";
             _command_response = oss.str();
             return result::success;
         }
 
         if (_id_to_serial.contains(cam_id))
         {
-            oss << "false,\"message\":\"id '" << cam_id << "' already exists\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "id '" << cam_id << "' already exists";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
@@ -430,7 +505,15 @@ _read_command(bool & got_message)
 
         if (parse_error)
         {
-            oss << "false,\"message\":\"failed to parse events from '" << _command_buffer << "'\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "failed to parse events from '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
@@ -446,7 +529,10 @@ _read_command(bool & got_message)
         std::string sequence_fn;
         if (not (std::getline(iss, sequence_fn)))
         {
-            oss << "false,\"message\":\"failed to parse command '" << _command_buffer << "'\"}";
+            _last_rejected_command_id = cmd_id;
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"failed to parse command '" << _command_buffer << "'\"}";
             _command_response = oss.str();
             return result::success;
         }
@@ -456,8 +542,15 @@ _read_command(bool & got_message)
         auto seq_reader = CameraSequenceFileReader();
         if (result::failure == seq_reader.read_file(sequence_fn))
         {
-            oss << "false,\"message\":\"failed to parse camera sequence file '"
-                << sequence_fn << "'\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "failed to parse camera sequence file '" << sequence_fn << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
@@ -472,13 +565,19 @@ _read_command(bool & got_message)
             auto cam_seq = std::make_shared<CameraSequence>();
             if (not cam_seq)
             {
-                oss << "false,\"message\":\"failed to allocate CameraSequence\"}";
+                _last_rejected_command_id = cmd_id;
+                oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                    << ",\"last_rejected_id\":" << _last_rejected_command_id
+                    << ",\"message\":\"failed to allocate CameraSequence\"}";
                 _command_response = oss.str();
                 return result::success;
             }
             if (result::failure == cam_seq->load(id, event_seq))
             {
-                oss << "false,\"message\":\"CameraSequence.load() failed\"}";
+                _last_rejected_command_id = cmd_id;
+                oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                    << ",\"last_rejected_id\":" << _last_rejected_command_id
+                    << ",\"message\":\"CameraSequence.load() failed\"}";
                 _command_response = oss.str();
                 return result::success;
             }
@@ -496,7 +595,10 @@ _read_command(bool & got_message)
         std::string property;
         if (not (iss >> serial >> property))
         {
-            oss << "false,\"message\":\""
+            _last_rejected_command_id = cmd_id;
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\""
                 << "Failed to parse read_choices command: '" << _command_buffer << "'\"}";
             _command_response = oss.str();
             return result::success;
@@ -504,7 +606,10 @@ _read_command(bool & got_message)
 
         if (not _cameras.contains(serial))
         {
-            oss << "false,\"message\":\"serial '" << serial << "' does not exist\"}";
+            _last_rejected_command_id = cmd_id;
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"serial '" << serial << "' does not exist\"}";
             _command_response = oss.str();
             return result::success;
         }
@@ -514,13 +619,24 @@ _read_command(bool & got_message)
         // If the vector is empty, probably doesn't exist.
         if (choice_vec.empty())
         {
-            oss << "false,\"message\":\""
-                << "property '" << property << "' does not exist\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "property '" << property << "' does not exist";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
 
-        oss << "true,\"data\":[";
+        _last_accepted_command_id = cmd_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"" << _last_rejected_message << "\""
+            << ",\"data\":[";
         std::size_t idx = 0;
         for (const auto & choice : choice_vec)
         {
@@ -538,15 +654,30 @@ _read_command(bool & got_message)
         std::string value;
         if (not ((iss >> serial >> property) and (std::getline(iss, value))))
         {
-            oss << "false,\"message\":\""
-                << "Failed to parse set_choice command: '" << _command_buffer << "'\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse set_choice command: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
 
         if (not _cameras.contains(serial))
         {
-            oss << "false,\"message\":\"serial '" << serial << "' does not exist\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "serial '" << serial << "' does not exist";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
@@ -558,21 +689,343 @@ _read_command(bool & got_message)
 
         if (result::failure == cam->write_property(property, value))
         {
-            oss << "false,\"message\":\""
-                << "property '" << property << "' does not exist\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "property '" << property << "' does not exist";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
 
         if (result::failure == cam->write_config())
         {
-            oss << "false,\"message\":\""
-                << "writing '" << property << "' with '" << value << "' failed\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "writing '" << property << "' with '" << value << "' failed";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
 
-        oss << "true}";
+        _last_accepted_command_id = cmd_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"" << _last_rejected_message << "\"}";
+        _command_response = oss.str();
+        return result::success;
+    }
+    else if (command == "timelapse_enable")
+    {
+        switch (_state)
+        {
+            // If we're already running, ingore, probably due to webapp UI
+            // reloading.
+            // TODO: We should fix the webapp instead.
+            case CameraControl::State::timelapse_running:
+            {
+                next_state = CameraControl::State::timelapse_running;
+                break;
+            }
+            default:
+            {
+                next_state = CameraControl::State::timelapse_idle;
+            }
+        }
+        _last_accepted_command_id = cmd_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"" << _last_rejected_message << "\"}";
+        _command_response = oss.str();
+        return result::success;
+    }
+    else if (command == "timelapse_update")
+    {
+        if (not (iss >> _timelapse_serial))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse serial from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not _cameras.contains(_timelapse_serial))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "serial '" << _timelapse_serial << "' does not exist";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+        auto camera = _cameras[_timelapse_serial];
+
+        float interval;
+        if (not (iss >> interval))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse interval from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        std::string min_shutter;
+        std::string max_shutter;
+        std::string min_iso;
+        std::string max_iso;
+
+        if (not (iss >> min_shutter))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse min_shutter from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not (iss >> max_shutter))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse max_shutter from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not (iss >> min_iso))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse min_iso from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not (iss >> max_iso))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse max_iso from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        int min_hist_mask;
+        int max_hist_mask;
+
+        if (not (iss >> min_hist_mask))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse min_hist_mask from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not (iss >> max_hist_mask))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse max_hist_mask from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        int min_deadband;
+        int max_deadband;
+
+        if (not (iss >> min_deadband))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse min_deadband from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not (iss >> max_deadband))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse max_deadband from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        int target_offset;
+        float target_percent;
+
+        if (not (iss >> target_offset))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse target_offset from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (not (iss >> target_percent))
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse timelapse target_percent from: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        if (target_percent < 0.0f or target_percent > 1.0f)
+        {
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Bad target_percent: " << target_percent;
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
+            _command_response = oss.str();
+            return result::success;
+        }
+
+        // Interval is in seconds, so scale it to milliseconds.
+        _timelapse_interval = static_cast<milliseconds>(interval * 1000.0f);
+
+        _timelapse_min_shutter = camera->shutter_speed(min_shutter);
+        _timelapse_max_shutter = camera->shutter_speed(max_shutter);
+        _timelapse_min_iso = camera->iso(min_iso);
+        _timelapse_max_iso = camera->iso(max_iso);
+        _timelapse_min_hist_mask = min_hist_mask;
+        _timelapse_max_hist_mask = max_hist_mask;
+        _timelapse_min_deadband = min_deadband;
+        _timelapse_max_deadband = max_deadband;
+        _timelapse_target_offset = target_offset;
+        _timelapse_target_percent = target_percent;
+
+        next_state = _state;
+        _last_accepted_command_id = cmd_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"" << _last_rejected_message << "\"}";
+        _command_response = oss.str();
+        return result::success;
+    }
+    else if (command == "timelapse_start")
+    {
+        next_state = CameraControl::State::timelapse_running;
+        _last_accepted_command_id = cmd_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"" << _last_rejected_message << "\"}";
+        _command_response = oss.str();
+        return result::success;
+    }
+    else if (command == "timelapse_stop")
+    {
+        next_state = CameraControl::State::timelapse_idle;
+        _last_accepted_command_id = cmd_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"" << _last_rejected_message << "\"}";
+        _command_response = oss.str();
+        return result::success;
+    }
+    else if (command == "timelapse_disable")
+    {
+        // reset capture count.
+        next_state = CameraControl::State::monitor;
+        _last_accepted_command_id = cmd_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"" << _last_rejected_message << "\"}";
         _command_response = oss.str();
         return result::success;
     }
@@ -581,45 +1034,72 @@ _read_command(bool & got_message)
         std::string serial;
         if (not (iss >> serial))
         {
-            oss << "false,\"message\":\""
-                << "Failed to parse trigger command: '" << _command_buffer << "'\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "Failed to parse trigger command: '" << _command_buffer << "'";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
 
         if (not _cameras.contains(serial))
         {
-            oss << "false,\"message\":\"serial '" << serial << "' does not exist\"}";
+            _last_rejected_command_id = cmd_id;
+            {
+                std::ostringstream msg_oss;
+                msg_oss << "serial '" << serial << "' does not exist";
+                _last_rejected_message = msg_oss.str();
+            }
+            oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+                << ",\"last_rejected_id\":" << _last_rejected_command_id
+                << ",\"message\":\"" << _last_rejected_message << "\"}";
             _command_response = oss.str();
             return result::success;
         }
+        _trigger_serial = serial;
 
-        auto cam = _cameras[serial];
-        const auto & entry = _serial_to_id.find(serial);
-        const auto desc = entry != _serial_to_id.end() ?
-                          entry->second :
-                          cam->info().desc;
-
-        INFO_LOG << "Trigger camera " << desc << std::endl;
-
-        if (result::failure == cam->trigger())
+        switch (_state)
         {
-            oss << "false,\"message\":\""
-                << "failed to trigger " << cam->info().desc << "\"}";
-            _command_response = oss.str();
-            return result::success;
+            case CameraControl::State::timelapse_idle:
+            case CameraControl::State::timelapse_running:
+            {
+                _trigger_type = TriggerType::histogram;
+                break;
+            }
+            default:
+            {
+                _trigger_type = TriggerType::trigger;
+                break;
+            }
         }
 
-        oss << "true}";
+        _last_accepted_command_id = cmd_id;
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"" << _last_rejected_message << "\"}";
         _command_response = oss.str();
         return result::success;
     }
-    //-------------------------------------------------------------------------
-    // reset_sequence
+
+    // Unknown command error.
     else if (command != "reset_sequence")
     {
-        oss << "false,\"message\":\"Unknown command: '" << command << "'\"}";
+        _last_rejected_command_id = cmd_id;
+        {
+            std::ostringstream msg_oss;
+            msg_oss << "Unknown command: '" << command << "', ignorning";
+            _last_rejected_message = msg_oss.str();
+        }
+        oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+            << ",\"last_rejected_id\":" << _last_rejected_command_id
+            << ",\"message\":\"" << _last_rejected_message << "\"}";
         _command_response = oss.str();
+        ERROR_LOG << _last_rejected_message << std::endl;
         return result::success;
     }
 
@@ -645,7 +1125,10 @@ _read_command(bool & got_message)
         }
     }
 
-    oss << "true}";
+    _last_accepted_command_id = cmd_id;
+    oss << "{\"last_accepted_id\":" << _last_accepted_command_id
+        << ",\"last_rejected_id\":" << _last_rejected_command_id
+        << ",\"message\":\"" << _last_rejected_message << "\"}";
     _command_response = oss.str();
     return result::success;
 }
@@ -760,12 +1243,167 @@ _dispatch_camera_events()
 
 result
 CameraControl::
+_timelapse_dispatch()
+{
+    if (_timelapse_time > _control_time)
+    {
+        return result::success;
+    }
+
+    if (_timelapse_time == 0)
+    {
+        _timelapse_time = _control_time;
+    }
+    _timelapse_time += _timelapse_interval;
+
+    // Trigger the camera and process the histogram.
+    auto itor = _cameras.find(_timelapse_serial);
+    if (itor == _cameras.end())
+    {
+        ERROR_LOG << "_timelapse_serial not found in _cameras, aborting" << std::endl;
+        return result::failure;
+    }
+
+    auto camera = itor->second;
+
+    if (result::success != camera->capture_histogram())
+    {
+        ERROR_LOG << "camera->capture_histogram() failed, aborting" << std::endl;
+        return result::failure;
+    }
+    _timelapse_capture_count += 1;
+
+    // Grab the histogram an count the total number of pixels.
+    const auto histogram = camera->histogram();
+    auto begin = histogram.begin();
+    if (_timelapse_min_hist_mask >= 0 and _timelapse_max_hist_mask <= 255)
+    {
+        begin += _timelapse_min_hist_mask;
+    }
+    auto end = histogram.end() - 1;
+    if (_timelapse_max_hist_mask >= 0 and _timelapse_max_hist_mask <= 255)
+    {
+        end -= (255 - _timelapse_max_hist_mask);
+    }
+
+    // Out of bounds?
+    if (begin < histogram.begin() or
+        begin >= histogram.end() or
+        end <= begin or
+        end >= histogram.end())
+    {
+        _timelapse_min_hist_mask = -1;
+        _timelapse_max_hist_mask = 256;
+        begin = histogram.begin();
+        end = histogram.end();
+    }
+
+    const int end_idx = end - histogram.begin();
+    const int begin_idx = begin - histogram.begin();
+
+    if (begin_idx < 0 or begin_idx > 255)
+    {
+        ERROR_LOG << "begin_idx " << begin_idx << " out of bounds!" << std::endl;
+        return result::failure;
+    }
+    if (end_idx < 0 or end_idx > 255 or end_idx <= begin_idx)
+    {
+        ERROR_LOG << "end_idx " << end_idx << " out of bounds!" << std::endl;
+        return result::failure;
+    }
+
+    _timelapse_pixel_count = 0;
+    for (int i = begin_idx; i <= end_idx; ++i)
+    {
+        _timelapse_pixel_count += histogram[i];
+    }
+
+    // Highlights, take the top 5% of the pixels.
+    const std::uint64_t top_threshold = static_cast<std::uint64_t>(
+        static_cast<float>(_timelapse_pixel_count) * _timelapse_target_percent + 0.5f);
+
+    // Compute the current luminacne for the target percent, what histogram bin
+    // accounts for the top taret percent?
+    std::uint64_t highlight_sum = 0;
+    int current_bin = 0;
+
+    for(int i = end_idx; i >= begin_idx; --i)
+    {
+        highlight_sum += histogram[i];
+        // Reached the target percent?
+        if (highlight_sum >= top_threshold)
+        {
+            current_bin = i;
+            break;
+        }
+    }
+
+    // Exposure lock, if we haven't initalized the target luminance, do it now.
+    if (_timelapse_target_bin < 0.0f)
+    {
+        _timelapse_target_bin = current_bin;
+        return result::success;
+    }
+
+    // Effective target bin.
+    const auto target_bin = _timelapse_target_bin + _timelapse_target_offset;
+
+    _timelapse_target_error = current_bin - target_bin;
+
+    const auto current_iso = camera->iso();
+    const auto current_shutter_speed = camera->shutter_speed();
+
+    // We always want to drive ISO to the minimim if we can.
+    if (current_iso > _timelapse_min_iso and
+        current_shutter_speed < _timelapse_max_shutter)
+    {
+        camera->step_iso(-1);
+        camera->step_shutter_speed(1);
+    }
+
+    const auto too_bright_threshold = target_bin + _timelapse_max_deadband;
+    const auto too_dark_threshold   = target_bin - _timelapse_min_deadband;
+
+    // Too bright, make the image to be DARKER.
+    if (current_bin >= too_bright_threshold)
+    {
+        if (current_iso > _timelapse_min_iso)
+        {
+            camera->step_iso(-1);
+        }
+        else if (current_shutter_speed > _timelapse_min_shutter)
+        {
+            camera->step_shutter_speed(-1);
+        }
+    }
+
+    // Too dark, make the image BRIGHTER.
+    else if (current_bin <= too_dark_threshold)
+    {
+        if (current_shutter_speed < _timelapse_max_shutter)
+        {
+            camera->step_shutter_speed(1);
+        }
+        else if (current_iso < _timelapse_max_iso)
+        {
+            camera->step_iso(1);
+        }
+    }
+
+    return result::success;
+}
+
+
+result
+CameraControl::
 dispatch()
 {
     auto next_state = CameraControl::State::init;
     bool scan_cameras = true;
 
     _control_time = _clock.now();
+
+    bool got_message = false;
 
     switch(_state)
     {
@@ -840,6 +1478,28 @@ dispatch()
             break;
         }
 
+        case CameraControl::State::timelapse_idle:
+        {
+            next_state = CameraControl::State::timelapse_idle;
+            _timelapse_capture_count = 0;
+            _timelapse_target_error = 0;
+            _timelapse_target_bin = -1;
+            _timelapse_time = 0;
+            scan_cameras = false;
+            break;
+        }
+
+        case CameraControl::State::timelapse_running:
+        {
+            next_state = CameraControl::State::timelapse_running;
+            scan_cameras = false;
+            if (result::success != _timelapse_dispatch())
+            {
+                ERROR_LOG << "_timelapse_dispatch() failed, ignoring" << std::endl;
+            }
+            break;
+        }
+
         default:
         {
             ABORT_IF(true, "Oops, state" << _state << " is't implemneted!", result::failure);
@@ -847,19 +1507,18 @@ dispatch()
         }
     }
 
+    if (result::failure == _read_command(got_message, next_state))
+    {
+        ERROR_LOG << "_read_command() failed, ignoring" << std::endl;
+    }
+
     if (_state != next_state)
     {
         INFO_LOG << "time: " << _control_time
                  << " state: " << _state << " -> " << next_state
                  << std::endl;
+
         _state = next_state;
-    }
-
-    bool got_message = false;
-
-    if (result::failure == _read_command(got_message))
-    {
-        ERROR_LOG << "_read_command() failed, ignoring" << std::endl;
     }
 
     if (got_message)
@@ -872,7 +1531,9 @@ dispatch()
     else if (_send_time <= _control_time)
     {
         // Send out 4 Hz telemetry unless we are monitoring cameras.
-        if (scan_cameras)
+        if (scan_cameras or
+            _state == State::timelapse_idle or
+            _state == State::timelapse_running)
         {
             _send_time = _control_time + 1000;  // 1 Hz.
         }
@@ -885,6 +1546,34 @@ dispatch()
             ERROR_LOG << "_send_telemetry() failed, ignoring" << std::endl;
         }
     }
+
+    // Trigger if requsted.
+    if (_trigger_type != TriggerType::none)
+    {
+        auto cam = _cameras[_trigger_serial];
+        const auto & entry = _serial_to_id.find(_trigger_serial);
+        const auto desc = entry != _serial_to_id.end() ?
+                          entry->second :
+                          cam->info().desc;
+        INFO_LOG << "Trigger camera " << desc << std::endl;
+
+        if (_trigger_type == TriggerType::trigger)
+        {
+            INFO_LOG << "Trigger camera " << desc << std::endl;
+            if (result::failure == cam->trigger())
+            {
+                ERROR_LOG << "cam->trigger() failed, ignoring" << std::endl;
+            }
+        }
+        else if (_trigger_type == TriggerType::histogram)
+        {
+            if(result::failure == cam->capture_histogram())
+            {
+                ERROR_LOG << "cam->capture_histogram() failed, ignoring" << std::endl;
+            }
+        }
+    }
+    _trigger_type = TriggerType::none;
 
     // Scan for camera changes.
     if (_scan_time <= _control_time)

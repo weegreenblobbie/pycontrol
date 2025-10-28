@@ -54,6 +54,10 @@ public:
         const gphoto2cpp::camera_ptr & camera,
         const int timeout,
         gphoto2cpp::Event & out) override;
+
+    std::unique_ptr<pycontrol::interface::FileCapture>
+    make_file_capture(const gphoto2cpp::camera_ptr & ptr) override;
+
 };
 
 

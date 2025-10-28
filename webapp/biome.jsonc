@@ -1,0 +1,40 @@
+// https://biomejs.dev/reference/configuration/
+{
+    "files": {
+        "includes": [
+            "templates/**",
+            "static/**"
+        ]
+    },
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 80,
+        "formatWithErrors": false,
+        "lineEnding": "lf",
+        "expand": "always"
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "recommended": true
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "arrowParentheses": "always",
+            "bracketSameLine": false,
+            "bracketSpacing": false,
+            "lineWidth": 80,
+            "operatorLinebreak": "after",
+            "quoteProperties": "asNeeded",
+            "quoteStyle": "double",
+            "semicolons": "always",
+            "trailingCommas": "all"
+        },
+        "parser": {
+            "jsxEverywhere": false
+        }
+    }
+}

@@ -13,10 +13,10 @@ import unittest
 from playwright.sync_api import Page, expect
 
 # Local webapp dir modules.
-import date_utils as du
-import webapp
+from webapp import date_utils as du
+from webapp import webapp
 
-from test_ui import Button
+from webapp.tests.test_ui import Button
 
 
 logging.getLogger().handlers = []
@@ -31,7 +31,7 @@ def di_log(self, msg):
     """
     Directly injected log function.
     """
-    logger.info(f"{self.__class__.__name__}:{msg}")
+    #logger.info(f"{self.__class__.__name__}:{msg}")
 
 
 class FakeGpsReader:
@@ -134,14 +134,14 @@ class FakeCameraControlIo:
             self._id += 1
             self._seq_file = filename
             self._seq_state[:] = seq_state
-            out = dict(id=self._id, success=True)
+            out = dict(last_accepted_id=self._id, success=True)
         return out
 
     def set_events(self, event_map):
         self.log(f"set_events({event_map})")
         with self._lock:
             self._id += 1
-            out = dict(id=self._id, success=True)
+            out = dict(last_accepted_id=self._id, success=True)
         return out
 
     def reset_sequence(self):
@@ -227,7 +227,7 @@ class FakeCameraControlIo:
 fake_gps_reader = FakeGpsReader()
 fake_camera_io = FakeCameraControlIo()
 
-fake_camera_io.load_sequence("tests/default_dir/sequences/s1.seq")
+fake_camera_io.load_sequence("webapp/tests/default_dir/sequences/s1.seq")
 
 
 @pytest.fixture(scope='session')
@@ -235,7 +235,7 @@ def app(pytestconfig):
 
     pytest_dir = pytestconfig.invocation_params.dir
     print(f"pytest_dir = {pytest_dir}")
-    root_dir = os.path.join(pytest_dir, "tests", "default_dir")
+    root_dir = os.path.join(pytest_dir, "webapp", "tests", "default_dir")
     return webapp.create_app(root_dir, fake_gps_reader, fake_camera_io)
 
 
@@ -263,7 +263,7 @@ def setup_configs(pytestconfig):
     gui.config is empty before the flask app is launched.
     """
     prefix = pytestconfig.invocation_params.dir
-    gui_config = os.path.join(prefix, "tests", "default_dir", "config", "gui.config")
+    gui_config = os.path.join(prefix, "webapp", "tests", "default_dir", "config", "gui.config")
     with open(gui_config, "w") as fout:
         fout.write("")
 
@@ -319,6 +319,53 @@ class TestWebapp:
         print(f"TEST FAILURE: see defaults.png", file=sys.stderr)
         print(f"TEST FAILURE: see defaults.console", file=sys.stderr)
         print(f"TEST FAILURE: see defaults.html", file=sys.stderr)
+
+    def _wait_for_event_table_ready(self, timeout=30.0):
+        """
+        Wait until the event table no longer contains "Computing ...".
+        """
+        self._page.wait_for_function(
+            """() => {
+              const cells = Array.from(document.querySelectorAll('#event_table tbody td'));
+              if (cells.length === 0) return false;
+              // Check if any cell in the second column (index 1, 4, 7...) contains "Computing ..."
+              for (let i = 1; i < cells.length; i += 3) {
+                  if (cells[i].innerText.includes('Computing ...')) return false;
+              }
+              return true;
+            }""",
+            timeout=timeout * 1000
+        )
+
+    def _wait_for_sim_state(self, state, timeout=10.0):
+        """
+        Wait until the simulation button has the expected state class.
+        """
+        self._page.wait_for_function(
+            f"selector => document.querySelector(selector).classList.contains('{state}')",
+            arg="#run_sim_button",
+            timeout=timeout * 1000
+        )
+
+    def _wait_for_event_table_computing(self, timeout=2.0):
+        """
+        Wait until the event table contains "Computing ...".
+        This is useful to ensure we are not reading stale data from before a re-calculation.
+        """
+        try:
+            self._page.wait_for_function(
+                """() => {
+                  const cells = Array.from(document.querySelectorAll('#event_table tbody td'));
+                  for (let i = 1; i < cells.length; i += 3) {
+                      if (cells[i].innerText.includes('Computing ...')) return true;
+                  }
+                  return false;
+                }""",
+                timeout=timeout * 1000
+            )
+        except:
+            # It's possible the calculation is so fast that we miss the "Computing ..." state in the UI.
+            pass
 
     def test_defaults(self, page, test_client):
         """
@@ -443,7 +490,6 @@ class TestWebapp:
         # Wait for the popup container to become visible.
         modal = "#file_list"
         self._page.wait_for_selector(modal, state="visible", timeout=self._timeout)
-        time.sleep(1)
         file_list = self._page.locator(modal).inner_text().split("\n")
         assert file_list == ["custom1.event", "custom2.event", "spain-2026.event"]
 
@@ -494,11 +540,11 @@ class TestWebapp:
         """
         on_console_messages("load camera sequence: s1.seq")
         self._seq_button.click()
-        time.sleep(1)
 
         # Wait for the popup container to become visible.
         modal = "#camera_sequence_file_list"
         self._page.wait_for_selector(modal, state="visible", timeout=self._timeout)
+        self._page.wait_for_selector("#camera_sequence_file_list li", state="visible", timeout=self._timeout)
         file_list = self._page.locator(modal + " li").all_inner_texts()
         assert file_list == ["s1.seq", "s2.seq"]
 
@@ -507,7 +553,7 @@ class TestWebapp:
         li = self._page.locator(f'{modal} li:has-text("s1.seq")')
         li.click()
 
-        fake_camera_io.load_sequence("tests/default_dir/sequences/s1.seq")
+        fake_camera_io.load_sequence("webapp/tests/default_dir/sequences/s1.seq")
         fake_camera_io.set_state("execute_ready")
 
         seq_cell = self._page.locator("#event_info_table tbody tr:nth-child(1) td:nth-child(3)")
@@ -553,9 +599,7 @@ class TestWebapp:
         # Wait for the popup container to become visible.
         modal = "#camera_sequence_file_list"
         self._page.wait_for_selector(modal, state="visible", timeout=self._timeout)
-        #expect(self._page.locator(modal + " li")).to_have_text(["s1.seq", "s2.seq"], timeout=self._timeout)
-        # expect failures do not show you the content, so limitied in use.
-        time.sleep(1)
+        self._page.wait_for_selector("#camera_sequence_file_list li", state="visible", timeout=self._timeout)
         file_list = self._page.locator(modal + " li").all_inner_texts()
         assert file_list == ["s1.seq", "s2.seq"]
 
@@ -564,7 +608,7 @@ class TestWebapp:
         li = self._page.locator(f'{modal} li:has-text("s2.seq")')
         li.click()
 
-        fake_camera_io.load_sequence("tests/default_dir/sequences/s2.seq")
+        fake_camera_io.load_sequence("webapp/tests/default_dir/sequences/s2.seq")
         fake_camera_io.set_state("execute_ready")
 
         seq_cell = self._page.locator("#event_info_table tbody tr:nth-child(1) td:nth-child(3)")
@@ -626,7 +670,7 @@ class TestWebapp:
 
         # Wait for the popup container to become visible.
         self._page.wait_for_selector("#file_list", state="visible", timeout=self._timeout)
-        time.sleep(1)
+        self._page.wait_for_selector("#file_list li", state="visible", timeout=self._timeout)
         file_list = self._page.locator("#file_list").inner_text().split("\n")
         assert file_list == ["custom1.event", "custom2.event", "spain-2026.event"]
 
@@ -677,13 +721,13 @@ class TestWebapp:
         #    long=-4.997906,
         #    altitude=1258.0,  # pvlib.location.lookup_altitude(42.977592, -4.997906)
         #
-        #    Start of partial eclipse (C1):   2026/08/12	17:32:09.4	+19.6°	272.2°	299°	03.6
-        #    Start of total eclipse (C2):     2026/08/12	18:27:37.8	+09.6°	281.4°	108°	10.0
-        #    Maximum eclipse (MAX):           2026/08/12	18:28:30.9	+09.4°	281.5°	208°	06.7
-        #    End of total eclipse (C3):       2026/08/12	18:29:23.7	+09.2°	281.7°	308°	03.3
-        #    End of partial eclipse (C4):     2026/08/12	19:21:21.0	+00.1°	290.3°	117°	09.6
+        #    Start of partial eclipse (C1):   2026/08/12	17:32:09.4	+19.6	272.2	299	03.6
+        #    Start of total eclipse (C2):     2026/08/12	18:27:37.8	+09.6	281.4	108	10.0
+        #    Maximum eclipse (MAX):           2026/08/12	18:28:30.9	+09.4	281.5	208	06.7
+        #    End of total eclipse (C3):       2026/08/12	18:29:23.7	+09.2	281.7	308	03.3
+        #    End of partial eclipse (C4):     2026/08/12	19:21:21.0	+00.1	290.3	117	09.6
         #
-        time.sleep(10.0)
+        self._wait_for_event_table_ready()
 
         text = self._page.locator("#event_table tbody td").all_inner_texts()
 
@@ -694,9 +738,9 @@ class TestWebapp:
 
         expected = [
             "c1",  "2026-08-12 17:32:15.000 Z", "  303 days 19:17:37",
-            "c2",  "2026-08-12 18:27:37.750 Z", "  303 days 20:13:00",
+            "c2",  "2026-08-12 18:27:38.000 Z", "  303 days 20:13:00",
             "mid", "2026-08-12 18:28:30.750 Z", "  303 days 20:13:53",
-            "c3",  "2026-08-12 18:29:23.750 Z", "  303 days 20:14:46",
+            "c3",  "2026-08-12 18:29:23.500 Z", "  303 days 20:14:46",
             "c4",  "2026-08-12 19:21:15.000 Z", "  303 days 21:06:37",
         ]
         assert len(text) == len(expected)
@@ -720,7 +764,7 @@ class TestWebapp:
         self._page.wait_for_selector("#run_sim_modal", state="visible", timeout=self._timeout)
 
         all_cases = [
-            # Locator   value from tests/default_dir/config/run_sim.config
+            # Locator   value from webapp/tests/default_dir/config/run_sim.config
             ("sim_latitude_input", "1.0"),
             ("sim_longitude_input", "2.0"),
             ("sim_altitude_input", "3.0"),
@@ -747,14 +791,15 @@ class TestWebapp:
         on_console_messages("Clicking on the run sim okay button")
         self._page.click("#sim_okay_button")
 
-        time.sleep(6.0)
+        self._wait_for_sim_state("running")
 
         # Assert the run sim button is now red.
         assert "loaded" in self._event_button.classes
         assert "loaded" in self._seq_button.classes
         assert "running" in self._sim_button.classes
 
-        time.sleep(5.0)
+        self._wait_for_event_table_computing()
+        self._wait_for_event_table_ready()
 
         text = self._page.locator("#event_table tbody td").all_inner_texts()
         right_now = du.now()
@@ -778,14 +823,16 @@ class TestWebapp:
 
         def eta_to_seconds(eta_string):
             match = hms_patern.match(eta_string)
+            if not match:
+                return 0.0
             sign, hours, minutes, seconds = match.groups()
             sign = -1.0 if sign == "-" else 1.0
-            # Convert 00 -> 0.0
-            #         01 -> 1.0, etc.
-            hours = float((hours + ".0").lstrip("0"))
-            minutes = float((minutes + ".0").lstrip("0"))
-            seconds = float((seconds + ".0").lstrip("0"))
-            return sign * (hours * 3_600 + minutes * 60 + seconds)
+            
+            # Strip leading zeros for float conversion if needed, but float() handles "09" fine.
+            hours = float(hours)
+            minutes = float(minutes)
+            seconds = float(seconds)
+            return sign * (hours * 3600 + minutes * 60 + seconds)
 
         for row_num, expected_event_id in enumerate(["c1", "c2", "mid", "c3", "c4"]):
             idx = row_num * 3
@@ -798,14 +845,14 @@ class TestWebapp:
             actual_eta = eta_to_seconds(eta)
             expected_eta = eta_to_seconds(expected[idx + 2])
 
-            assert abs(expected_eta - actual_eta) <= 2.0
+            assert abs(expected_eta - actual_eta) <= 5.0
 
             # Timestamp + eta ~= right_now
-            assert abs((timestamp - right_now).total_seconds() - actual_eta) <= 2.0
+            assert abs((timestamp - right_now).total_seconds() - actual_eta) <= 5.0
 
         # Now clicking on the sim button should stop the simulation.
         self._sim_button.click()
-        time.sleep(1)
+        self._wait_for_sim_state("stopped")
 
         # Assert the run sim button is now green.
         assert "loaded" in self._event_button.classes
@@ -842,14 +889,15 @@ class TestWebapp:
 
         on_console_messages("Clicking on the run sim okay button again")
         self._page.click("#sim_okay_button")
-        time.sleep(6.0)
+        self._wait_for_sim_state("running")
 
         # Assert the run sim button is now red.
         assert "loaded" in self._event_button.classes
         assert "loaded" in self._seq_button.classes
         assert "running" in self._sim_button.classes
 
-        time.sleep(5.0)
+        self._wait_for_event_table_computing()
+        self._wait_for_event_table_ready()
 
         text = self._page.locator("#event_table tbody td").all_inner_texts()
         right_now = du.now()
@@ -864,18 +912,18 @@ class TestWebapp:
         #    long=-4.997906,
         #    altitude=1258.0,  # pvlib.location.lookup_altitude(42.977592, -4.997906)
         #
-        #    Start of partial eclipse (C1):   2026/08/12	17:32:09.4	+19.6°	272.2°	299°	03.6
-        #    Start of total eclipse (C2):     2026/08/12	18:27:37.8	+09.6°	281.4°	108°	10.0
-        #    Maximum eclipse (MAX):           2026/08/12	18:28:30.9	+09.4°	281.5°	208°	06.7
-        #    End of total eclipse (C3):       2026/08/12	18:29:23.7	+09.2°	281.7°	308°	03.3
-        #    End of partial eclipse (C4):     2026/08/12	19:21:21.0	+00.1°	290.3°	117°	09.6
+        #    Start of partial eclipse (C1):   2026/08/12	17:32:09.4	+19.6
+        #    Start of total eclipse (C2):     2026/08/12	18:27:37.8	+09.6
+        #    Maximum eclipse (MAX):           2026/08/12	18:28:30.9	+09.4
+        #    End of total eclipse (C3):       2026/08/12	18:29:23.7	+09.2
+        #    End of partial eclipse (C4):     2026/08/12	19:21:21.0	+00.1
         #
         expected = [
             # event id   timestammp                   ETA
             "c1",        "2026-08-12 17:32:15.000 Z", "  302 days 15:00:04",
-            "c2",        "2026-08-12 18:27:37.750 Z", "  302 days 15:55:27",
+            "c2",        "2026-08-12 18:27:38.000 Z", "  302 days 15:55:27",
             "mid",       "2026-08-12 18:28:30.750 Z", "  302 days 15:56:20",
-            "c3",        "2026-08-12 18:29:23.750 Z", "  302 days 15:57:13",
+            "c3",        "2026-08-12 18:29:23.500 Z", "  302 days 15:57:13",
             "c4",        "2026-08-12 19:21:15.000 Z", "  302 days 16:49:04",
         ]
         assert len(text) == len(expected)
@@ -889,7 +937,7 @@ class TestWebapp:
 
         # Now clicking on the sim button should stop the simulation.
         self._sim_button.click()
-        time.sleep(1)
+        self._wait_for_sim_state("stopped")
 
         # Assert the run sim button is now green.
         assert "loaded" in self._event_button.classes

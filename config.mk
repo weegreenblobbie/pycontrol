@@ -66,6 +66,13 @@ LINKFLAGS = \
     -L$(EXTERNAL_DIR)/lib \
 	-Wl,-rpath,$(abspath $(EXTERNAL_DIR)/lib)
 
+# --- Coverage Build Switch ---
+COVERAGE ?= 0
+ifeq ($(COVERAGE), 1)
+	CXXFLAGS += --coverage
+	LINKFLAGS += --coverage
+endif
+
 LIBS = \
     -lgphoto2 \
     -lgphoto2_port \
@@ -76,7 +83,8 @@ LIBS = \
 	-lprotobuf \
 	-lpthread \
 	-lCatch2 \
-	-lCatch2Main
+	-lCatch2Main \
+	-ljpeg
 
 #-----------------------------------------------------------------------------
 # C++ compiler source into objects.
