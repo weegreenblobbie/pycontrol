@@ -94,10 +94,18 @@ class GpsReader:
 
     def read(self):
         """Returns a dictionary containing the latest GPS data. Thread-safe."""
+
         with self._lock:
+
+            # DEBUG THIS
+            try:
+                mode = MODE_STRINGS[self._mode.value]
+            except AttributeError:
+                printf(f"self._mode: {self._mode}")
+
             data = dict(
                 connected=self._connected and not self._error,
-                mode=MODE_STRINGS[self._mode.value],
+                mode=mode,
                 mode_time=self._mode_time,
                 time=self._time,
                 lat=self._lat,
