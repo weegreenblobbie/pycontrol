@@ -37,6 +37,8 @@ public:
         monitor,
         execute_ready,
         executing,
+        timelapse_idle,
+        timelapse_running,
     };
 
     CameraControl(
@@ -59,8 +61,9 @@ private:
 
     void _camera_scan();
     result _send_telemetry();
-    result _read_command(bool & got_message);
+    result _read_command(bool & got_message, State & next_state);
     result _dispatch_camera_events();
+    result _timelapse_dispatch();
 
     milliseconds _get_event_time(const Event & event) const;
     milliseconds _get_next_event_time() const;
@@ -79,7 +82,7 @@ private:
     port_set          _current_ports {};
 
     std::string       _command_buffer = std::string(1024, '\0');
-    std::string       _command_response = "{\"id\":0,\"success\":true}";
+    std::string       _command_response = "{\"last_accepted_id\":0,\"last_rejected_id\":0,\"message\":\"\"}";
     std::stringstream _telem_message = std::stringstream(std::string(4096, '\0'));
 
     milliseconds      _control_time {0};
@@ -88,15 +91,43 @@ private:
     milliseconds      _send_time {0};
     milliseconds      _read_time {500};  // Keeping it out of phase
 
-    std::uint32_t     _command_id {0};
+    std::uint32_t     _last_accepted_command_id {0};
+    std::uint32_t     _last_rejected_command_id {0};
+    std::string       _last_rejected_message {};
     std::string       _sequence_filename {};
     event_map         _event_map {};
     sequence_map      _sequence_map {};
 
-    interface::UdpSocket &     _command_socket;
-    interface::UdpSocket &     _telem_socket;
-    interface::GPhoto2Cpp &    _gp2cpp;
-    interface::WallClock &     _clock;
+    // TODO: To constrol multiple cameras in timelapse mode with one raspberry
+    //       pi, make this a map of camera serial to a struct with these
+    //       settings.
+    milliseconds      _timelapse_time {0};
+    std::string       _timelapse_serial {};
+    milliseconds      _timelapse_interval {0};
+    float             _timelapse_min_shutter {0.0f};
+    float             _timelapse_max_shutter {0.0f};
+    unsigned int      _timelapse_min_iso {0};
+    unsigned int      _timelapse_max_iso {0};
+    int               _timelapse_min_hist_mask {-1};
+    int               _timelapse_max_hist_mask {256};
+    int               _timelapse_target_bin {0};
+    int               _timelapse_target_offset {0};
+    float             _timelapse_target_percent {0.05f};
+    int               _timelapse_target_error {0};
+    int               _timelapse_min_deadband {10};
+    int               _timelapse_max_deadband {1};
+    std::uint32_t     _timelapse_capture_count {0};
+    std::uint32_t     _timelapse_pixel_count {0};
+
+    enum class TriggerType {none, trigger, histogram};
+
+    TriggerType       _trigger_type {TriggerType::none};
+    std::string       _trigger_serial {};
+
+    interface::UdpSocket &  _command_socket;
+    interface::UdpSocket &  _telem_socket;
+    interface::GPhoto2Cpp & _gp2cpp;
+    interface::WallClock &  _clock;
 };
 
 
@@ -110,6 +141,8 @@ std::ostream & operator<<(std::ostream & out, const CameraControl::State & s)
         case CameraControl::State::monitor: out << "monitor"; break;
         case CameraControl::State::execute_ready: out << "execute_ready"; break;
         case CameraControl::State::executing: out << "executing"; break;
+        case CameraControl::State::timelapse_idle: out << "timelapse_idle"; break;
+        case CameraControl::State::timelapse_running: out << "timelapse_running"; break;
     }
     return out;
 }

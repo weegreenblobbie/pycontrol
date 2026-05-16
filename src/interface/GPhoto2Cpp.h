@@ -19,11 +19,21 @@ namespace gphoto2cpp
     struct Event;
 }
 
-
 namespace pycontrol
 {
 namespace interface
 {
+
+struct FileCapture
+{
+    virtual ~FileCapture() = default;
+    virtual bool capture() = 0;
+    virtual bool decompress_jpeg(
+        std::vector<unsigned char> & output,
+        unsigned int & num_channels
+    ) = 0;
+    virtual bool delete_last_capture() = 0;
+};
 
 
 class GPhoto2Cpp
@@ -88,6 +98,9 @@ public:
         const int timeout,
         gphoto2cpp::Event & out) = 0;
 
+    virtual
+    std::unique_ptr<pycontrol::interface::FileCapture>
+    make_file_capture(const gphoto2cpp::camera_ptr & ptr) = 0;
 };
 
 

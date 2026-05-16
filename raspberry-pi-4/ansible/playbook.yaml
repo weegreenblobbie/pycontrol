@@ -276,6 +276,9 @@
           Restart=on-failure
           RestartSec=5
 
+          # Pin this to cpu core 0.
+          CPUAffinity=0
+
           [Install]
           # Enable this service for the default multi-user runlevel
           WantedBy=multi-user.target
@@ -310,6 +313,9 @@
 
           Restart=on-failure
           RestartSec=5
+
+          # Keep off cpu 0.
+          CPUAffinity=1-3
 
           [Install]
           WantedBy=multi-user.target

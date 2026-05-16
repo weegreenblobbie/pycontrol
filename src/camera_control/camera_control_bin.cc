@@ -1,4 +1,3 @@
-#include <camera_control/Camera.h>
 #include <camera_control/CameraControl.h>
 #include <camera_control/GPhoto2Cpp.h>
 #include <camera_control/WallClock.h>

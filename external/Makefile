@@ -1,20 +1,28 @@
 include ../config.mk
 
-CACTUS_LIB := lib/libcactus_rt.a
-CACTUS_REPO := cactus-rt/.git/config
+.PHONY: release clean real-clen
 
-CATCH_REPO := Catch2/.git/config
+CACTUS_LIB := lib/libcactus_rt.a
+CACTUS_DIR := cactus-rt
+CACTUS_REPO := $(CACTUS_DIR)/.git/config
+
+
+CATCH_DIR := Catch2
+CATCH_REPO := $(CATCH_DIR)/.git/config
 CATCH_LIB := lib/libCatch2.so
 
-LIBGPHOTO2_REPO := libgphoto2/.git/config
+LIBGPHOTO2_DIR := libgphoto2
+LIBGPHOTO2_REPO := $(LIBGPHOTO2_DIR)/.git/config
 LIBGPHOTO2_LIB := lib/libgphoto2.so
 
-GPHOTO2_REPO := gphoto2/.git/config
+GPHOTO2_DIR := gphoto2
+GPHOTO2_REPO := $(GPHOTO2_DIR)/.git/config
 GPHOTO2_BIN := bin/gphoto2
 
 GPHOTO2CPP_LIB := include/gphoto2cpp/gphoto2cpp.h
 
-JSON_REPO := json/.git/config
+JSON_DIR := json
+JSON_REPO := $(JSON_DIR)/.git/config
 JSON_LIB := include/nlohmann/json.hpp
 
 MESON_VENV := venv/bin/meson
@@ -25,10 +33,11 @@ MESON := $(cwd)$(MESON_VENV)
 
 INSTALL_DIRS := $(CWD)/bin $(CWD)/include $(CWD)/lib $(CWD)/share
 
-all: $(INSTALL_DIRS) $(CACTUS_LIB) $(CATCH_LIB) $(LIBGPHOTO2_LIB) $(GPHOTO2CPP_LIB) $(GPHOTO2_BIN) $(JSON_LIB)
+release: $(INSTALL_DIRS) $(CACTUS_LIB) $(CATCH_LIB) $(LIBGPHOTO2_LIB) $(GPHOTO2CPP_LIB) $(GPHOTO2_BIN) $(JSON_LIB)
+all: release
 
 $(INSTALL_DIRS):
-	@echo "$(BUILD_COLOR)Making$(RESET) $@"
+	@echo "$(BUILD_COLOR)Making dir$(RESET) $@"
 	$(SILENT)mkdir -p $@
 
 #------------------------------------------------------------------------------
@@ -38,12 +47,12 @@ $(CACTUS_REPO):
 	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
 	$(SILENT)git clone --quiet https://github.com/cactusdynamics/cactus-rt.git $(DEVNULL) && \
 	cd cactus-rt && \
-		git checkout 3997bd8bae85452322b7c7cbfe1bf6a88223ac4c
+		git checkout --quiet 3997bd8bae85452322b7c7cbfe1bf6a88223ac4c
 
 $(CACTUS_LIB): $(CACTUS_REPO)
 	@echo "$(CONFIGURE_COLOR)Configuring$(RESET) $@"
 	$(SILENT)mkdir -p cactus_build && \
-    cmake -S cactus-rt -B cactus_build \
+	cmake -G Ninja -S cactus-rt -B cactus_build \
         -DCMAKE_BUILD_TYPE=RelWithDebInfo \
         -DENABLE_CLANG_TIDY=OFF \
         -DENABLE_EXAMPLES=OFF \
@@ -68,7 +77,7 @@ $(CATCH_REPO):
 	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
 	$(SILENT)git clone --quiet https://github.com/catchorg/Catch2.git $(DEVNULL) && \
 	cd Catch2 && \
-		git checkout 2b60af89e23d28eefc081bc930831ee9d45ea58b
+		git checkout --quiet 2b60af89e23d28eefc081bc930831ee9d45ea58b
 
 $(CATCH_LIB): $(CATCH_REPO)
 	@echo "$(CONFIGURE_COLOR)Configuring$(RESET) $@"
@@ -78,6 +87,7 @@ $(CATCH_LIB): $(CATCH_REPO)
         -DCATCH_BUILD_TESTING=OFF \
         -DBUILD_SHARED_LIBS=ON $(DEVNULL) && \
 	echo "$(BUILD_COLOR)Building$(RESET) $@" && \
+	sleep 1 &&  \
 	cmake --build catch2_build -j $$(nproc) $(DEVNULL) && \
 	echo "$(INSTALL_COLOR)Installing$(RESET) $@" && \
 	cmake --install catch2_build $(DEVNULL) && \
@@ -86,17 +96,12 @@ $(CATCH_LIB): $(CATCH_REPO)
 #------------------------------------------------------------------------------
 # libgphoto2.
 #
-#~$(LIBGPHOTO2_REPO):
-#~	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
-#~	$(SILENT)git clone --quiet https://github.com/gphoto/libgphoto2.git $(DEVNULL) && \
-#~	cd libgphoto2 && \
-#~	   git checkout 9df7485aa54f2c3233e52e2a3efb1daf5cf6f967
 
 # My fork
 $(LIBGPHOTO2_REPO):
 	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
 	$(SILENT)git clone --quiet https://github.com/weegreenblobbie/libgphoto2.git $(DEVNULL) && \
-	cd libgphoto2 && git checkout dev/nikon-z8-shutterspeed2
+	cd libgphoto2 && git checkout --quiet dev/nikon-z8-shutterspeed2
 
 $(MESON_VENV):
 	@echo "$(INSTALL_COLOR)Installing$(RESET) $@"
@@ -124,9 +129,9 @@ $(GPHOTO2_REPO):
 	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
 	$(SILENT)git clone --quiet https://github.com/gphoto/gphoto2.git $(DEVNULL) && \
 	cd gphoto2 && \
-	   git checkout v2.5.28
+	   git checkout --quiet v2.5.28
 
-$(GPHOTO2_BIN): $(GPHOTO2_REPO)
+$(GPHOTO2_BIN): $(GPHOTO2_REPO) $(LIBGPHOTO2_LIB)
 	@echo "$(CONFIGURE_COLOR)Configuring$(RESET) $@"
 	$(SILENT)cd gphoto2 && \
 	autoreconf -is $(DEVNULL) && \
@@ -166,13 +171,15 @@ $(JSON_LIB): $(JSON_REPO)
 	cmake --install json_build $(DEVNULL) && \
 	touch $@
 
-.PHONY: clean real-clen
 clean:
 	@echo "$(CLEAN_COLOR)Cleaning$(RESET) $(shell pwd)"
-	$(SILENT)rm -rf $(INSTALL_DIRS) cactus_build catch2_build libgphoto2/builddir
+	$(SILENT)rm -rf $(INSTALL_DIRS) cactus_build catch2_build libgphoto2/builddir json_build
 
-real-clean:
+real-clean: clean
 	@echo "$(CLEAN_COLOR)Real Cleaning$(RESET) $(shell pwd)"
-	$(SILENT)rm -tfv $(CACTUS_REPO) $(CACTUS_REPO) $(LIBGPHOTO2_REPO)
+	$(SILENT)rm -rf $(CACTUS_DIR) $(CATCH_DIR) $(LIBGPHOTO2_DIR) $(GPHOTO2_DIR) $(JSON_DIR)
+
+test: # noop
+
 
 # :mode=Makefile:

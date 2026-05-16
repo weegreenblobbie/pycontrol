@@ -4,9 +4,22 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
+- Can we recover from this camera_control failure?
+
+    Feb 24 20:56:05 pycontrol camera_control_bin[13759]: UdpSocket.cc(111): ERROR: ABORT_IF: res < 0 or (errno != 0 and errno != EAGAIN): sendto() failed on port: 10018, errno: No such device
+    Feb 24 20:56:05 pycontrol camera_control_bin[13759]: CameraControl.cc(337): ERROR: ABORT_ON_FILURE: _telem_socket.send(_telem_message.str()): UdpSocket::send() failed
+    Feb 24 20:56:05 pycontrol camera_control_bin[13759]: CameraControl.cc(1201): ERROR: _send_telemetry() failed, ignoring
+    Feb 24 20:56:05 pycontrol camera_control_bin[13759]: UdpSocket.cc(111): ERROR: ABORT_IF: res < 0 or (errno != 0 and errno != EAGAIN): sendto() failed on port: 10018, errno: No such device
+    Feb 24 20:56:05 pycontrol camera_control_bin[13759]: CameraControl.cc(337): ERROR: ABORT_ON_FILURE: _telem_socket.send(_telem_message.str()): UdpSocket::send() failed
+    Feb 24 20:56:05 pycontrol camera_control_bin[13759]: CameraControl.cc(1201): ERROR: _send_telemetry() failed, ignoring
+    Feb 24 20:56:06 pycontrol camera_control_bin[13759]: UdpSocket.cc(111): ERROR: ABORT_IF: res < 0 or (errno != 0 and errno != EAGAIN): sendto() failed on port: 10018, errno: No such device
+    Feb 24 20:56:06 pycontrol camera_control_bin[13759]: CameraControl.cc(337): ERROR: ABORT_ON_FILURE: _telem_socket.send(_telem_message.str()): UdpSocket::send() failed
+    Feb 24 20:56:06 pycontrol camera_control_bin[13759]: CameraControl.cc(1201): ERROR: _send_telemetry() failed, ignoring
+
+
 - loading the eclipse event button doesn't delete the previous table rows
 
-- speed test with z7 + z8 to see if they hit 2.33 and 4.66 FPS.
+- speed test with z7, z8 together to see if they hit 2.33 and 4.66 FPS.
 
 - Report command latency to UI to detect bad raspberry pi behavior
 
@@ -23,10 +36,7 @@ Make it work
     WARNING: Tried to get polar motions for times after IERS data is valid. Defaulting to polar motion from the 50-yr mean for those. This may affect precision at the arcsec level. Please check your astropy.utils.iers.conf.iers_auto_url and point it to a newer version if necessary. [astropy.coordinates.builtin_frames.utils]
     WARNING: TimeDeltaMissingUnitWarning: Numerical value without unit or explicit format passed to TimeDelta, assuming days [astropy.time.core]
 
-- Add gps time and system time delta to the gps status line, to help verify if chrony
-  is correctly syncing system time.
-
-- Add camera connection counter so one can observe if it's constantly reconnecting (see this
+- Add camera connection counter so one can observe if it's constantly reconnecting (saw this
   with my own eyes, rebooting the pi fixed it.)
 
 - Add and test more camera channels:
@@ -55,8 +65,6 @@ Make it work
 
 - Add automated camera frames-per-second auto testing to find limit.
 
-- Auto start app on rpi boot
-
 - Connect phone to WPA2 secure, ad-hoc, wireless network provided by the pi
 
 - Upload event and sequnce files using the webapp.
@@ -75,8 +83,6 @@ Make it work well
 - Conditional use shutterspeed2, burstnumb, num_avail
 
 - unit tests for everything
-
-- Add a graphical system diagram for documentation.
 
 - Add documentation.
 
@@ -261,6 +267,13 @@ reloading the page.
 * Add an SVG icon for cameras we've received packets for, and a dead camera icon.  For example, suppose the camera
   goes to sleep and we stop detecting it, we should detect this condition and alert the operator of our app. For now,
   detect the camera went missing in camera_info_reader and add a connected flag to the results we send to the webapp.
+
+* Add gps time and system time delta to the gps status line, to help verify if chrony
+  is correctly syncing system time.
+
+* Auto start app on rpi boot
+
+* Add a graphical system diagram for documentation.
 
 
 Past Items Rejected

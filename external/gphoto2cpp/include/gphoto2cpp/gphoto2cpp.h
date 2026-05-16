@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -12,6 +13,11 @@
 
 #include <ctime>
 #include <cctype>
+#include <csetjmp>
+
+extern "C" {
+#include <jpeglib.h>
+}
 
 #include <gphoto2/gphoto2-port-log.h>
 
@@ -47,12 +53,14 @@ namespace gphoto2cpp
     using cam_list_ptr = std::shared_ptr<GP2::CameraList>;
     using context_ptr = std::shared_ptr<GP2::GPContext>;
     using camera_ptr = std::shared_ptr<GP2::Camera>;
+    using camera_file_ptr = std::shared_ptr<GP2::CameraFile>;
     using port_info_list_ptr = std::shared_ptr<GP2::GPPortInfoList>;
     enum class LogLevel_t : unsigned int {debug, error};
 
     std::vector<std::string> auto_detect();
     context_ptr              get_context();
     camera_ptr               make_camera();
+    camera_file_ptr          make_camera_file();
     cam_list_ptr             make_camera_list();
     port_info_list_ptr       make_port_info_list();
     camera_ptr               open_camera(const std::string & port);
@@ -96,6 +104,28 @@ namespace gphoto2cpp
                                 Event & out);
 
     bool                     set_log_level(LogLevel_t lvl);
+
+    struct FileCapture
+    {
+    private:
+        GP2::CameraFilePath _path         {.name = "unused", .folder = "unused"};
+        camera_ptr          _camera       {nullptr};
+        camera_file_ptr     _file_ptr     {nullptr};
+        const char *        _data         {nullptr};
+        unsigned long int   _size         {0};
+        unsigned int        _num_channels {0}; /* 1 = monochrome or 3 for RGB */
+
+    public:
+        explicit FileCapture(const camera_ptr & ptr);
+
+        bool capture();
+        bool decompress_jpeg(
+            std::vector<unsigned char> & output,
+            unsigned int & num_channels
+        );
+
+        bool delete_last_capture();
+    };
 }
 
 
@@ -439,6 +469,14 @@ make_camera()
     return camera_ptr(local, [](GP2::Camera * p){GP2::gp_camera_unref(p);});
 }
 
+inline
+camera_file_ptr
+make_camera_file()
+{
+    GP2::CameraFile * local {nullptr};
+    GPHOTO2CPP_SAFE_CALL(GP2::gp_file_new(&local), nullptr);
+    return camera_file_ptr(local, [](GP2::CameraFile * p){GP2::gp_file_unref(p);});
+}
 
 inline
 cam_list_ptr
@@ -1190,5 +1228,192 @@ bool set_log_level(LogLevel_t lvl)
     return true;
 }
 
-
+inline
+FileCapture::FileCapture(const camera_ptr & ptr):
+    _camera(ptr),
+    _file_ptr(make_camera_file())
+{
 }
+
+inline
+bool
+FileCapture::capture()
+{
+    // Trigger the capture.
+    GPHOTO2CPP_SAFE_CALL(
+        gp_camera_capture(
+            _camera.get(),
+            GP2::GP_CAPTURE_IMAGE,
+            &_path,
+            get_context().get()
+        ),
+        false
+    );
+
+    // IN WORK
+    // Force the filename to .JPG to only pull the basic JPEG
+    std::string filename(_path.name);
+    std::size_t dot_pos = filename.find_last_of('.');
+    if (dot_pos != std::string::npos)
+    {
+        filename.replace(dot_pos, std::string::npos, ".JPG");
+        snprintf(_path.name, sizeof(_path.name), "%s", filename.c_str());
+    }
+    // IN WORK
+
+    GPHOTO2CPP_DEBUG_LOG << "gp_camera_capture() => " << _path.folder << "/" << _path.name << std::endl;
+
+    // Transfer image to RAM.
+    GPHOTO2CPP_SAFE_CALL(
+        gp_camera_file_get(
+            _camera.get(),
+            _path.folder,
+            _path.name,
+            GP2::GP_FILE_TYPE_NORMAL,
+            _file_ptr.get(),
+            get_context().get()
+        ),
+        false
+    );
+
+    // Get the data pointer and size.
+    GPHOTO2CPP_SAFE_CALL(
+        gp_file_get_data_and_size(
+            _file_ptr.get(),
+            &_data,
+            &_size
+        ),
+        false
+    );
+
+    GPHOTO2CPP_DEBUG_LOG << "gp_file_get_data_and_size() => size: " << _size << std::endl;
+
+    // Save the file to temp for use by other apps.
+    std::ofstream preview_file("/tmp/latest_preview.tmp", std::ios::binary);
+    if (preview_file)
+    {
+        preview_file.write(reinterpret_cast<const char*>(_data), _size);
+        preview_file.close();
+        if (std::rename("/tmp/latest_preview.tmp", "/tmp/latest_preview.jpg"))
+        {
+            GPHOTO2CPP_ERROR_LOG << "Failed to rename /tmp/latest_preview.tmp => latest_preview.jpg" << std::endl;
+        }
+    }
+    else
+    {
+        GPHOTO2CPP_ERROR_LOG << "Failed to write latest_preview.jpg to disk" << std::endl;
+    }
+
+    return true;
+}
+
+
+// Custom error handling structure for libjpeg.
+struct handle_error_mgr
+{
+    struct jpeg_error_mgr pub;
+    jmp_buf setjmp_buffer;
+};
+
+// Custom error handler to override libjpeg's default exit().
+inline
+void
+custom_handle_error(j_common_ptr cinfo)
+{
+    handle_error_mgr * hem = reinterpret_cast<handle_error_mgr *>(cinfo->err);
+    char buffer[JMSG_LENGTH_MAX];
+    (*cinfo->err->format_message)(cinfo, buffer);
+    // Jump back to the point in our code that set up the jump buffer.
+    std::longjmp(hem->setjmp_buffer, 1);
+}
+
+inline
+bool
+FileCapture::decompress_jpeg(
+    std::vector<unsigned char> & out_pixels,
+    unsigned int & out_channels)
+{
+    jpeg_decompress_struct jinfo;
+    handle_error_mgr hem;
+    jinfo.err = jpeg_std_error(&hem.pub);
+    hem.pub.error_exit = custom_handle_error;
+
+    if (setjmp(hem.setjmp_buffer))
+    {
+        jpeg_destroy_decompress(&jinfo);
+        return false;
+    }
+
+    jpeg_create_decompress(&jinfo);
+    jpeg_mem_src(&jinfo, reinterpret_cast<const unsigned char*>(_data), _size);
+    jpeg_read_header(&jinfo, TRUE);
+
+
+    // Always compute histograms in grayscale, since JPEG nativly stores data in
+    // a YCbCr colorspace:
+    //
+    // Y (Luminance): The structural black-and-white brightness of the image.
+    // Cb (Chrominance Blue): The blue color difference.
+    // Cr (Chrominance Red): The red color difference.
+    //
+
+    jinfo.out_color_space = JCS_GRAYSCALE;
+
+    // down sample to 1/4 size.
+    jinfo.scale_num = 1;
+    jinfo.scale_denom = 4;
+
+    jpeg_start_decompress(&jinfo);
+
+    _num_channels = out_channels = jinfo.output_components;
+
+    const auto width = jinfo.output_width;
+    const auto height = jinfo.output_height;
+
+    const std::size_t row_stride = width * jinfo.output_components;
+    out_pixels.assign(height * row_stride, 0);
+    auto pix_ptr = out_pixels.data();
+
+    bool success = true;
+
+	JSAMPROW row_pointer[1] = { nullptr };
+
+    while (jinfo.output_scanline < jinfo.output_height)
+    {
+        row_pointer[0] = pix_ptr;
+
+        const auto num_lines_read = jpeg_read_scanlines(&jinfo, row_pointer, 1);
+        if (num_lines_read != 1)
+        {
+            GPHOTO2CPP_ERROR_LOG << "jpeg_read_scanlines() returned " << num_lines_read << std::endl;
+            success = false;
+            break;
+        }
+        pix_ptr += row_stride;
+    }
+
+    jpeg_finish_decompress(&jinfo);
+    jpeg_destroy_decompress(&jinfo);
+
+    return success;
+}
+
+inline
+bool
+FileCapture::delete_last_capture()
+{
+    GPHOTO2CPP_SAFE_CALL(
+        gp_camera_file_delete(
+            _camera.get(),
+            _path.folder,
+            _path.name,
+            get_context().get()
+        ),
+        false
+    );
+
+    return true;
+}
+
+
+} // namespace gphoto2cpp

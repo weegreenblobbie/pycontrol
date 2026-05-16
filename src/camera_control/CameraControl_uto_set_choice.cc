@@ -11,8 +11,9 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "scan" );
     CHECK( data.time == 0 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     CHECK( data.detected_cameras.empty() );
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -28,8 +29,9 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7
@@ -59,8 +61,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'050 );
-    CHECK( data.command_response.id == 1 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 1 );
     CHECK( data.command_response.message == "serial '9999' does not exist" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -91,8 +93,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'100 );
-    CHECK( data.command_response.id == 2 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 2 );
     CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -123,9 +125,9 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'150 );
-    CHECK( data.command_response.id == 3 );
-    CHECK( data.command_response.success == true );
-    CHECK( data.command_response.message.empty() );
+    CHECK( data.command_response.last_accepted_id == 3 );
+    CHECK( data.command_response.last_rejected_id == 2 );
+    CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data == str_vec({"M", "A", "S", "P"}) );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -156,9 +158,9 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'200 );
-    CHECK( data.command_response.id == 4 );
-    CHECK( data.command_response.success == true );
-    CHECK( data.command_response.message.empty() );
+    CHECK( data.command_response.last_accepted_id == 4 );
+    CHECK( data.command_response.last_rejected_id == 2 );
+CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data == str_vec({"f/8","f/5.6","f/4"}) );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -189,9 +191,9 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'250 );
-    CHECK( data.command_response.id == 5 );
-    CHECK( data.command_response.success == true );
-    CHECK( data.command_response.message.empty() );
+    CHECK( data.command_response.last_accepted_id == 5 );
+    CHECK( data.command_response.last_rejected_id == 2 );
+CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data == str_vec{"NEF (Raw)","JPEG Basic","JPEG Fine"} );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -222,9 +224,9 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'300 );
-    CHECK( data.command_response.id == 6 );
-    CHECK( data.command_response.success == true );
-    CHECK( data.command_response.message.empty() );
+    CHECK( data.command_response.last_accepted_id == 6 );
+    CHECK( data.command_response.last_rejected_id == 2 );
+CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data == str_vec{"64","100","200","500"} );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -255,9 +257,9 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'350 );
-    CHECK( data.command_response.id == 7 );
-    CHECK( data.command_response.success == true );
-    CHECK( data.command_response.message.empty() );
+    CHECK( data.command_response.last_accepted_id == 7 );
+    CHECK( data.command_response.last_rejected_id == 2 );
+    CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data == str_vec{"1/1000","1/500","1/250"} );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -288,8 +290,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'400 );
-    CHECK( data.command_response.id == 8 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 7 );
+    CHECK( data.command_response.last_rejected_id == 8 );
     CHECK( data.command_response.message == "Failed to parse set_choice command: '8 set_choice 999 shutterspeed2'" );
     CHECK( data.command_response.data.empty());
     REQUIRE( data.detected_cameras.size() == 1 );
@@ -321,8 +323,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'450 );
-    CHECK( data.command_response.id == 9 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 7 );
+    CHECK( data.command_response.last_rejected_id == 9 );
     CHECK( data.command_response.message == "serial '999' does not exist" );
     CHECK( data.command_response.data.empty());
     REQUIRE( data.detected_cameras.size() == 1 );
@@ -354,8 +356,8 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'500 );
-    CHECK( data.command_response.id == 10 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 7 );
+    CHECK( data.command_response.last_rejected_id == 10 );
     CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data.empty());
     REQUIRE( data.detected_cameras.size() == 1 );
@@ -387,9 +389,9 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'550 );
-    CHECK( data.command_response.id == 11 );
-    CHECK( data.command_response.success == true );
-    CHECK( data.command_response.message.empty() );
+    CHECK( data.command_response.last_accepted_id == 11 );
+    CHECK( data.command_response.last_rejected_id == 10 );
+    CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data.empty());
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -420,9 +422,9 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'600 );
-    CHECK( data.command_response.id == 12 );
-    CHECK( data.command_response.success == true );
-    CHECK( data.command_response.message.empty() );
+    CHECK( data.command_response.last_accepted_id == 12 );
+    CHECK( data.command_response.last_rejected_id == 10 );
+    CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data.empty());
     REQUIRE( data.detected_cameras.size() == 1 );
 

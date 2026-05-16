@@ -16,8 +16,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 1'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7
@@ -47,8 +48,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 1'050 );
-    CHECK( data.command_response.id == 1 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 1 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7
@@ -79,8 +81,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'000 );
-    CHECK( data.command_response.id == 1 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 1 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7
@@ -110,8 +113,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'050 );
-    CHECK( data.command_response.id == 2 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 2 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7
@@ -141,8 +145,8 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'100 );
-    CHECK( data.command_response.id == 3 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 2 );
+    CHECK( data.command_response.last_rejected_id == 3 );
     CHECK( data.command_response.message == "serial '5678' does not exist" );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -175,8 +179,8 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 4'000 );
-    CHECK( data.command_response.id == 3 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 2 );
+    CHECK( data.command_response.last_rejected_id == 3 );
     CHECK( data.command_response.message == "serial '5678' does not exist" );
     REQUIRE( data.detected_cameras.size() == 2 );
 
@@ -222,8 +226,8 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 4'050 );
-    CHECK( data.command_response.id == 4 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 2 );
+    CHECK( data.command_response.last_rejected_id == 4 );
     CHECK( data.command_response.message == "id 'znick' already exists" );
     REQUIRE( data.detected_cameras.size() == 2 );
 
@@ -269,8 +273,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 4'100 );
-    CHECK( data.command_response.id == 5 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 5 );
+    CHECK( data.command_response.last_rejected_id == 4 );
+    CHECK( data.command_response.message == "id 'znick' already exists" );
     REQUIRE( data.detected_cameras.size() == 2 );
 
     // z7
@@ -315,8 +320,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 4'150 );
-    CHECK( data.command_response.id == 6 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 6 );
+    CHECK( data.command_response.last_rejected_id == 4 );
+    CHECK( data.command_response.message == "id 'znick' already exists" );
     REQUIRE( data.detected_cameras.size() == 2 );
 
     // z7
@@ -353,3 +359,4 @@ TEST_CASE("CameraControl", "[CameraControl][set_camera_id]")
     CHECK( data.sequence.empty() );
     CHECK( data.sequence_state.empty() );
 }
+

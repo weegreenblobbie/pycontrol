@@ -12,8 +12,8 @@ import socket
 import threading
 import time
 
-import udp_socket
-import utils
+from webapp import udp_socket
+from webapp import utils
 
 now = datetime.datetime.now
 
@@ -80,7 +80,7 @@ class CameraControlIo:
         self._read_thread = None
         self._read_sock = None
         self._serial_id_cam_id = dict()
-        self._telem = dict(command_response=dict(id=0))
+        self._telem = dict(command_response=dict(last_accepted_id=0, last_rejected_id=0))
 
         self._retry_count = 15
         self._retry_sleep = 0.500
@@ -96,21 +96,32 @@ class CameraControlIo:
         """
         with self._write_lock:
             telem = self.read()
-            command_id = ctypes.c_uint32(telem["command_response"]["id"] + 1)
+            last_accepted_id = telem["command_response"]["last_accepted_id"]
+            last_rejected_id = telem["command_response"]["last_rejected_id"]
+
+            command_id = ctypes.c_uint32(max(last_accepted_id, last_rejected_id) + 1)
             cmd = f"{command_id.value} {message}"
             response = None
             for _ in range(self._retry_count):
                 udp_socket.send_message(cmd, self._udp_ip, self._command_port)
                 time.sleep(self._retry_sleep)
                 telem = self.read()
-                response_id = telem["command_response"]["id"]
-                if response_id >= command_id.value:
+
+                response_accepted_id = telem["command_response"]["last_accepted_id"]
+                response_rejected_id = telem["command_response"]["last_rejected_id"]
+
+                if response_accepted_id >= command_id.value:
                     response = telem["command_response"]
+                    response["success"] = True
                     break
+                if response_rejected_id == command_id.value:
+                    response = telem["command_response"]
+                    response["success"] = False
+                    break
+
         if response is None:
             print(f"Failed to get reponse from command: {cmd}")
-
-        return response
+            return {"last_accepted_id": command_id.value, "success": False, "message": "no response from camera_control"}
 
     def set_camera_id(self, serial, cam_id):
         """
@@ -166,6 +177,47 @@ class CameraControlIo:
         Triggers the camera with `serial`.
         """
         cmd = f"trigger {serial}"
+        return self._send_command(cmd)
+
+    def timelapse_enable(self):
+        cmd = "timelapse_enable"
+        return self._send_command(cmd)
+
+    def timelapse_update(self, **kwargs):
+        serial = kwargs["serial"]
+        interval = kwargs["interval"]
+        min_shutter = kwargs["min_shutter"]
+        max_shutter = kwargs["max_shutter"]
+        min_iso = kwargs["min_iso"]
+        max_iso = kwargs["max_iso"]
+        min_hist_mask = kwargs["min_hist_mask"]
+        max_hist_mask = kwargs["max_hist_mask"]
+        min_deadband = kwargs["min_deadband"]
+        max_deadband = kwargs["max_deadband"]
+        target_offset = kwargs["target_offset"]
+        target_percent = kwargs["target_percent"]
+        cmd = (
+            f"timelapse_update {serial} {interval} "
+            f"{min_shutter} {max_shutter} "
+            f"{min_iso} {max_iso} "
+            f"{min_hist_mask} {max_hist_mask} "
+            f"{min_deadband} {max_deadband} "
+            f"{target_offset} {target_percent}"
+        )
+        return self._send_command(cmd)
+
+    def timelapse_start(self, **kwargs):
+        serial = kwargs["serial"]
+        cmd = f"timelapse_start {serial}"
+        return self._send_command(cmd)
+
+    def timelapse_stop(self, **kwargs):
+        serial = kwargs["serial"]
+        cmd = f"timelapse_stop {serial}"
+        return self._send_command(cmd)
+
+    def timelapse_disable(self):
+        cmd = f"timelapse_disable"
         return self._send_command(cmd)
 
     def start(self):

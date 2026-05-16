@@ -15,7 +15,8 @@ UNIT_TEST_BIN := unit_tests_bin
 
 ALL_BIN := $(CAMERA_CONTROL_BIN) $(UNIT_TEST_BIN)
 
-.PHONY: all
+.PHONY: all release
+release: $(CAMERA_CONTROL_BIN)
 all: $(ALL_BIN)
 
 CAMERA_CONTROL_BIN_SRC := $(filter-out $(wildcard *uto*cc), $(ALL_SOURCE))
@@ -39,9 +40,17 @@ $(UNIT_TEST_BIN): $(ALL_SOURCE) $(UNIT_TEST_BIN_OBJS) ../common/libcommon.a
 test: $(UNIT_TEST_BIN)
 	./$(UNIT_TEST_BIN)
 
+test-a: $(UNIT_TEST_BIN)
+	./$(UNIT_TEST_BIN) --abort
+
+coverage:
+	$(SILENT)$(MAKE) -C ../.. coverage
+
 clean:
 	@echo "$(CLEAN_COLOR)Cleaning$(RESET) $(shell pwd)"
-	$(SILENT)rm -f $(ALL_BIN) $(ALL_OBJECTS) $(DEPS)
+	$(SILENT)rm -f $(ALL_BIN) $(ALL_OBJECTS) $(DEPS) *.gcda *.gcno
+
+real-clean: clean
 
 dump:
 	@echo All_SOURCE: $(ALL_SOURCE)

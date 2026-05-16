@@ -14,8 +14,9 @@ TEST_CASE("CameraControl", "[CameraControl][trigger]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 1'000 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7
@@ -46,8 +47,9 @@ TEST_CASE("CameraControl", "[CameraControl][trigger]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 1'050 );
-    CHECK( data.command_response.id == 1 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 1 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     REQUIRE( data.detected_cameras.size() == 1 );
 
     // z7

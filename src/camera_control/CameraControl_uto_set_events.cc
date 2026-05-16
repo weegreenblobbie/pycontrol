@@ -13,8 +13,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_events]")
 
     CHECK( data.state == "scan" );
     CHECK( data.time == 0 );
-    CHECK( data.command_response.id == 0 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 0 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     CHECK( data.detected_cameras.empty() );
     CHECK( data.events.empty() );
     CHECK( data.sequence.empty() );
@@ -28,8 +29,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_events]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 50 );
-    CHECK( data.command_response.id == 1 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 1 );
+    CHECK( data.command_response.last_rejected_id == 0 );
+    CHECK( data.command_response.message.empty() );
     CHECK( data.detected_cameras.empty() );
     REQUIRE( data.events.size() == 3 );
 
@@ -48,8 +50,8 @@ TEST_CASE("CameraControl", "[CameraControl][set_events]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 100 );
-    CHECK( data.command_response.id == 2 );
-    CHECK( data.command_response.success == false );
+    CHECK( data.command_response.last_accepted_id == 1 );
+    CHECK( data.command_response.last_rejected_id == 2 );
     CHECK( data.command_response.message == "failed to parse events from '2 set_events e1 4000 e2 5000 e3'" );
     CHECK( data.detected_cameras.empty() );
     REQUIRE( data.events.size() == 3 );
@@ -69,8 +71,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_events]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 150 );
-    CHECK( data.command_response.id == 3 );
-    CHECK( data.command_response.success == true );
+    CHECK( data.command_response.last_accepted_id == 3 );
+    CHECK( data.command_response.last_rejected_id == 2 );
+    CHECK( data.command_response.message == "failed to parse events from '2 set_events e1 4000 e2 5000 e3'" );
     CHECK( data.detected_cameras.empty() );
     REQUIRE( data.events.size() == 0 );
 
@@ -85,9 +88,9 @@ TEST_CASE("CameraControl", "[CameraControl][set_events]")
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 200 );
-    CHECK( data.command_response.id == 4 );
-    CHECK( data.command_response.success == true );
-    CHECK( data.command_response.message.empty() );
+    CHECK( data.command_response.last_accepted_id == 4 );
+    CHECK( data.command_response.last_rejected_id == 2 );
+    CHECK( data.command_response.message == "failed to parse events from '2 set_events e1 4000 e2 5000 e3'" );
     CHECK( data.detected_cameras.empty() );
     REQUIRE( data.events.size() == 3 );
 
