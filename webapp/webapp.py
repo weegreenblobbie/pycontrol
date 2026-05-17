@@ -4,6 +4,7 @@ import datetime
 import flask
 import glob
 import logging
+import os
 import os.path
 import sys
 import threading
@@ -39,14 +40,18 @@ class PyControlApp:
         """
         Initializes all long-running objects and starts their threads.
         """
-        print("Initializing PyControlApp...")
+        assert os.path.isdir(root_dir), f"Could nod find dir: {root_dir}"
+        app.logger.info("Initializing PyControlApp...")
         self._app = app
         if gps_reader is None:
             gps_reader = GpsReader()
         self._gps_reader = gps_reader
         self._root_dir = root_dir
+        app.logger.info(f"PyControlApp:root_dir: {root_dir}")
+        camera_control_config = os.path.join(root_dir, "config", "camera_control.config")
+        app.logger.info(f"PyControlApp:cam_control_config: {camera_control_config}")
         if camera_control is None:
-            self._cam_io = CameraControlIo(os.path.join(root_dir, "config", "camera_control.config"))
+            self._cam_io = CameraControlIo(camera_control_config)
         else:
             self._cam_io = camera_control
         self._event_solver = EventSolver(self._cam_io, self._app.logger)
@@ -194,7 +199,8 @@ class PyControlApp:
 
         # Re-trigger the solver with existing params after loading a new sequence
         params = self._event_solver.params()
-        self._update_and_trigger(**params)
+        if params:
+            self._update_and_trigger(**params)
 
         self._seq_file = filename
         utils.write_kv_config(
@@ -242,7 +248,8 @@ class PyControlApp:
             )
 
         params = self._event_solver.params()
-        self._update_and_trigger(**params)
+        if params:
+            self._update_and_trigger(**params)
         return self._make_response("Success", "Simulation started", 200)
 
     def read_choices(self, serial, prop):
@@ -258,7 +265,8 @@ class PyControlApp:
         with self._lock:
             self._run_sim = RunSim()
         params = self._event_solver.params()
-        self._update_and_trigger(**params)
+        if params:
+            self._update_and_trigger(**params)
         return self._make_response("Success", "Simulation stopped.", 200)
 
     def trigger(self, serial):
@@ -336,7 +344,7 @@ class PyControlApp:
 
 LOG_FORMAT = '%(asctime)s: %(levelname)-8s: %(filename)-20s(%(lineno)4d): %(message)s'
 
-def create_app(root_dir="../", gps_reader=None, camera_control=None):
+def create_app(root_dir=None, gps_reader=None, camera_control=None):
     """
     Creates the PycontrolApp and patches in the flask routes to it.
     """
@@ -357,6 +365,10 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
     app.logger.setLevel(logging.INFO)
 
     logging.getLogger('werkzeug').setLevel(logging.ERROR)
+
+    if root_dir is None:
+        root_dir = os.getcwd()
+        app.logger.info(f"root_dir: {root_dir}")
 
     app.pycontrol_app = PyControlApp(
         app,
@@ -481,7 +493,7 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
         "quality": "imagequality",
         "mode": "expprogram",
         "fstop": "f-number",
-        "shutter": "shutterspeed2",
+        "shutter": "shutterspeed",
         "burst": "burstnumber",
     }
 
@@ -491,6 +503,9 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
         data = flask.request.get_json()
         serial = data.get('serial')
         prop = data.get('property')
+
+        if not serial or not prop:
+            return app.pycontrol_app._make_response("Failure", "Missing serial or property", 400)
 
         if prop in JS_TO_PROP:
             prop = JS_TO_PROP[prop]
@@ -508,6 +523,9 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
         prop = data.get('property')
         value = data.get('value')
 
+        if not serial or not prop or value is None:
+            return app.pycontrol_app._make_response("Failure", "Missing serial, property, or value", 400)
+
         if prop in JS_TO_PROP:
             prop = JS_TO_PROP[prop]
 
@@ -518,6 +536,9 @@ def create_app(root_dir="../", gps_reader=None, camera_control=None):
     def api_camera_trigger():
         data = flask.request.get_json()
         serial = data.get('serial')
+
+        if not serial:
+            return app.pycontrol_app._make_response("Failure", "Missing serial", 400)
 
         return app.pycontrol_app.trigger(serial)
 

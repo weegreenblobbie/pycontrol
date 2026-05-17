@@ -71,10 +71,21 @@ class CameraControlIo:
         self._command_port = int(config["command_port"])
         self._telem_port = int(config["telem_port"])
 
-        self._cam_desc_config = os.path.join("..", config["camera_aliases"])
-        assert os.path.isfile(self._cam_desc_config)
-        self._serial_id_cam_id = utils.read_kv_config(self._cam_desc_config)
+        camera_aliases = config["camera_aliases"]
 
+        # Search for config.
+        root_path = os.path.dirname(camera_control_config)
+        test_path = None
+        for _ in range(3):
+            test_path = os.path.join(root_path, camera_aliases)
+            if os.path.isfile(test_path):
+                camera_aliases = test_path
+                break
+            else:
+                root_path = os.path.dirname(root_path)
+        assert os.path.isfile(camera_aliases), f"Could not find file: {camera_aliases}"
+        self._cam_desc_config = camera_aliases
+        self._serial_id_cam_id = utils.read_kv_config(self._cam_desc_config)
         self._write_lock = threading.Lock()
         self._read_lock = threading.Lock()
         self._read_thread = None
@@ -110,18 +121,21 @@ class CameraControlIo:
                 response_accepted_id = telem["command_response"]["last_accepted_id"]
                 response_rejected_id = telem["command_response"]["last_rejected_id"]
 
-                if response_accepted_id >= command_id.value:
+                if command_id.value == response_accepted_id:
                     response = telem["command_response"]
                     response["success"] = True
                     break
-                if response_rejected_id == command_id.value:
+
+                elif response_rejected_id == command_id.value:
                     response = telem["command_response"]
                     response["success"] = False
                     break
 
-        if response is None:
-            print(f"Failed to get reponse from command: {cmd}")
-            return {"last_accepted_id": command_id.value, "success": False, "message": "no response from camera_control"}
+        if response:
+            return response
+
+        print(f"Failed to get reponse from command: {cmd}")
+        return {"last_accepted_id": command_id.value, "success": False, "message": "no response from camera_control"}
 
     def set_camera_id(self, serial, cam_id):
         """

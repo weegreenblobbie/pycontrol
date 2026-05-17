@@ -44,18 +44,16 @@ Camera::_query_props()
     std::string value;
     _have_burst_number = _gp2cpp.read_property(_camera, "burstnumber", value);
     _have_capture_mode = _gp2cpp.read_property(_camera, "capturemode", value);
-    _have_capturetarget = _gp2cpp.read_property(_camera, "capturetagret", value);
+    _have_capturetarget = _gp2cpp.read_property(_camera, "capturetarget", value);
     _have_num_avail = _gp2cpp.read_property(_camera, "availableshots", value);
     _have_shooting_speed = _gp2cpp.read_property(_camera, "shootingspeed", value);
-    _have_shutterspeed2 = _gp2cpp.read_property(_camera, "shutterspeed2", value);
 
     std::cout
-        << "    avialableshots: " << _have_num_avail << "\n"
+        << "    availableshots: " << _have_num_avail << "\n"
         << "       burstnumber: " << _have_burst_number << "\n"
         << "       capturemode: " << _have_capture_mode << "\n"
         << "     capturetarget: " << _have_capturetarget << "\n"
-        << "     shootingspeed: " << _have_shooting_speed << "\n"
-        << "     shutterspeed2: " << _have_shutterspeed2 << std::endl;
+        << "     shootingspeed: " << _have_shooting_speed << "\n";
 }
 
 
@@ -125,7 +123,7 @@ write_property(const std::string & property, const std::string & value)
     {
         set_shooting_speed(value);
     }
-    else if (property == "shutterspeed" or property == "shutterspeed2")
+    else if (property == "shutterspeed")
     {
         set_shutter(value);
     }
@@ -156,12 +154,7 @@ Camera::read_config()
         result::failure
     );
 
-    std::string shutterspeed = "shutterspeed";
-    if (_have_shutterspeed2)
-    {
-        shutterspeed += "2";
-    }
-    if (not _gp2cpp.read_property(_camera, shutterspeed, _info.shutter))
+    if (not _gp2cpp.read_property(_camera, "shutterspeed", _info.shutter))
     {
         disconnect();
         return result::success;
@@ -297,14 +290,9 @@ Camera::drain_events()
 result
 Camera::write_config()
 {
-    std::string shutterspeed = "shutterspeed";
-    if (_have_shutterspeed2)
-    {
-        shutterspeed += "2";
-    }
     ABORT_IF_NOT(
-        _gp2cpp.write_property(_camera, shutterspeed, _info.shutter),
-        "failed to write '" << shutterspeed << "': " << _info.shutter,
+        _gp2cpp.write_property(_camera, "shutterspeed", _info.shutter),
+        "failed to write 'shutterspeed': " << _info.shutter,
         result::failure
     );
     ABORT_IF_NOT(

@@ -160,7 +160,7 @@ TEST_CASE("CameraControl", "[CameraControl][read_choices][set_choice]")
     CHECK( data.time == 2'200 );
     CHECK( data.command_response.last_accepted_id == 4 );
     CHECK( data.command_response.last_rejected_id == 2 );
-CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
+    CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data == str_vec({"f/8","f/5.6","f/4"}) );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -193,7 +193,7 @@ CHECK( data.command_response.message == "property 'wow-factor' does not exist" )
     CHECK( data.time == 2'250 );
     CHECK( data.command_response.last_accepted_id == 5 );
     CHECK( data.command_response.last_rejected_id == 2 );
-CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
+    CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data == str_vec{"NEF (Raw)","JPEG Basic","JPEG Fine"} );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -226,7 +226,7 @@ CHECK( data.command_response.message == "property 'wow-factor' does not exist" )
     CHECK( data.time == 2'300 );
     CHECK( data.command_response.last_accepted_id == 6 );
     CHECK( data.command_response.last_rejected_id == 2 );
-CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
+    CHECK( data.command_response.message == "property 'wow-factor' does not exist" );
     CHECK( data.command_response.data == str_vec{"64","100","200","500"} );
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -252,7 +252,7 @@ CHECK( data.command_response.message == "property 'wow-factor' does not exist" )
     //-------------------------------------------------------------------------
     // Reading shutter speed.
     //
-    harness.cmd_socket.to_recv("7 read_choices 1234 shutterspeed2");
+    harness.cmd_socket.to_recv("7 read_choices 1234 shutterspeed");
     data = harness.dispatch_to_next_message();
 
     CHECK( data.state == "monitor" );
@@ -285,14 +285,14 @@ CHECK( data.command_response.message == "property 'wow-factor' does not exist" )
     //-------------------------------------------------------------------------
     // set_choice - missing value
     //
-    harness.cmd_socket.to_recv("8 set_choice 999 shutterspeed2");
+    harness.cmd_socket.to_recv("8 set_choice 999 shutterspeed");
     data = harness.dispatch_to_next_message();
 
     CHECK( data.state == "monitor" );
     CHECK( data.time == 2'400 );
     CHECK( data.command_response.last_accepted_id == 7 );
     CHECK( data.command_response.last_rejected_id == 8 );
-    CHECK( data.command_response.message == "Failed to parse set_choice command: '8 set_choice 999 shutterspeed2'" );
+    CHECK( data.command_response.message == "Failed to parse set_choice command: '8 set_choice 999 shutterspeed'" );
     CHECK( data.command_response.data.empty());
     REQUIRE( data.detected_cameras.size() == 1 );
 
@@ -318,7 +318,7 @@ CHECK( data.command_response.message == "property 'wow-factor' does not exist" )
     //-------------------------------------------------------------------------
     // set_choice - bad serial
     //
-    harness.cmd_socket.to_recv("9 set_choice 999 shutterspeed2 1/500");
+    harness.cmd_socket.to_recv("9 set_choice 999 shutterspeed 1/500");
     data = harness.dispatch_to_next_message();
 
     CHECK( data.state == "monitor" );
@@ -384,7 +384,7 @@ CHECK( data.command_response.message == "property 'wow-factor' does not exist" )
     //-------------------------------------------------------------------------
     // set_choice - good
     //
-    harness.cmd_socket.to_recv("11 set_choice 1234 shutterspeed2 1/500");
+    harness.cmd_socket.to_recv("11 set_choice 1234 shutterspeed 1/500");
     data = harness.dispatch_to_next_message();
 
     CHECK( data.state == "monitor" );

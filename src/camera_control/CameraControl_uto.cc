@@ -66,7 +66,7 @@ make_test_camera(
         {"f-number", {"f/8", "f/5.6", "f/4"}},
         {"imagequality", {"NEF (Raw)", "JPEG Basic", "JPEG Fine"}},
         {"iso", {"64", "100", "200", "500"}},
-        {"shutterspeed2", {"1/1000", "1/500", "1/250"}},
+        {"shutterspeed", {"1/1000", "1/500", "1/250"}},
     };
 
     return tc;

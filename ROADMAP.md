@@ -4,6 +4,62 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
+- Fix this obvious typo:
+
+    Camera.cc(43): INFO: Checking for some specific camera properties...
+    May 21 05:37:55 pycontrol camera_control_bin[9439]: ../../external/include/gphoto2cpp/gphoto2cpp.h(675): ERROR: Failed to look up widget 'capturetagret', aborting
+    May 21 05:37:55 pycontrol camera_control_bin[9439]:     avialableshots: 1
+    May 21 05:37:55 pycontrol camera_control_bin[9439]:        burstnumber: 1
+    May 21 05:37:55 pycontrol camera_control_bin[9439]:        capturemode: 1
+    May 21 05:37:55 pycontrol camera_control_bin[9439]:      capturetarget: 0
+    May 21 05:37:55 pycontrol camera_control_bin[9439]:      shootingspeed: 1
+
+
+- Test booting without gps antenna works.
+
+- Make the flask app work without a gps antenna installed:
+
+    May 21 05:18:13 pycontrol python[5890]: WARNING: AstropyDeprecationWarning: products involving a unit and a 'str' instance are deprecated since v7.1. Convert 'N/A' to a unit explicitly. [webapp.solar_eclipse_conta>
+    May 21 05:18:13 pycontrol python[5890]: Exception in thread EventSolverThread:
+    May 21 05:18:13 pycontrol python[5890]: Traceback (most recent call last):
+    May 21 05:18:13 pycontrol python[5890]:   File "/usr/lib/python3.11/threading.py", line 1038, in _bootstrap_inner
+    May 21 05:18:14 pycontrol python[5890]:     self.run()
+    May 21 05:18:14 pycontrol python[5890]:   File "/usr/lib/python3.11/threading.py", line 975, in run
+    May 21 05:18:14 pycontrol python[5890]:     self._target(*self._args, **self._kwargs)
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/event_solver.py", line 100, in _run
+    May 21 05:18:14 pycontrol python[5890]:     self._calculate_and_store()
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/event_solver.py", line 117, in _calculate_and_store
+    May 21 05:18:14 pycontrol python[5890]:     solution = self._solve(params)
+    May 21 05:18:14 pycontrol python[5890]:                ^^^^^^^^^^^^^^^^^^^
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/event_solver.py", line 228, in _solve
+    May 21 05:18:14 pycontrol python[5890]:     solution = self._solve_solar(
+    May 21 05:18:14 pycontrol python[5890]:                ^^^^^^^^^^^^^^^^^^
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/event_solver.py", line 54, in wrapper
+    May 21 05:18:14 pycontrol python[5890]:     return cached_func(*processed_args, **processed_kwargs)
+    May 21 05:18:14 pycontrol python[5890]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/event_solver.py", line 34, in cached_func
+    May 21 05:18:14 pycontrol python[5890]:     return func(*args, **kwargs)
+    May 21 05:18:14 pycontrol python[5890]:            ^^^^^^^^^^^^^^^^^^^^^
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/event_solver.py", line 281, in _solve_solar
+    May 21 05:18:14 pycontrol python[5890]:     solution = solar_contact_times(
+    May 21 05:18:14 pycontrol python[5890]:                ^^^^^^^^^^^^^^^^^^^^
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/solar_eclipse_contact_times.py", line 197, in find_contact_times
+    May 21 05:18:14 pycontrol python[5890]:     location=astropy.coordinates.EarthLocation.from_geodetic(
+    May 21 05:18:14 pycontrol python[5890]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/venv/lib/python3.11/site-packages/astropy/coordinates/earth.py", line 318, in from_geodetic
+    May 21 05:18:14 pycontrol python[5890]:     lon = Angle(lon, u.degree, copy=COPY_IF_NEEDED).wrap_at(180 * u.degree)
+    May 21 05:18:14 pycontrol python[5890]:           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/venv/lib/python3.11/site-packages/astropy/coordinates/angles/core.py", line 192, in __new__
+    May 21 05:18:14 pycontrol python[5890]:     return super().__new__(cls, angle, unit, dtype=dtype, copy=copy, **kwargs)
+    May 21 05:18:14 pycontrol python[5890]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    May 21 05:18:14 pycontrol python[5890]:   File "/home/nhilton/pycontrol/webapp/venv/lib/python3.11/site-packages/astropy/units/quantity.py", line 539, in __new__
+    May 21 05:18:14 pycontrol python[5890]:     raise TypeError("The value must be a valid Python or Numpy numeric type.")
+    May 21 05:18:14 pycontrol python[5890]: TypeError: The value must be a valid Python or Numpy numeric type.
+
+
+- Add emergency sync mode when the gps antenna doesn't work, so one preses the Emergency Sync and the phone's position and
+  time are used to update PyControls position and sytem time.
+
 - Can we recover from this camera_control failure?
 
     Feb 24 20:56:05 pycontrol camera_control_bin[13759]: UdpSocket.cc(111): ERROR: ABORT_IF: res < 0 or (errno != 0 and errno != EAGAIN): sendto() failed on port: 10018, errno: No such device
@@ -15,7 +71,6 @@ Make it work
     Feb 24 20:56:06 pycontrol camera_control_bin[13759]: UdpSocket.cc(111): ERROR: ABORT_IF: res < 0 or (errno != 0 and errno != EAGAIN): sendto() failed on port: 10018, errno: No such device
     Feb 24 20:56:06 pycontrol camera_control_bin[13759]: CameraControl.cc(337): ERROR: ABORT_ON_FILURE: _telem_socket.send(_telem_message.str()): UdpSocket::send() failed
     Feb 24 20:56:06 pycontrol camera_control_bin[13759]: CameraControl.cc(1201): ERROR: _send_telemetry() failed, ignoring
-
 
 - loading the eclipse event button doesn't delete the previous table rows
 
@@ -65,8 +120,6 @@ Make it work
 
 - Add automated camera frames-per-second auto testing to find limit.
 
-- Connect phone to WPA2 secure, ad-hoc, wireless network provided by the pi
-
 - Upload event and sequnce files using the webapp.
 
 
@@ -75,12 +128,6 @@ Make it work well
 
 - Add link to Xjubier's website for the given gps location for cross checking.
     http://xjubier.free.fr/en/site_pages/solar_eclipses/TSE_2026_GoogleMapFull.html?Lat=42.97578&Lng=-5.01321&Elv=1095.0&Zoom=15&LC=1
-
-- Turns out not all cameras support shutterspeed2, avialablephotos.
-  - I'll have to make a map for fraction shutter string shutterspeed.
-  - Or make a branch of libgphoto2 to add these props to the Z8 camera.
-
-- Conditional use shutterspeed2, burstnumb, num_avail
 
 - unit tests for everything
 
@@ -102,9 +149,6 @@ Make it work well
 MAke it work well for others
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- self signed certs for https comms with raspberry pi ?  Maybe adhoc wireless with WPA2 is
-  all that's needed.
-
 - Official deb packages for raspberry pi distribution ?
 
 - mobile phone apps for user UI control
@@ -121,6 +165,18 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Added timelapse mode, (only for single camera), based on percent of histogram for Holy Grail timelapses.
+
+* Connect phone to WPA2 secure, ad-hoc, wireless network provided by the pi
+
+* Turns out not all cameras support shutterspeed2, avialablephotos.
+  - I'll have to make a map for fraction shutter string shutterspeed.
+
+* Conditional use shutterspeed2, burstnumb, num_avail, but dropped shutterspeed2 support.
+
+* self signed certs for https comms with raspberry pi ?  Maybe adhoc wireless with WPA2 is
+  all that's needed.  I've configured the rpi to hose a WIFI access point using WPA2 security.
 
 * Add burst_number property.
 

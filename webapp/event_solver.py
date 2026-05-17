@@ -84,6 +84,11 @@ class EventSolver:
         self._thread = threading.Thread(target=self._run, name="EventSolverThread", daemon=True)
         self._thread.start()
 
+    def reset(self):
+        with self._lock:
+            self._params.clear()
+            self._solution.clear()
+
     def _run(self):
         #self._logger.info(f"_run()")
         while True:
