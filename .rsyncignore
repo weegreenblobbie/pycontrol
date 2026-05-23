@@ -1,0 +1,14 @@
+# .rsyncignore
+*.o
+*_bin
+*img
+*img.bz2
+.git/
+.playwright.stamp
+.venv.stamp
+__pycache__/
+external/*
+lib*.a
+raspberry-pi-4/*
+venv/
+webapp/venv/*

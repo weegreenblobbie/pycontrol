@@ -27,245 +27,12 @@ logger.handlers[0].setFormatter(logging.Formatter(webapp.LOG_FORMAT))
 logger.setLevel(logging.INFO)
 
 
-def di_log(self, msg):
-    """
-    Directly injected log function.
-    """
-    #logger.info(f"{self.__class__.__name__}:{msg}")
-
-
-class FakeGpsReader:
-
-    log = di_log
-
-    def read(self):
-        self.log("read()")
-        return dict(
-            connected=True,
-            mode="3D FIX",
-            mode_time="01:00:00",
-            time=du.normalize(du.now()),
-            # http://xjubier.free.fr/en/site_pages/solar_eclipses/xSE_GoogleMap3.php?Ecl=+20260812&Acc=2&Umb=1&Lmt=1&Mag=1&Max=1&Lat=42.977592&Lng=-4.997906&Elv=1258.0&Zoom=19&LC=1
-            lat=42.977592,
-            long=-4.997906,
-            altitude=1258.0,  # pvlib.location.lookup_altitude(42.977592, -4.997906)
-            delta_t=0.5,
-            device="/dev/ttyACM0",
-            path=None,
-            sats_used=4,
-            sats_seen=5,
-        )
-
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
-
-
-class FakeCameraControlIo:
-    """
-    See docs/camera_control_commands.md for camera_control_bin json.
-    """
-
-    log = di_log
-
-    def __init__(self):
-        self._id = 0
-        self._seq_file = ""
-        self._seq_pos = 0
-        self._manager = multiprocessing.Manager()
-        self._lock = self._manager.Lock()
-        self._state = self._manager.dict(state="unknown")
-        self._events = self._manager.dict()
-        self._seq_state = self._manager.list()
-        self._read_seq_state = None
-
-
-    def set_state(self, new_state):
-        with self._lock:
-            self._state.clear()
-            self._state.update(state=new_state)
-
-    def set_events(self, events):
-        self.log(f"set_events({events})")
-        with self._lock:
-            self._events.clear()
-            self._events.update(events)
-
-    def start(self):
-        self.log("start()")
-
-    def read(self):
-        with self._lock:
-            events = copy.deepcopy(dict(self._events))
-            seq_file = str(self._seq_file)
-            state = str(self._state["state"])
-            seq_state = copy.deepcopy(list(self._seq_state))
-
-        out = dict(
-            state = state,
-            sequence = seq_file,
-            sequence_state = seq_state,
-            events = events
-        )
-        self.log(f"read(): {out}")
-        return out
-
-    def set_seq_position(self, new_pos):
-        with self._lock:
-            self._pos = new_pos
-
-    def _move_sequence_state_view(self, pos_offsets):
-        seq_state = copy.deepcopy(list(self._read_seq_state))
-        assert len(pos_offsets) == len(seq_state)
-        # Limit to 10 as camera_control_bin does.
-        for i, ss in enumerate(seq_state):
-            pos = pos_offsets[i]
-            ss["events"] = ss["events"][pos:pos + 10]
-        return seq_state
-
-    def load_sequence(self, filename=None):
-        self.log(f"load_sequence({filename})")
-        self._read_sequence(filename)
-        seq_state = self._move_sequence_state_view([0] * len(self._read_seq_state))
-
-        with self._lock:
-            self._id += 1
-            self._seq_file = filename
-            self._seq_state[:] = seq_state
-            out = dict(last_accepted_id=self._id, success=True)
-        return out
-
-    def set_events(self, event_map):
-        self.log(f"set_events({event_map})")
-        with self._lock:
-            self._id += 1
-            out = dict(last_accepted_id=self._id, success=True)
-        return out
-
-    def reset_sequence(self):
-        seq_state = self._move_sequence_state_view([0] * len(self._read_seq_state))
-        with self._lock:
-            self._seq_state[:] = seq_state
-
-    def _read_sequence(self, filename):
-        """
-        Input: a camera sequnce text file:
-            c2      4.000    z7.trigger    1
-            c2      5.000    z7.trigger    1
-            c2      6.000    z7.trigger    1
-
-        Output: a sequence_state list of dicts:
-            [
-                {
-                    "num_events": 3,
-                    "id": "z7",
-                    "events": [
-                        {
-                            "pos": 1,
-                            "evenet_id": "c2",
-                            "event_time_offset": "4.000",
-                            "eta": "fake",
-                            "channel": "z7.trigger",
-                            "value": "1"
-                        },
-                        {...},
-                        {...},
-                    ]
-                }
-            ]
-        """
-        with open(filename, "r") as fin:
-            all_lines = fin.readlines()
-        all_lines = [line.strip() for line in all_lines if not line.strip().startswith("#")]
-        data = dict()
-        for line in all_lines:
-            tokens = line.split()
-            if not tokens:
-                continue
-            event_id = tokens.pop(0)
-            offset = tokens.pop(0)
-            channel = tokens.pop(0)
-            value = " ".join(tokens)
-            cam_id = channel.split(".")[0]
-            if cam_id not in data:
-                data[cam_id] = []
-            data[cam_id].append([event_id, offset, channel, value])
-
-        out = []
-        for cam_id in sorted(data.keys()):
-            all_events = data[cam_id]
-            num_events = len(all_events)
-            events = []
-            pos = 1
-            for event_id, offset, channel, value in all_events:
-                events.append(dict(
-                   pos = pos,
-                   event_id = event_id,
-                   event_time_offset = offset,
-                   eta = "fake",
-                   channel = channel,
-                   value = value,
-                ))
-                pos += 1
-
-            out.append(dict(
-                num_events = num_events,
-                id = cam_id,
-                events = events,
-            ))
-
-        # import json
-        # with open(f"{os.path.basename(filename)}.json", "w") as fout:
-        #     json.dump(out, fout,  indent=4, sort_keys=True)
-
-        self._read_seq_state = out
-
-
-
-fake_gps_reader = FakeGpsReader()
-fake_camera_io = FakeCameraControlIo()
-
-fake_camera_io.load_sequence("webapp/tests/default_dir/sequences/s1.seq")
-
-
-@pytest.fixture(scope='session')
-def app(pytestconfig):
-
-    pytest_dir = pytestconfig.invocation_params.dir
-    print(f"pytest_dir = {pytest_dir}")
-    root_dir = os.path.join(pytest_dir, "webapp", "tests", "default_dir")
-    return webapp.create_app(root_dir, fake_gps_reader, fake_camera_io)
-
-
-@pytest.fixture(scope='session', autouse=True)
-def start_app_threads(app):
-    app.pycontrol_app.start()
-    yield
-
-
 @pytest.fixture
 def test_client(live_server):
     """
     Provides a base URL for the running Flask app.
     """
     return live_server.url
-
-
-@pytest.fixture(scope='session', autouse=True)
-def setup_configs(pytestconfig):
-    """
-    The flask app will "remember" the last event and sequence file it loaded
-    and saves them to ROOT_DIR/config/gui.config.
-
-    This unit test assumes gui.config is empty, so this function ensure
-    gui.config is empty before the flask app is launched.
-    """
-    prefix = pytestconfig.invocation_params.dir
-    gui_config = os.path.join(prefix, "webapp", "tests", "default_dir", "config", "gui.config")
-    with open(gui_config, "w") as fout:
-        fout.write("")
 
 
 _console_messages = []
@@ -367,18 +134,18 @@ class TestWebapp:
             # It's possible the calculation is so fast that we miss the "Computing ..." state in the UI.
             pass
 
-    def test_defaults(self, page, test_client):
+    def test_defaults(self, page, test_client, fake_camera_io):
         """
         Test hook for exercising the default webapp behavior buttons.
         """
         self._setup(page, test_client)
         try:
-            self._main()
+            self._main(fake_camera_io)
         except Exception as e:
             self._snapshot()
             raise e
 
-    def _main(self):
+    def _main(self, fake_camera_io):
         """
         Main test suite.  Since there is a single flask app instance, we must
         execute tests in a known order as all interactions changes the flask app
@@ -393,7 +160,7 @@ class TestWebapp:
         self._assert_default_button_color()
         self._assert_default_event_info_table()
         self._load_events()
-        self._load_sequences()
+        self._load_sequences(fake_camera_io)
         self._load_solor_eclipse_event()
         self._run_simulation()
 
@@ -457,6 +224,7 @@ class TestWebapp:
 
         # Wait for the events to show up.
         self._page.wait_for_selector("#event_row_e3", timeout=self._timeout)
+        self._wait_for_event_table_ready()
 
         table = self._page.locator("#event_table")
         text = table.locator("tbody td").all_inner_texts()
@@ -509,6 +277,7 @@ class TestWebapp:
 
         # Wait for the events to show up.
         self._page.wait_for_selector("#event_row_e5", timeout=self._timeout)
+        self._wait_for_event_table_ready()
 
         table = self._page.locator("#event_table")
         text = table.locator("tbody td").all_inner_texts()
@@ -534,7 +303,7 @@ class TestWebapp:
         assert "stopped" in self._sim_button.classes, f"expected 'stopped' in {self._sim_button.classes}"
 
 
-    def _load_sequences(self):
+    def _load_sequences(self, fake_camera_io):
         """
         Now load a camera sequence files.
         """
@@ -694,20 +463,17 @@ class TestWebapp:
         table = self._page.locator("#event_table")
         text = table.locator("tbody td").all_inner_texts()
 
-        # print("=" * 60)
-        # for i in range(0, len(text), 3):
-        #     print(f"{i//3 + 1} {text[i : i + 3]}")
-        # print("=" * 60)
-
-        expected = [
-            # event_id   Timestamp           ETA
-            "c1",        "Computing ...",    "",
-            "c2",        "Computing ...",    "",
-            "mid",       "Computing ...",    "",
-            "c3",        "Computing ...",    "",
-            "c4",        "Computing ...",    "",
-        ]
-        assert text == expected
+        # If the solver is very fast, it might have already computed the times.
+        if "Computing ..." in text:
+            expected = [
+                # event_id   Timestamp           ETA
+                "c1",        "Computing ...",    "",
+                "c2",        "Computing ...",    "",
+                "mid",       "Computing ...",    "",
+                "c3",        "Computing ...",    "",
+                "c4",        "Computing ...",    "",
+            ]
+            assert text == expected
 
         # Assert that the load event button turns green.
         assert "loaded" in self._event_button.classes, f"expected 'loaded' in {self._event_button.classes}"

@@ -102,7 +102,6 @@ private:
     gphoto2cpp::camera_ptr         _camera;
     Info                           _info;
 
-    bool                           _have_shutterspeed2 {false};
     bool                           _have_num_avail {false};
     bool                           _have_burst_number {false};
     bool                           _have_capture_mode {false};

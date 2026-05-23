@@ -1,14 +1,20 @@
 ---
 - name: Ping pycontrol
   hosts: all
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    APT_OPTS: -o Acquire::ForceIPv4=true
   tasks:
-
     - name: Ping my hosts
       ansible.builtin.ping: null
 
-    - name: Print message
+    - name: Verify SSH connection works without prompting
+      ansible.builtin.command: echo "Hello from the Pi! SSH is working perfectly."
+      register: ssh_verification
+
+    - name: Print the verification message
       ansible.builtin.debug:
-        msg: Hello world
+        msg: "{{ ssh_verification.stdout }}"
 
     - name: Disable root from loggin in via ssh
       become: true
@@ -22,38 +28,6 @@
       tags:
         - security
 
-    - name: Remove the graphical desktop environment
-      become: true
-      ansible.builtin.apt:
-        autoremove: true
-        purge: true
-        # TODO: remove pulseaudio
-        name:
-          - raspberrypi-ui-mods
-          - vlc*
-          - lxde*
-          - chromium*
-          - desktop*
-          - gnome*
-          - gstreamer*
-          - gtk*
-          - hicolor-icon-theme*
-          - lx*
-          - mesa*
-        state: absent
-      tags:
-        - clean
-
-    - name: GPS Daemon
-      become: true
-      ansible.builtin.apt:
-        name:
-          - gpsd
-          - gpsd-clients
-        state: present
-      tags:
-        - install
-
     - name: Configure u-blox 7 GPS receiver device with gpsd
       become: true
       lineinfile:
@@ -65,6 +39,14 @@
         - restart gpsd
       tags:
         - install
+
+    - name: Configure Udev rule for GPS hotplugging
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/udev/rules.d/99-gpsd-hotplug.rules
+        content: |
+          ACTION=="add", KERNEL=="ttyACM0", SUBSYSTEM=="tty", TAG+="systemd", ENV{SYSTEMD_WANTS}="gpsd.service"
+        mode: '0644'
 
     - name: Configure gpsd no wait
       become: true
@@ -101,48 +83,6 @@
         - restart chronyd
       tags:
         - install
-
-    - name: Developer environment
-      become: true
-      ansible.builtin.apt:
-        name:
-          - automake
-          - autoconf
-          - autopoint
-          - cmake
-          - g++
-          - gettext
-          - gphoto2
-          - libbenchmark-dev
-          - libboost-dev
-          - libgettextpo-dev
-          - libgphoto2-6
-          - libgphoto2-dev
-          - libgtest-dev
-          - libpopt-dev
-          - libpopt0
-          - libprotobuf-dev
-          - make
-          - protobuf-compiler
-          - python-is-python3
-          - python3-dev
-          - python3.11-minimal
-          - tcpdump
-        state: present
-      tags:
-        - install
-        - build
-
-    - name: Wifi
-      become: true
-      ansible.builtin.apt:
-        name:
-          - hostapd
-          - dnsmasq
-        state: present
-      tags:
-        - install
-        - wifi
 
     - name: IpV4 - Setup IpV4 Multicast Route
       become: true
@@ -303,13 +243,17 @@
           User=root
           Group=root
 
+          # Grant the service permission to bind to ports < 1024 without root,
+          # so it can hows a webapp on port 80.
+          AmbientCapabilities=CAP_NET_BIND_SERVICE
+
           # The working directory for your Flask app
-          WorkingDirectory=/home/{{username}}/pycontrol/webapp
+          WorkingDirectory=/home/{{username}}/pycontrol
 
           # The command to start the Flask app
           # IMPORTANT: If you use a Python virtual environment, change the path
           # to /home/nhilton/pycontrol/venv/bin/python3 or similar.
-          ExecStart=/home/{{username}}/pycontrol/webapp/venv/bin/python3 /home/{{username}}/pycontrol/webapp/webapp.py
+          ExecStart=/home/{{username}}/pycontrol/webapp/venv/bin/python -m webapp.webapp
 
           Restart=on-failure
           RestartSec=5
@@ -325,19 +269,64 @@
       tags:
         - pycontrol
 
-    - name: Enable and start PyControl services
+    - name: Create /etc/systemd/system/chrony.service.d
+      become: true
+      ansible.builtin.file:
+        path: /etc/systemd/system/chrony.service.d
+        state: directory
+        mode: '0755'
+
+    - name: Chrony CPU Affinity
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/chrony.service.d/override.conf
+        content: |
+          [Service]
+          CPUAffinity=1-3
+
+    - name: Create /etc/systemd/system/gpsd.service.d
+      become: true
+      ansible.builtin.file:
+        path: /etc/systemd/system/gpsd.service.d
+        state: directory
+        mode: '0755'
+
+    - name: gpsd CPU Affinity
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/gpsd.service.d/override.conf
+        content: |
+          [Service]
+          CPUAffinity=1-3
+
+          [Unit]
+          BindsTo=dev-ttyACM0.device
+          After=dev-ttyACM0.device
+
+    - name: Enable PyControl services
+      become: true
       ansible.builtin.systemd:
+        daemon_reload: true
         name: "{{ item }}"
-        state: started
+        # state: started : will not start until reboot or manual trigger
         enabled: true
       loop:
         - pycontrol-camera.service
         - pycontrol-webapp.service
-        - hostapd.service
-        - dnsmasq.service
-
       tags:
         - pycontrol
+
+    - name: Enable and start networking services
+      become: true
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - hostapd.service
+        - dnsmasq.service
+      tags:
         - wifi
 
   handlers:

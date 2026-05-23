@@ -5,15 +5,17 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-#include <ctime>
 #include <cctype>
+#include <cmath>
 #include <csetjmp>
+#include <ctime>
 
 extern "C" {
 #include <jpeglib.h>
@@ -209,6 +211,70 @@ private:
     std::unordered_map<std::string, std::string> _map;
 };
 
+
+// forwards
+std::string _normailize_shutterspeed(const std::string &);
+
+// Maps normailzed shutter speeds to raw camera shutter speed strings:
+//    normalized   raw
+//    "1/1600"  -> "0.002s"
+//    "2.5"     -> "25/10"
+//
+class ShutterSpeedCache
+{
+private:
+    struct shutter_speed_pair_t
+    {
+        const std::string norm;
+        const std::string raw;
+    };
+
+    std::vector<shutter_speed_pair_t> _cache;
+
+public:
+
+    bool empty() const { return _cache.empty(); }
+
+    // Appends the raw camera string to the cache, paired with the computed
+    // normalized string.
+    void
+    push_back(const std::string& raw)
+    {
+        _cache.push_back({_normailize_shutterspeed(raw), raw});
+    }
+
+    // Returns a vector of normailzied shutter speeds, in the order they were
+    // originally added.
+    std::vector<std::string>
+    read_choices() const
+    {
+        std::vector<std::string> choices;
+        choices.reserve(_cache.size());
+        for (const auto& item : _cache)
+        {
+            choices.push_back(item.norm);
+        }
+        return choices;
+    }
+
+    // Given a normalized shutter speed, return the original raw string it's
+    // paired with.
+    std::optional<std::string>
+    get_raw(const std::string & norm) const
+    {
+        for (const auto & item : _cache)
+        {
+            if (norm == item.norm)
+            {
+                return item.raw;
+            }
+        }
+        // Not found!
+        return std::nullopt;
+    }
+};
+
+
 /*
  * Camera widget caches
  */
@@ -225,6 +291,17 @@ using camera_to_property = std::map<camera_ptr, property_map>;
 using choice_set         = CaseInsensitiveMap;
 using choice_map         = std::unordered_map<std::string, choice_set>;
 using camera_to_choice   = std::map<camera_ptr, choice_map>;
+using shutterspeed_map   = std::unordered_map<camera_ptr, ShutterSpeedCache>;
+
+
+// Maps: camera_ptr -> (Normalized String -> Raw Camera String)
+inline
+shutterspeed_map &
+_get_shutterspeed_reverse_map()
+{
+    static shutterspeed_map instance;
+    return instance;
+}
 
 inline
 camera_to_root &
@@ -697,6 +774,10 @@ read_property(
                 while (*value == '0') ++value;
             }
             output = std::string(value);
+            if (property == "shutterspeed")
+            {
+                output = _normailize_shutterspeed(output);
+            }
             return true;
         }
         // int types
@@ -739,97 +820,307 @@ read_property(
     return false;
 }
 
+//
+// @brief Normalizes diverse camera shutter speed strings into a uniform symbolic format.
+//
+// This function processes raw shutter speed strings returned by libgphoto2 (which
+// vary heavily by manufacturer, formatting, and precision) and standardizes them
+// into a predictable, mathematically grounded symbolic key (e.g., "1/2000", "30", "bulb").
+//
+// It seamlessly handles:
+// - Trailing units (e.g., "0.4s" or "1\"" -> "1/2.5", "1")
+// - Manufacturer decimals (e.g., "0.0005" -> "1/2000")
+// - Raw mathematical fractions (e.g., "10/25" -> "1/2.5")
+// - Mixed/whole exposures (e.g., "25/10" -> "2.5")
+// - Named modes (e.g., "Bulb", "Time")
+//
+// Unsupported or malformed inputs (such as flash sync speeds like "x 200") are
+// safely filtered out by returning an empty string.
+//
+// @param raw The raw shutter speed string directly from the camera widget.
+// @return A standardized symbolic string key used for consistent map lookups,
+//         or an empty string if the input should be skipped.
+//
+inline
+std::string
+_normailize_shutterspeed(const std::string & raw_)
+{
+    auto raw = std::string(raw_);
+
+    if (raw.empty()) return raw;
+
+    // 1. Lowercase and trim leading/trailing spaces
+    std::transform(raw.begin(), raw.end(), raw.begin(), ::tolower);
+    raw.erase(0, raw.find_first_not_of(" \t\r\n"));
+    raw.erase(raw.find_last_not_of(" \t\r\n") + 1);
+
+    // Skip flash sync speeds or unsupported strings (e.g., "x 200")
+    if (raw.find('x') != std::string::npos)
+    {
+        return "";
+    }
+
+    // 2. Handle named speeds
+    if (raw.find("bulb") != std::string::npos) return "bulb";
+    if (raw.find("time") != std::string::npos) return "time";
+
+    // 3. Strip trailing units often appended by cameras
+    if (!raw.empty() && (raw.back() == 's' || raw.back() == '"'))
+    {
+        raw.pop_back();
+    }
+
+    // 4. Parse as numeric (handles both fractions "10/25" and decimals "0.0005")
+    try
+    {
+        double val = 0.0;
+        size_t slash_pos = raw.find('/');
+
+        if (slash_pos != std::string::npos)
+        {
+            // Extract and calculate the fraction
+            double num = std::stod(raw.substr(0, slash_pos));
+            double den = std::stod(raw.substr(slash_pos + 1));
+
+            if (den == 0.0) return ""; // Prevent division by zero
+            val = num / den;
+        }
+        else
+        {
+            // Parse standard decimal
+            val = std::stod(raw);
+        }
+
+        // 5. Rebuild into standard symbolic format
+        if (val > 0.0)
+        {
+            if (val < 1.0)
+            {
+                // Convert to a normalized 1/X fraction (e.g., 0.4 -> 1/2.5)
+                double inverted = 1.0 / val;
+
+                // Snap weird hardware timings (e.g., 1666.67) to standard photographic stops
+                static const double standard_denoms[] = {
+                    32000, 26000, 20000, 16000, 13000, 10000, 8000, 6400, 5000,
+                    4000, 3200, 2500, 2000, 1600, 1250, 1000,
+                    800, 600, 500, 400, 320, 250, 200, 160, 125, 100,
+                    80, 60, 50, 40, 30, 25, 20, 15, 13, 10,
+                    8, 6, 5, 4, 3, 2.5, 2, 1.6, 1.3, 1
+                };
+
+                for (double s : standard_denoms)
+                {
+                    // A 12% tolerance safely captures values like 666.67 -> 600
+                    // without accidentally bleeding into adjacent valid stops.
+                    if (std::abs(inverted - s) / s < 0.12)
+                    {
+                        inverted = s;
+                        break;
+                    }
+                }
+
+                std::ostringstream oss;
+                oss << inverted;
+                return "1/" + oss.str();
+            }
+            else
+            {
+                // Format whole or mixed numbers cleanly (e.g., 25/10 -> 2.5)
+                val = std::round(val * 1000.0) / 1000.0;
+                std::ostringstream oss;
+                oss << val;
+                return oss.str();
+            }
+        }
+        else
+        {
+            GPHOTO2CPP_ERROR_LOG
+                << "_normailize_shutterspeed(\"" << raw_ << "\") failed"
+                << std::endl;
+
+            // Fallback: if parsing fails for any reason, return empty to skip it
+            return "";
+        }
+    }
+    catch (...)
+    {
+        GPHOTO2CPP_ERROR_LOG
+            << "_normailize_shutterspeed(\"" << raw_ << "\") failed"
+            << std::endl;
+
+        // Fallback: if parsing fails for any reason, return empty to skip it
+        return "";
+    }
+
+    return raw;
+}
+
+
+inline
+void
+_read_choices_from_gp2(const camera_ptr & camera, const std::string & property, std::vector<std::string> & out, CaseInsensitiveMap & ch_set)
+{
+    // Call read_property() so the camera and widget pointers iniatlize the
+    // property cache.
+    std::string temp;
+    if (not read_property(camera, property, temp))
+    {
+        GPHOTO2CPP_ERROR_LOG
+            << "Failed to read_property(\"" << property << "\")"
+            << std::endl;
+    }
+
+    // Grab the child pointer in order to iterate over choices for the property.
+
+    auto & prop_to_child = _get_camera_to_property()[camera];
+    auto & child = prop_to_child[property];
+
+    // Grab the widget type.
+    GP2::CameraWidgetType widget_type;
+    if (GP2::OK != gp_widget_get_type(child, &widget_type))
+    {
+        GPHOTO2CPP_ERROR_LOG
+            << "gp_widget_get_type(\"" << property << "\") failed"
+            << std::endl;
+    }
+
+    // Iterate over the choices and insert into the CaseInsensitiveMap and
+    // output vector.
+    switch(widget_type)
+    {
+        case GP2::GP_WIDGET_MENU: // Fall through.
+        case GP2::GP_WIDGET_RADIO:
+        {
+            const int num_choices = GP2::gp_widget_count_choices(child);
+            if (num_choices < GP2::OK)
+            {
+                GPHOTO2CPP_ERROR_LOG << "gp_widget_count_choices() returned "
+                                     << num_choices
+                                     << std::endl;
+                break;
+            }
+
+            // Insert the choices into the cache and output vector.
+            for (int idx = 0; idx < num_choices; ++idx)
+            {
+                const char * choice;
+                auto ret = GP2::gp_widget_get_choice(child, idx, &choice);
+                if (ret < GP2::OK)
+                {
+                    continue;
+                }
+                ch_set.insert(std::string(choice));
+                out.emplace_back(choice);
+            }
+            break;
+        }
+        default:
+        {
+            GPHOTO2CPP_ERROR_LOG
+                << "Property \"" << property << "\" is not a Menu or Radio "
+                << "widget, no choices to read."
+                << std::endl;
+            break;
+        }
+    }
+}
+
+
+inline
+const ShutterSpeedCache &
+_read_shutterspeed_choices(const camera_ptr & camera, std::vector<std::string> & out)
+{
+    out.clear();
+
+    auto & speed_cam_to_cache = _get_shutterspeed_reverse_map();
+    auto itor = speed_cam_to_cache.find(camera);
+
+    // First time for this camera_ptr.
+    if (itor == speed_cam_to_cache.end())
+    {
+        speed_cam_to_cache[camera] = ShutterSpeedCache {};
+        itor = speed_cam_to_cache.find(camera);
+    }
+
+    // norm_to_raw_map now is a reference for mapping the normailzied to raw
+    // shutterspeed strings.
+    auto & shutterspeed_cache = itor->second;
+
+    // Cache hit!
+    if (not shutterspeed_cache.empty())
+    {
+        out = shutterspeed_cache.read_choices();
+        return shutterspeed_cache;
+    }
+
+    CaseInsensitiveMap ch_set;
+    _read_choices_from_gp2(camera, "shutterspeed", out, ch_set);
+
+    // Populate the norm to raw map.
+    for (const auto & raw: out)
+    {
+        shutterspeed_cache.push_back(raw);
+    }
+
+    out = shutterspeed_cache.read_choices();
+
+    return shutterspeed_cache;
+}
+
 
 inline
 const CaseInsensitiveMap &
 _read_choices(const camera_ptr & camera, const std::string & property, std::vector<std::string> & out)
 {
+    if (property == "shutterspeed")
+    {
+        static const CaseInsensitiveMap tmp;
+        _read_shutterspeed_choices(camera, out);
+        return tmp;
+    }
+
+    // cam_to_choices    maps    camera_ptr   -> choice_map
+    // choice_map        maps    property_str -> choice_set
+    // choice_set        maps    lower_case   -> ProperCase string
+
     auto & cam_to_choices = _get_camera_to_choice();
     auto itor1 = cam_to_choices.find(camera);
-    // Cache miss.
+
+    // First time for this camera_ptr.
     if (itor1 == cam_to_choices.end())
     {
-        cam_to_choices[camera] = choice_map();
+        cam_to_choices[camera] = choice_map {};
         itor1 = cam_to_choices.find(camera);
     }
 
+    // itor1->second is now the cohice_map.
     auto & ch_map = itor1->second;
     auto itor2 = ch_map.find(property);
-    // Cache miss.
+
+    // First time reading this property of the camera.
     if (itor2 == ch_map.end())
     {
-        ch_map[property] = choice_set();
+        ch_map[property] = choice_set {};
         itor2 = ch_map.find(property);
     }
 
+    // itor2->second is now the choice_set, i.e. CaseInsensitiveMap.
     auto & ch_set = itor2->second;
     out.clear();
 
-//~    // Cache miss.
-//~    if (ch_set.empty())
+    // Cahce hit!
+    if (not ch_set.empty())
     {
-        // Call read_property() so the child widget pointer is fetched if it was
-        // missing in the cache.
-        std::string temp;
-        if (not read_property(camera, property, temp))
+        for (const auto & [_, value] : ch_set)
         {
-            GPHOTO2CPP_ERROR_LOG
-                << "Failed to read_property(\"" << property << "\")"
-                << std::endl;
-            return ch_set;
+            out.emplace_back(value);
         }
 
-        auto & prop_to_child = _get_camera_to_property()[camera];
-        auto & child = prop_to_child[property];
-
-        // Grab the widget type and read the choices if it's a Window or Radio
-        // widget.
-        GP2::CameraWidgetType widget_type;
-        if (GP2::OK != gp_widget_get_type(child, &widget_type))
-        {
-            GPHOTO2CPP_ERROR_LOG
-                << "gp_widget_get_type(\"" << property << "\") failed"
-                << std::endl;
-            return ch_set;
-        }
-
-        switch(widget_type)
-        {
-            case GP2::GP_WIDGET_MENU: // Fall through.
-            case GP2::GP_WIDGET_RADIO:
-            {
-                const int num_choices = GP2::gp_widget_count_choices(child);
-                if (num_choices < GP2::OK)
-                {
-                    GPHOTO2CPP_ERROR_LOG << "gp_widget_count_choices() returned "
-                                         << num_choices
-                                         << std::endl;
-                    break;
-                }
-
-                for (int idx = 0; idx < num_choices; ++idx)
-                {
-                    const char * choice;
-                    auto ret = GP2::gp_widget_get_choice(child, idx, &choice);
-                    if (ret < GP2::OK)
-                    {
-                        continue;
-                    }
-                    ch_set.insert(std::string(choice));
-                    out.emplace_back(choice);
-                }
-                break;
-            }
-            default:
-            {
-                GPHOTO2CPP_ERROR_LOG
-                    << "Property \"" << property << "\" is not a Menu or Radio "
-                    << "widget, no choices to read."
-                    << std::endl;
-                break;
-            }
-        }
+        return ch_set;
     }
+
+    // Cache miss, read the choices from the camera via libgphoto2.
+    _read_choices_from_gp2(camera, property, out, ch_set);
 
     return ch_set;
 }
@@ -1051,9 +1342,33 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
         case GP2::GP_WIDGET_RADIO:
         {
             std::vector<std::string> choices;
-            const auto & map = _read_choices(camera, property, choices);
-            const auto & itor = map.find(value);
-            if (itor == map.end())
+
+            bool missing = false;
+            std::string raw_value;
+
+            if (property == "shutterspeed")
+            {
+                const auto & shutterspeed_cache = _read_shutterspeed_choices(camera, choices);
+                auto raw = shutterspeed_cache.get_raw(value);
+                missing = true;
+                if (raw.has_value())
+                {
+                    missing = false;
+                    raw_value = raw.value();
+                }
+            }
+            else
+            {
+                const auto & map = _read_choices(camera, property, choices);
+                const auto & itor = map.find(value);
+                missing = itor == map.end();
+                if (not missing)
+                {
+                    raw_value = itor->second;
+                }
+            }
+
+            if (missing)
             {
                 GPHOTO2CPP_ERROR_LOG
                     << property << " value '" << value << "' is invalid. "
@@ -1067,7 +1382,7 @@ write_property(camera_ptr & camera, const std::string & property, const std::str
             }
 
             GPHOTO2CPP_SAFE_CALL(
-                GP2::gp_widget_set_value(child, itor->second.c_str()),
+                GP2::gp_widget_set_value(child, raw_value.c_str()),
                 false
             );
 
