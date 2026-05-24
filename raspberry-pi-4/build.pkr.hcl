@@ -133,13 +133,24 @@ build {
         "python3.11-minimal \\",
         "tcpdump \\",
         "",
+
+      # Enable ssh.
       "systemctl enable ssh",
+
+      # Set timezone to UTC.
+      "ln -sf /usr/share/zoneinfo/UTC /etc/localtime",
     ]
   }
 
-  # Disable auto resizing of the partitions.
-  # If you later want to use any extra space on your micro SD card, run this:
+  # Disable auto expanding of the root filesystem.  This is done by renaming the
+  # 'firstboot' script to 'first-boot', tricking the kernel loader to assume
+  # it's not the first boot, and thus, skip the root filesystem expansion.
+  #
+  # If you want to use all the extra space on your micro SD card, run this
+  # command to expand the root filesystem.
+  #
   #     sudo raspi-config --expand-rootfs
+  #
   provisioner "shell" {
       inline = [
           "set -ex",
@@ -148,7 +159,8 @@ build {
           "[ -f /boot/cmdline.txt ] && sed -i 's|/firstboot|/first-boot|' /boot/cmdline.txt || true",
           "[ -f /boot/firmware/cmdline.txt ] && sed -i 's|/firstboot|/first-boot|' /boot/firmware/cmdline.txt || true",
 
-          # Seed fake-hwclock so the Pi boots with a recent date instead of 1970
+          # Seed fake-hwclock so the Pi boots with a recent date instead of
+          # 1970.
           "date -u '+%Y-%m-%d %H:%M:%S' > /etc/fake-hwclock.data",
       ]
   }

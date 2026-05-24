@@ -100,8 +100,8 @@ $(CATCH_LIB): $(CATCH_REPO)
 # My fork
 $(LIBGPHOTO2_REPO):
 	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
-	$(SILENT)git clone --quiet https://github.com/weegreenblobbie/libgphoto2.git $(DEVNULL) && \
-	cd libgphoto2 && git checkout --quiet dev/nikon-z8-shutterspeed2
+	$(SILENT)git clone --quiet https://github.com/gphoto/libgphoto2.git $(DEVNULL) && \
+	cd libgphoto2 && git checkout --quiet fc5fd478522bf8e39eefdc5185da8b9b5a1397c1
 
 $(MESON_VENV):
 	@echo "$(INSTALL_COLOR)Installing$(RESET) $@"
@@ -129,7 +129,7 @@ $(GPHOTO2_REPO):
 	@echo "$(CLONE_COLOR)Cloning$(RESET) $(firstword $(subst /, ,$@))"
 	$(SILENT)git clone --quiet https://github.com/gphoto/gphoto2.git $(DEVNULL) && \
 	cd gphoto2 && \
-	   git checkout --quiet v2.5.28
+	   git checkout --quiet v2.5.32
 
 $(GPHOTO2_BIN): $(GPHOTO2_REPO) $(LIBGPHOTO2_LIB)
 	@echo "$(CONFIGURE_COLOR)Configuring$(RESET) $@"

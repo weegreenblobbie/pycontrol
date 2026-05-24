@@ -12,6 +12,7 @@ c2     -10.000  z8.iso              100
 c2     -10.000  z8.shutter_speed    1/500
 c2     -10.000  z8.fstop            f/8
 c2     -10.000  z8.capture_mode     4  # 15FPS
+c2     -10.000  z8.capture_target   memory card
 #c2     -10.000  z8.shooting_speed   0  # 5 fps
 c2     -10.000  z8.burst_number     15
 

@@ -81,6 +81,17 @@ const camera_choice_modal_title = document.getElementById(
 );
 const camera_choice_list = document.getElementById("camera_choice_list");
 
+const emergency_sync_button = document.getElementById("emergency-sync-button");
+const emergency_sync_modal = document.getElementById("emergency_sync_modal");
+const emergency_okay_button = document.getElementById("emergency_okay_button");
+const emergency_cancel_button = document.getElementById("emergency_cancel_button");
+const emergency_lat_span = document.getElementById("emergency_lat");
+const emergency_lon_span = document.getElementById("emergency_lon");
+const emergency_alt_span = document.getElementById("emergency_alt");
+const emergency_time_span = document.getElementById("emergency_time");
+let emergency_interval_id = null;
+let emergency_current_pos = { latitude: null, longitude: null };
+
 // --- Tab and Timelapse Element References ---
 const tab_events = document.getElementById("tab_events");
 const tab_timelapse = document.getElementById("tab_timelapse");
@@ -354,10 +365,13 @@ function update_gps_ui(data) {
         return;
     }
 
-    if (data.mode == "3D Fix") {
-        gps_connection.src = "/static/gps-degraded.svg";
+    // gps_reader.py MODE_STRINGS
+    if (data.mode == "Emergency Sync") {
+        gps_connection.src = "/static/emergency-sync.svg";
     } else if (data.mode == "3D Sync") {
         gps_connection.src = "/static/gps-connected.svg";
+    }else if (data.mode == "3D Fix") {
+        gps_connection.src = "/static/gps-degraded.svg";
     } else {
         gps_connection.src = "/static/gps-disconnected.svg";
     }
@@ -1286,6 +1300,80 @@ async function handle_load_camera_sequence_click() {
     }
 }
 
+function update_emergency_modal_data() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((position) => {
+            emergency_current_pos.latitude = position.coords.latitude;
+            emergency_current_pos.longitude = position.coords.longitude;
+            emergency_current_pos.altitude = position.coords.altitude;
+
+            emergency_lat_span.textContent = position.coords.latitude.toFixed(6);
+            emergency_lon_span.textContent = position.coords.longitude.toFixed(6);
+
+            // Handle altitude safely since it can still be null indoors
+            if (position.coords.altitude !== null) {
+                emergency_alt_span.textContent = position.coords.altitude.toFixed(2);
+            } else {
+                emergency_alt_span.textContent = "N/A";
+            }
+        }, (error) => {
+            console.warn("Geolocation error:", error);
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }); // Added strict GPS options
+    }
+    const now = new Date();
+    emergency_time_span.textContent = now.toISOString().replace('T', ' ').substring(0, 19) + " UTC";
+}
+
+function handle_emergency_sync_click() {
+    emergency_sync_modal.style.display = "flex";
+    update_emergency_modal_data();
+    emergency_interval_id = setInterval(update_emergency_modal_data, 1000);
+}
+
+function handle_emergency_cancel_click() {
+    emergency_sync_modal.style.display = "none";
+    if (emergency_interval_id) {
+        clearInterval(emergency_interval_id);
+        emergency_interval_id = null;
+    }
+}
+
+async function handle_emergency_okay_click() {
+    if (emergency_current_pos.latitude === null || emergency_current_pos.longitude === null || emergency_current_pos.altitude === null) {
+        alert("Waiting for GPS coordinates...");
+        return;
+    }
+
+    const payload = {
+        latitude: emergency_current_pos.latitude,
+        longitude: emergency_current_pos.longitude,
+        altitude: emergency_current_pos.altitude,
+        timestamp: Date.now() / 1000.0
+    };
+
+    handle_emergency_cancel_click(); // Close modal and stop interval
+    calculating_modal.style.display = "flex";
+
+    try {
+        for (let i = 0; i < 3; i++) {
+            // Update timestamp for each request
+            payload.timestamp = Date.now() / 1000.0;
+            console.log(`Emergency sync attempt ${i+1}/3`);
+            await fetch("/api/emergency-override", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+    } catch (error) {
+        console.error("Emergency sync failed:", error);
+    } finally {
+        calculating_modal.style.display = "none";
+        update_dashboard();
+    }
+}
+
 // --- Main Dashboard Update Loop ---
 async function update_dashboard() {
     let dashboard_data;
@@ -1488,6 +1576,14 @@ document.addEventListener("DOMContentLoaded", () => {
             handle_load_camera_sequence_click,
         );
     }
+
+    // Emergency Sync Listeners
+    if (emergency_sync_button)
+        emergency_sync_button.addEventListener("click", handle_emergency_sync_click);
+    if (emergency_okay_button)
+        emergency_okay_button.addEventListener("click", handle_emergency_okay_click);
+    if (emergency_cancel_button)
+        emergency_cancel_button.addEventListener("click", handle_emergency_cancel_click);
 
     // --- NEW: Tab Listeners ---
     if (tab_events) {

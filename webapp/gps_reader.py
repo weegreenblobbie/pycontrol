@@ -30,6 +30,7 @@ class GpsMode(enum.IntEnum):
     FIX_2D = 2
     FIX_3D = 3
     SYNC_3D = 4
+    EMERGENCY_OVERRIDE = 5
 
 # I want to customize the string representation so I'll use this map.
 MODE_STRINGS = {
@@ -38,6 +39,7 @@ MODE_STRINGS = {
     GpsMode.FIX_2D: "2D Fix",
     GpsMode.FIX_3D: "3D Fix",
     GpsMode.SYNC_3D: "3D Sync",
+    GpsMode.EMERGENCY_OVERRIDE: "Emergency Sync",
 }
 
 class GpsReader:
@@ -120,6 +122,18 @@ class GpsReader:
             )
         return data
 
+    def set_emergency_override(self, latitude, longitude, altitude, delta_t):
+        with self._lock:
+            self._mode = GpsMode.EMERGENCY_OVERRIDE
+            self._lat = latitude
+            self._long = longitude
+            self._altitude = altitude
+            self._delta_t = f"{delta_t:5.3f}"
+            self._mode_change_time = du.now()
+            self._satellites_used = 0
+            self._satellites_seen = 0
+            self._device = "emergency override"
+
     def _run(self):
         """The main loop for the background thread."""
         sock = None
@@ -128,6 +142,17 @@ class GpsReader:
         timeout_delta = datetime.timedelta(seconds=self.DATA_TIMEOUT_SECONDS)
 
         while self._running:
+
+            if self._mode == GpsMode.EMERGENCY_OVERRIDE:
+                with self._lock:
+                    now = du.now()
+                    self._mode_time = format_delta_to_hms(now - self._mode_change_time)
+                    self._time = du.normalize(now)
+                    self._connected = True
+                    self._error = False
+                time.sleep(1.0)
+                continue
+
             try:
                 if sock is None:
                     print(f"Connecting to gpsd socket at {self._host}:{self._port}")

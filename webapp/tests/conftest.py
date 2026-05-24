@@ -15,21 +15,46 @@ def di_log(self, msg):
 
 class FakeGpsReader:
     log = di_log
-    def read(self):
-        return dict(
-            connected=True,
-            mode="3D FIX",
-            mode_time="01:00:00",
-            time=du.normalize(du.now()),
+    def __init__(self):
+        self._manager = multiprocessing.Manager()
+        self._data = self._manager.dict(
             lat=42.977592,
             long=-4.997906,
             altitude=1258.0,
-            delta_t=0.5,
+            mode="3D FIX",
+            delta_t=0.5
+        )
+
+    def read(self):
+        return dict(
+            connected=True,
+            mode=self._data["mode"],
+            mode_time="01:00:00",
+            time=du.normalize(du.now()),
+            lat=self._data["lat"],
+            long=self._data["long"],
+            altitude=self._data["altitude"],
+            delta_t=self._data["delta_t"],
             device="/dev/ttyACM0",
             path=None,
             sats_used=4,
             sats_seen=5,
         )
+
+    def set_emergency_override(self, latitude, longitude, altitude, delta_t):
+        self._data["lat"] = latitude
+        self._data["long"] = longitude
+        self._data["altitude"] = altitude
+        self._data["mode"] = "Emergency Sync"
+        self._data["delta_t"] = delta_t
+
+    def reset(self):
+        self._data["lat"] = 42.977592
+        self._data["long"] = -4.997906
+        self._data["altitude"] = 1258.0
+        self._data["mode"] = "3D FIX"
+        self._data["delta_t"] = 0.5
+
     def start(self): pass
     def stop(self): pass
 
@@ -149,12 +174,13 @@ def start_app_threads(app):
     yield
 
 @pytest.fixture(autouse=True)
-def reset_app_state(app, fake_camera_io):
+def reset_app_state(app, fake_camera_io, fake_gps_reader):
     app.pycontrol_app._event_file = None
     app.pycontrol_app._seq_file = None
     app.pycontrol_app._defaults_loaded = False
     app.pycontrol_app._event_solver.reset()
     fake_camera_io.reset()
+    fake_gps_reader.reset()
     # Clear gui.config
     gui_config = app.pycontrol_app._gui_config_filename
     with open(gui_config, "w") as fout:

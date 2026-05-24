@@ -283,6 +283,9 @@ class EventSolver:
 
         c1, c2, mid, c3, c4
         """
+        if not all(isinstance(x, (int, float)) for x in (latitude, longitude, altitude)):
+            return {}
+
         solution = solar_contact_times(
             astropy.time.Time(date_, scale="utc"),
             latitude,

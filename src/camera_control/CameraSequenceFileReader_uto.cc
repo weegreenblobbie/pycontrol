@@ -38,6 +38,8 @@ TEST_CASE("CameraSequenceFileReader: Successful Parsing of Valid File", "[seq]")
         event9    20.0    camC.burst_number     5
         event10   30.0    camC.capture_mode     2
         event11   40.0    camC.shooting_speed   0
+        event12   50.0    camC.capture_target   internal ram
+        event13   60.0    camC.capture_target   memory card
     )";
     create_test_file(test_filename, content);
 
@@ -46,7 +48,7 @@ TEST_CASE("CameraSequenceFileReader: Successful Parsing of Valid File", "[seq]")
     cleanup_test_file(test_filename);
 
     const auto& entries = sequence_reader.get_events();
-    REQUIRE(entries.size() == 12);
+    REQUIRE(entries.size() == 14);
 
     // Verify a few specific entries
     CHECK(entries[0].event_id == "event0");
@@ -120,6 +122,18 @@ TEST_CASE("CameraSequenceFileReader: Successful Parsing of Valid File", "[seq]")
     CHECK(entries[11].camera_id == "camc");
     CHECK(entries[11].channel == Channel::shooting_speed);
     CHECK(entries[11].channel_value == "0");
+
+    CHECK(entries[12].event_id == "event12");
+    CHECK(entries[12].event_time_offset_ms == 50'000);
+    CHECK(entries[12].camera_id == "camc");
+    CHECK(entries[12].channel == Channel::capture_target);
+    CHECK(entries[12].channel_value == "internal ram");
+
+    CHECK(entries[13].event_id == "event13");
+    CHECK(entries[13].event_time_offset_ms == 60'000);
+    CHECK(entries[13].camera_id == "camc");
+    CHECK(entries[13].channel == Channel::capture_target);
+    CHECK(entries[13].channel_value == "memory card");
 
     sequence_reader.clear();
     CHECK(entries.empty() == true);
@@ -242,6 +256,9 @@ TEST_CASE("CameraSequenceFileReader: Failures", "[seq_bad]")
         // Invalid trigger.
         "event_start    0.0    camA.trigger           66\n",
         "event_start    0.0    camA.trigger           0\n",
+
+        // Invalid capture_target.
+        "event_start    0.0    camA.capture_target    bad_target\n",
 
         // Mixure of valid and invalid lines.
         R"(

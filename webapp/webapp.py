@@ -214,9 +214,11 @@ class PyControlApp:
 
     def start_simulation(self, gps_latitude, gps_longitude, gps_altitude, event_id, event_time_offset):
         """Starts a simulation. Returns (status_str, message_str)."""
+        sim_is_running = False
         with self._lock:
-            if self._run_sim.is_running:
-                return self._make_response("Failure", "Simulation is already running.", 400)
+            sim_is_running = self._run_sim.is_running
+        if sim_is_running:
+            self.stop_simulation(make_response=False)
 
         if event_id and event_id not in self._event_solver.event_ids():
             return "Failure", f"Bad event_id '{event_id}'"
@@ -258,16 +260,19 @@ class PyControlApp:
     def set_choice(self, serial, prop, value):
         return self._make_response(self._cam_io.set_choice(serial, prop, value))
 
-    def stop_simulation(self):
+    def stop_simulation(self, make_response=True):
         """Stops the current simulation."""
         self._cam_io.set_events({})
+        self._cam_io.reset_sequence()
+        # Why do I need to double send?
         self._cam_io.reset_sequence()
         with self._lock:
             self._run_sim = RunSim()
         params = self._event_solver.params()
         if params:
             self._update_and_trigger(**params)
-        return self._make_response("Success", "Simulation stopped.", 200)
+        if make_response:
+            return self._make_response("Success", "Simulation stopped.", 200)
 
     def trigger(self, serial):
         return self._make_response(self._cam_io.trigger(serial))
@@ -389,6 +394,40 @@ def create_app(root_dir=None, gps_reader=None, camera_control=None):
     @app.route("/api/dashboard_update")
     def api_dashboard_update():
         return flask.jsonify(app.pycontrol_app.get_dashboard_data()), 200
+
+
+    @app.route('/api/emergency-override', methods=['POST'])
+    def emergency_override():
+        pi_now = time.time()
+        data = flask.request.get_json()
+        phone_time = data.get('timestamp') # Float epoch seconds
+
+        # Calculate absolute difference
+        delta_t = pi_now - phone_time
+
+        if abs(delta_t) > 2.0:
+            # Cold boot or massive drift: Trust phone time implicitly
+            target_time = phone_time
+        else:
+            # Warm sync: Compute and apply the one-way flight average
+            target_time = phone_time + (delta_t / 2.0)
+
+        # Sync the clock!
+        os.system(f"sudo date -s '@{target_time}'")
+
+        # Update the GpsReader state
+        app.pycontrol_app._gps_reader.set_emergency_override(
+            latitude=data.get('latitude'),
+            longitude=data.get('longitude'),
+            altitude=data.get('altitude'),
+            delta_t=delta_t
+        )
+
+        return flask.jsonify({
+            "status": "success",
+            "synced_to": target_time,
+            "delta_seconds": delta_t
+        }), 200
 
 
     @app.route('/api/camera/update_description', methods=['POST'])
@@ -580,4 +619,4 @@ def create_app(root_dir=None, gps_reader=None, camera_control=None):
 if __name__ == '__main__':
     app = create_app()
     app.pycontrol_app.start()
-    app.run(host="0.0.0.0", port=80)
+    app.run(host="0.0.0.0", port=443, ssl_context="adhoc")

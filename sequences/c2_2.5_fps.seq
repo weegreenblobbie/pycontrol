@@ -1,6 +1,7 @@
 c2     -10.600   z7.quality          NEF (Raw)
 c2     -10.600   z7.iso              100
 c2     -10.600   z7.shutter_speed    1/500
+c2     -10.600   z7.capture_target   memory card
 c2     -10.600   z7.fstop            f/8
 
 # 2.5 frames-per-second, 75 photos.

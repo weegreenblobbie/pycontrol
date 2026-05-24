@@ -415,6 +415,11 @@ Camera::handle(const Event & event)
             set_capture_mode(event.channel_value);
             break;
         }
+        case Channel::capture_target:
+        {
+            set_capture_target(event.channel_value);
+            break;
+        }
         case Channel::fps:
         {
             ABORT_IF(true, "fps not implemented yet", result::failure);
