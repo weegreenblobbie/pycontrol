@@ -13,6 +13,7 @@ enum class Channel: unsigned int
 {
     burst_number,
     capture_mode,
+    capture_target,
     fps,
     fstop,
     iso,
@@ -33,6 +34,7 @@ to_string(Channel ch)
     {
         case Channel::burst_number:   return "burst_number";
         case Channel::capture_mode:   return "capture_mode";
+        case Channel::capture_target: return "capture_target";
         case Channel::fps:            return "fps";
         case Channel::fstop:          return "fstop";
         case Channel::iso:            return "iso";

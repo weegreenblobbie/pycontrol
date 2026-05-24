@@ -1,4 +1,5 @@
-c2     -11   z7.quality       tiff
+c2     -11   z7.quality          tiff
+c2     -11   z7.capture_target   memory card
 
 c2     -10   z7.quality       jpeg fine
 c2     -10   z7.iso           1000

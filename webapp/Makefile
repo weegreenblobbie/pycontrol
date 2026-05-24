@@ -14,6 +14,7 @@ all: release
 
 venv: .venv.stamp
 
+# Only needs to be run once.
 .playwright.stamp: venv
 	@echo "$(BOLD)$(BLUE)Installing Playwright$(RESET)"
 	$(SILENT) . venv/bin/activate $(DEVNULL) && \
@@ -30,12 +31,10 @@ clean:
 
 real-clean: clean
 
-test: venv playwright
-	sudo echo "Warming up password in case we need to install playwright"
+test: venv
 	cd ..; webapp/venv/bin/pytest --tb=short webapp
 
-coverage: venv playwright
-	sudo echo "Warming up password in case we need to install playwright"
+coverage: venv
 	cd ..; webapp/venv/bin/pytest --tb=short \
 		--cov=webapp \
 		--cov-report=html:webapp/htmlcov \

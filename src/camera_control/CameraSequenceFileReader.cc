@@ -12,6 +12,11 @@
 
 namespace {
 
+const std::set<std::string> _valid_capture_targets = {
+    "internal ram",
+    "memory card",
+};
+
 const std::set<std::string> _valid_shutter_speeds = {
     "1/8000",
     "1/6400",
@@ -158,6 +163,13 @@ _is_valid_fstop(const std::string& value) const
 
 bool
 CameraSequenceFileReader::
+_is_valid_capture_target(const std::string& value) const
+{
+    return _valid_capture_targets.contains(value);
+}
+
+bool
+CameraSequenceFileReader::
 _is_valid_fps_value(const std::string& value) const
 {
     if (value == "start" || value == "stop")
@@ -298,6 +310,11 @@ read_file(const std::string & file_path)
             validation_ok = result::success == as_type<int>(channel_value_str, num);
             validation_ok = validation_ok and num >= 0;
             channel = Channel::burst_number;
+        }
+        else if (channel_name == "capture_target")
+        {
+            validation_ok = _is_valid_capture_target(channel_value_str);
+            channel = Channel::capture_target;
         }
         else if (channel_name == "capture_mode")
         {

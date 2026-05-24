@@ -24,6 +24,7 @@
                         <th>Latitude</th>
                         <th>Longitude</th>
                         <th>Altitude (m)</th>
+                        <th>Emergency Sync</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -37,6 +38,7 @@
                         <td id="gps-latitude">N/A</td>
                         <td id="gps-longitude">N/A</td>
                         <td id="gps-altitude">N/A</td>
+                        <td><button id="emergency-sync-button" class="action-button" style="background-color: #ff9800; font-size: 0.9em; padding: 5px 10px;">Emergency Sync</button></td>
                     </tr>
                 </tbody>
             </table>
@@ -345,6 +347,24 @@
             <ul id="camera_choice_list" class="file-list-modal">
                 <li>Loading choices...</li>
             </ul>
+        </div>
+    </div>
+
+    <div id="emergency_sync_modal" class="modal">
+        <div class="modal-content">
+            <span class="close_button">&times;</span>
+            <h2>Emergency GPS/Time Override</h2>
+            <p>Are you sure you want to OVERRIDE GPS Location and Time?</p>
+            <div style="background: #f9f9f9; padding: 10px; border-radius: 5px; margin: 10px 0; font-family: monospace;">
+                <div>Latitude: <span id="emergency_lat">Loading, please wait ...</span></div>
+                <div>Longitude: <span id="emergency_lon">Loading, please wait ...</span></div>
+                <div>Altitude: <span id="emergency_alt">Loading, please wait ...</span></div>
+                <div>UTC Time: <span id="emergency_time">Loading, please wait ...</span></div>
+            </div>
+            <div class="modal-buttons">
+                <button id="emergency_okay_button" style="background-color: #4caf50; color: white;">Okay</button>
+                <button id="emergency_cancel_button" style="background-color: #f44336; color: white;">Cancel</button>
+            </div>
         </div>
     </div>
 

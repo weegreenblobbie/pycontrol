@@ -11,20 +11,20 @@ ALL_OBJECTS := $(wildcard *.o)
 DEPS := $(ALL_SOURCE:.cc=.d)
 
 CAMERA_CONTROL_BIN := camera_control_bin
-DUMP_SHUTTERSPEED_BIN := dump_shutterspeed_bin
+PYCONTROL_CLI_BIN := pycontrol_cli_bin
 UNIT_TEST_BIN := unit_tests_bin
 
-ALL_BIN := $(CAMERA_CONTROL_BIN) $(DUMP_SHUTTERSPEED_BIN) $(UNIT_TEST_BIN)
+ALL_BIN := $(CAMERA_CONTROL_BIN) $(PYCONTROL_CLI_BIN) $(UNIT_TEST_BIN)
 
 .PHONY: all release
-release: $(CAMERA_CONTROL_BIN) $(DUMP_SHUTTERSPEED_BIN)
+release: $(CAMERA_CONTROL_BIN) $(PYCONTROL_CLI_BIN)
 all: $(ALL_BIN)
 
-CAMERA_CONTROL_BIN_SRC := $(filter-out $(wildcard *uto*cc) dump_shutterspeed_bin.cc, $(ALL_SOURCE))
+CAMERA_CONTROL_BIN_SRC := $(filter-out $(wildcard *uto*cc) pycontrol_cli_bin.cc, $(ALL_SOURCE))
 CAMERA_CONTROL_BIN_OBJS := $(CAMERA_CONTROL_BIN_SRC:.cc=.o)
 
-DUMP_SHUTTERSPEED_BIN_SRC := dump_shutterspeed_bin.cc GPhoto2Cpp.cc Camera.cc
-DUMP_SHUTTERSPEED_BIN_OBJS := $(DUMP_SHUTTERSPEED_BIN_SRC:.cc=.o)
+PYCONTROL_CLI_BIN_SRC := pycontrol_cli_bin.cc GPhoto2Cpp.cc Camera.cc
+PYCONTROL_CLI_BIN_OBJS := $(PYCONTROL_CLI_BIN_SRC:.cc=.o)
 
 UNIT_TEST_BIN_SRC := $(wildcard *uto*cc)
 UNIT_TEST_BIN_SRC += Camera.cc
@@ -37,9 +37,9 @@ $(CAMERA_CONTROL_BIN): $(CAMERA_CONTROL_BIN_OBJS) ../common/libcommon.a
 	@echo "$(LINK_COLOR)Linking$(RESET) $@"
 	$(SILENT)$(CXX) -o $(CAMERA_CONTROL_BIN) $(CAMERA_CONTROL_BIN_OBJS) $(LINKFLAGS) $(LIBS)
 
-$(DUMP_SHUTTERSPEED_BIN): $(DUMP_SHUTTERSPEED_BIN_OBJS) ../common/libcommon.a
+$(PYCONTROL_CLI_BIN): $(PYCONTROL_CLI_BIN_OBJS) ../common/libcommon.a
 	@echo "$(LINK_COLOR)Linking$(RESET) $@"
-	$(SILENT)$(CXX) -o $(DUMP_SHUTTERSPEED_BIN) $(DUMP_SHUTTERSPEED_BIN_OBJS) $(LINKFLAGS) $(LIBS)
+	$(SILENT)$(CXX) -o $(PYCONTROL_CLI_BIN) $(PYCONTROL_CLI_BIN_OBJS) $(LINKFLAGS) $(LIBS)
 
 $(UNIT_TEST_BIN): $(ALL_SOURCE) $(UNIT_TEST_BIN_OBJS) ../common/libcommon.a
 	@echo "$(LINK_COLOR)Linking$(RESET) $@"
@@ -69,11 +69,11 @@ dump:
 	@echo
 	@echo CAMERA_CONTROL_BIN_OBJS: $(CAMERA_CONTROL_BIN_OBJS)
 	@echo
-	@echo DUMP_SHUTTERSPEED_BIN: $(DUMP_SHUTTERSPEED_BIN)
+	@echo PYCONTROL_CLI_BIN: $(PYCONTROL_CLI_BIN)
 	@echo
-	@echo DUMP_SHUTTERSPEED_BIN_SRC: $(DUMP_SHUTTERSPEED_BIN_SRC)
+	@echo PYCONTROL_CLI_BIN_SRC: $(PYCONTROL_CLI_BIN_SRC)
 	@echo
-	@echo DUMP_SHUTTERSPEED_BIN_OBJS: $(DUMP_SHUTTERSPEED_BIN_OBJS)
+	@echo PYCONTROL_CLI_BIN_OBJS: $(PYCONTROL_CLI_BIN_OBJS)
 	@echo
 	@echo UNIT_TEST_BIN: $(UNIT_TEST_BIN)
 	@echo

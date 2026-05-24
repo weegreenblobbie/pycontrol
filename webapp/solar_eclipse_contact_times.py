@@ -193,6 +193,9 @@ def find_contact_times(start, lat, lon, alt):
 
     assert isinstance(start, astropy.time.Time)
 
+    if not all(isinstance(x, (int, float)) for x in (lat, lon, alt)):
+        return dict(C1=None, C2=None, MID=None, C3=None, C4=None, type="invalid-input")
+
     return calculate_contact_times(
         location=astropy.coordinates.EarthLocation.from_geodetic(
             lat=lat * u.deg,

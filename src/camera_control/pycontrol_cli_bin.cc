@@ -57,25 +57,53 @@ int main(int argc, char ** argv)
                 << "Camera\n"
                 << "    Serial:        " << cam.info().serial << "\n"
                 << "    Description:   " << cam.info().desc << "\n"
+                << "    imagequality:  " << cam.info().quality << "\n"
                 << "    shutterspeed:  " << cam.info().shutter << "\n"
                 << "    capturetarget: " << cam.info().capture_target << "\n\n";
+
+            INFO_LOG << "Shutter speeds:\n";
 
             for (const auto & shutterspeed : cam.read_choices("shutterspeed"))
             {
                 INFO_LOG << "    " << shutterspeed << std::endl;
             }
 
+            INFO_LOG << "Capture targets:\n";
+
+            for (const auto & ct : cam.read_choices("capturetarget"))
+            {
+                INFO_LOG << "    " << ct << std::endl;
+            }
+
+            INFO_LOG << "Image quality:\n";
+
+            for (const auto & iq : cam.read_choices("imagequality"))
+            {
+                INFO_LOG << "    " << iq << std::endl;
+            }
+
             std::cout << std::endl;
 
             // Trigger the camera.
-            if (result::success == cam.trigger())
+
+            INFO_LOG << "Trying 'Memory Card'\n";
+            cam.set_capture_target("Memory Card");
+            cam.write_config();
+
+            for (int i = 0; i < 10; ++i)
             {
-                INFO_LOG << "trigger success!" << std::endl;
+
+                if (result::success == cam.trigger())
+                {
+                    INFO_LOG << "trigger success!" << std::endl;
+                }
+                else
+                {
+                    ERROR_LOG << "trigger failed!" << std::endl;
+                }
+
             }
-            else
-            {
-                ERROR_LOG << "trigger failed!" << std::endl;
-            }
+
 
         }
     }
