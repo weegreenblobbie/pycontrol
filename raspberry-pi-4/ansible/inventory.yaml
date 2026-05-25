@@ -1,0 +1,26 @@
+---
+all:
+  vars:
+    wlan0_ip: 192.168.26.1
+    dhcp_pool: 192.168.26.100,192.168.26.120
+    ssid: PyControl
+    password: Spain2026
+    username: nhilton
+    ansible_python_interpreter: /usr/bin/python3
+    ansible_ssh_common_args: '-o BatchMode=yes'
+
+    # Configure udev rules so the OS ignores these devices while allowing pycontrol
+    # uninterrupted access to them.
+    udev_cameras:
+      - name: "Nikon Z7"
+        vendor_id: "04b0"
+        product_id: "0442"
+      - name: "Nikon Z8"
+        vendor_id: "04b0"
+        product_id: "0451"
+
+  children:
+    pycontrol:
+      hosts:
+        pycontrol.local:
+          ansible_connection: ssh

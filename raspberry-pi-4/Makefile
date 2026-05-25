@@ -26,20 +26,20 @@ flash-os-img:
 	sudo echo "Warming up password" && \
 	@image=$$(ls pi-os-pycontrol-*.img 2>/dev/null | sort -r | head -n 1); \
 	if [ -z "$$image" ]; then \
-		echo "❌ ERROR: No image file found!  Run make os-img first!"; \
+		echo "â�Œ ERROR: No image file found!  Run make os-img first!"; \
 		exit 1; \
 	fi; \
 	read -p "Enter target device (e.g., /dev/sdb): " dev; \
 	lsblk $$dev ; \
 	echo "======================================================"; \
-	echo "🚨 WARNING: ALL DATA ON $$dev WILL BE DESTROYED! 🚨"; \
+	echo "ðŸš¨ WARNING: ALL DATA ON $$dev WILL BE DESTROYED! ðŸš¨"; \
 	echo "======================================================"; \
 	read -p "Type 'YES' to confirm and continue: " confirm; \
 	if [ "$$confirm" = "YES" ]; then \
 	    sudo umount $${dev}* 2>/dev/null || true; \
 		sudo dd if=$$image of=$$dev bs=4M status=progress conv=fsync; \
 		sync; \
-		echo "✅ Flash complete and synced. Safe to unplug!"; \
+		echo "âœ… Flash complete and synced. Safe to unplug!"; \
 	else \
 		echo "Flash operation aborted."; \
 	fi
@@ -59,4 +59,4 @@ run-ansible: ansible/.venv.stamp
 	@echo "$(BOLD)$(RED)Runnding Ansible$(RESET)"
 	cd ansible && \
 	. venv/bin/activate && \
-	ansible-playbook -i inventory.ini playbook.yaml --limit pycontrol
+	ansible-playbook -i inventory.yaml playbook.yaml --limit pycontrol
