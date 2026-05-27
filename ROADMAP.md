@@ -4,15 +4,36 @@ Roadmap
 Make it work
 ^^^^^^^^^^^^
 
-- Fix this obvious typo:
+- Port some of my scripts from https://github.com/weegreenblobbie/eoscript into this repo under scripts/
+  - for example gemini ai and I wrote a complicated script that reads my sequence file and the exif data from
+    the captured raw files and caught a bug in my sequence!  libgphoto2 doesn't have a z8 shutter speed of
+    1/4000!  So my set shutter speed called must have failed and was ignored at runtime.  maybe when loading
+    a sequence, i have to validate every channel setting with the camera?
 
-    Camera.cc(43): INFO: Checking for some specific camera properties...
-    May 21 05:37:55 pycontrol camera_control_bin[9439]: ../../external/include/gphoto2cpp/gphoto2cpp.h(675): ERROR: Failed to look up widget 'capturetagret', aborting
-    May 21 05:37:55 pycontrol camera_control_bin[9439]:     avialableshots: 1
-    May 21 05:37:55 pycontrol camera_control_bin[9439]:        burstnumber: 1
-    May 21 05:37:55 pycontrol camera_control_bin[9439]:        capturemode: 1
-    May 21 05:37:55 pycontrol camera_control_bin[9439]:      capturetarget: 0
-    May 21 05:37:55 pycontrol camera_control_bin[9439]:      shootingspeed: 1
+    python verify-sequence.py spain-2026.seq /tmp/z8-capture3.txt
+    --- Sequence Alignment ---
+    Total Exif Files:        142
+    Ignored Pre-shots:       0
+    Expected Sequence Shots: 142
+    Actual Sequence Shots:   142
+
+    SEQUENCE TRIGGER LINE                  EXIF LOG LINE                                                                   DELTA (s)
+    -------------------------------------  ----------------------------------------------------------------------------  -----------
+    c2    37.75    z8.trigger           1  _NIK3426.NEF, 2026-05-27 15:12:31.045000, NIKON Z 8, 1/250 , 8   , 64  , RAW        0.000
+    c2    39.00    z8.trigger           1  _NIK3427.NEF, 2026-05-27 15:12:32.072000, NIKON Z 8, 1/1000, 8   , 64  , RAW       -0.223
+    c2    39.25    z8.trigger           1  _NIK3428.NEF, 2026-05-27 15:12:32.095000, NIKON Z 8, 1/1000, 8   , 64  , RAW       -0.450
+    c2    39.50    z8.trigger           1  _NIK3429.NEF, 2026-05-27 15:12:33.018000, NIKON Z 8, 1/1000, 8   , 64  , RAW        0.223
+    c2    39.75    z8.trigger           1  _NIK3430.NEF, 2026-05-27 15:12:33.044000, NIKON Z 8, 1/1000, 8   , 64  , RAW       -0.001
+    *** UNPLANNED EXTRA SHOT ***           _NIK3431.NEF, 2026-05-27 15:12:34.071000, NIKON Z 8, 1/1000, 8   , 64  , RAW          ---
+    *** UNPLANNED EXTRA SHOT ***           _NIK3432.NEF, 2026-05-27 15:12:34.093000, NIKON Z 8, 1/1000, 8   , 64  , RAW          ---
+    *** UNPLANNED EXTRA SHOT ***           _NIK3433.NEF, 2026-05-27 15:12:35.019000, NIKON Z 8, 1/1000, 8   , 64  , RAW          ---
+    *** UNPLANNED EXTRA SHOT ***           _NIK3434.NEF, 2026-05-27 15:12:35.046000, NIKON Z 8, 1/1000, 8   , 64  , RAW          ---
+    c2    41.00    z8.trigger           1  *** MISSING SHOT DETECTED ***                                                         ---
+    c2    41.25    z8.trigger           1  *** MISSING SHOT DETECTED ***                                                         ---
+    c2    41.50    z8.trigger           1  *** MISSING SHOT DETECTED ***                                                         ---
+    c2    41.75    z8.trigger           1  *** MISSING SHOT DETECTED ***                                                         ---
+    c2    43.00    z8.trigger           1  _NIK3435.NEF, 2026-05-27 15:12:36.068000, NIKON Z 8, 8     , 8   , 64  , RAW       -0.227
+    mid   1.00     z8.trigger           1  _NIK3436.NEF, 2026-05-27 15:12:47.046000, NIKON Z 8, 1/2000, 8   , 64  , RAW       -0.022
 
 
 - Test booting without gps antenna works.
@@ -56,9 +77,11 @@ Make it work
     May 21 05:18:14 pycontrol python[5890]:     raise TypeError("The value must be a valid Python or Numpy numeric type.")
     May 21 05:18:14 pycontrol python[5890]: TypeError: The value must be a valid Python or Numpy numeric type.
 
+- Running a Sim doesn't skip camera events in the past (i.e, we're not jummping forward in the sequency to
+  the specified sim time.
 
-- Add emergency sync mode when the gps antenna doesn't work, so one preses the Emergency Sync and the phone's position and
-  time are used to update PyControls position and sytem time.
+- Validate all channels in a camera sequence with the camera?
+  - What if the camera currently isn't detected?  Refuse to load?
 
 - Can we recover from this camera_control failure?
 
@@ -146,6 +169,7 @@ Make it work well
     ===============================================================================
     #* GPS                           0   4   377    13   -168us[-1511us] +/-   50ms
 
+
 MAke it work well for others
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -165,6 +189,20 @@ MAke it work well for others
 
 Past Items Completed
 ====================
+
+* Fixed this obvious typo:
+
+    Camera.cc(43): INFO: Checking for some specific camera properties...
+    May 21 05:37:55 pycontrol camera_control_bin[9439]: ../../external/include/gphoto2cpp/gphoto2cpp.h(675): ERROR: Failed to look up widget 'capturetagret', aborting
+    May 21 05:37:55 pycontrol camera_control_bin[9439]:      capturetarget: 0
+
+* Added emergency sync mode when the gps antenna doesn't work, so one preses the Emergency Sync and the phone's position and
+  time are used to update PyControls position and sytem time.
+
+* Created a noarmalized shutterspeed map in external/gphoto2cpp/include/gphoto2cpp.h that will take whatever
+  choice list for the camera's shutterspeed property and creates the normal photographer shutters speeds, i.e.
+      0.0006s --> 1/1600
+      25/10   --> 2.5
 
 * Added timelapse mode, (only for single camera), based on percent of histogram for Holy Grail timelapses.
 

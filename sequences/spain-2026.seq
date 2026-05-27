@@ -1,44 +1,484 @@
-c2     -11   z7.quality          tiff
-c2     -11   z7.capture_target   memory card
+#-----------------------------------------------------------------------------
+# Partials: C1 to C2
+#-----------------------------------------------------------------------------
 
-c2     -10   z7.quality       jpeg fine
-c2     -10   z7.iso           1000
-c2     -10   z7.shutter_speed 1/1000
-c2     -10   z7.fstop         f/10
+# In case I manually mess with the camera between the partials, I command all
+# the camera settings.
 
-c2     -9    z7.trigger       1
+#~# P1
+#~c2   -53:30    z8.quality           NEF (Raw)
+#~c2   -53:30    z8.capture_target    memory card
+#~c2   -53:30    z8.fstop             f/8
+#~c2   -53:30    z8.iso               800
+#~c2   -53:30    z8.shutter_speed     1/400
+#~C2   -53:28    z8.trigger           1
+#~C2   -53:26    z8.trigger           1
+#~C2   -53:24    z8.trigger           1
 
-c2     -8    z7.quality       NEF (Raw)
-c2     -8    z7.iso           800
-c2     -8    z7.shutter_speed 1/800
-c2     -8    z7.fstop         f/8
+#~# P2
+#~c2   -47:47    z8.quality           NEF (Raw)
+#~c2   -47:47    z8.capture_target    memory card
+#~c2   -47:47    z8.fstop             f/8
+#~c2   -47:47    z8.iso               800
+#~c2   -47:47    z8.shutter_speed     1/400
+#~C2   -47:45    z8.trigger           1
+#~C2   -47:43    z8.trigger           1
+#~C2   -47:41    z8.trigger           1
 
-c2     -7    z7.trigger       1
+#~# P3
+#~c2   -42:04    z8.quality           NEF (Raw)
+#~c2   -42:04    z8.capture_target    memory card
+#~c2   -42:04    z8.fstop             f/8
+#~c2   -42:04    z8.iso               800
+#~c2   -42:04    z8.shutter_speed     1/400
+#~C2   -42:02    z8.trigger           1
+#~C2   -42:00    z8.trigger           1
+#~C2   -41:58    z8.trigger           1
 
-c2     -6    z7.quality       JPEG fine
-c2     -6    z7.iso           400
-c2     -6    z7.shutter_speed 1/400
-c2     -6    z7.fstop         f/4
+#~# P4
+#~c2   -36:21    z8.quality           NEF (Raw)
+#~c2   -36:21    z8.capture_target    memory card
+#~c2   -36:21    z8.fstop             f/8
+#~c2   -36:21    z8.iso               800
+#~c2   -36:21    z8.shutter_speed     1/400
+#~C2   -36:19    z8.trigger           1
+#~C2   -36:17    z8.trigger           1
+#~C2   -36:15    z8.trigger           1
 
-c2     -5    z7.trigger       1
+#~# P5
+#~c2   -30:38    z8.quality           NEF (Raw)
+#~c2   -30:38    z8.capture_target    memory card
+#~c2   -30:38    z8.fstop             f/8
+#~c2   -30:38    z8.iso               800
+#~c2   -30:38    z8.shutter_speed     1/400
+#~C2   -30:36    z8.trigger           1
+#~C2   -30:34    z8.trigger           1
+#~C2   -30:32    z8.trigger           1
 
-c2     -4    z7.quality       NEF (Raw)
-c2     -4    z7.iso           1000
-c2     -4    z7.shutter_speed 1/1000
-c2     -4    z7.fstop         f/10
+#~# P6
+#~c2   -24:55    z8.quality           NEF (Raw)
+#~c2   -24:55    z8.capture_target    memory card
+#~c2   -24:55    z8.fstop             f/8
+#~c2   -24:55    z8.iso               800
+#~c2   -24:55    z8.shutter_speed     1/400
+#~C2   -24:53    z8.trigger           1
+#~C2   -24:51    z8.trigger           1
+#~C2   -24:49    z8.trigger           1
 
-c2     -3    z7.trigger       1
+#~# P7
+#~c2   -19:12    z8.quality           NEF (Raw)
+#~c2   -19:12    z8.capture_target    memory card
+#~c2   -19:12    z8.fstop             f/8
+#~c2   -19:12    z8.iso               800
+#~c2   -19:12    z8.shutter_speed     1/400
+#~C2   -19:10    z8.trigger           1
+#~C2   -19:08    z8.trigger           1
+#~C2   -19:06    z8.trigger           1
 
-c2     -2    z7.quality       JPEG Fine
-c2     -2    z7.iso           800
-c2     -2    z7.shutter_speed 1/800
-c2     -2    z7.fstop         f/8
+#~# P8
+#~c2   -13:29    z8.quality           NEF (Raw)
+#~c2   -13:29    z8.capture_target    memory card
+#~c2   -13:29    z8.fstop             f/8
+#~c2   -13:29    z8.iso               800
+#~c2   -13:29    z8.shutter_speed     1/400
+#~C2   -13:27    z8.trigger           1
+#~C2   -13:25    z8.trigger           1
+#~C2   -13:23    z8.trigger           1
 
-c2     -1    z7.trigger       1
+#~# P9
+#~c2    -7:46    z8.quality           NEF (Raw)
+#~c2    -7:46    z8.capture_target    memory card
+#~c2    -7:46    z8.fstop             f/8
+#~c2    -7:46    z8.iso               800
+#~c2    -7:46    z8.shutter_speed     1/400
+#~C2    -7:44    z8.trigger           1
+#~C2    -7:42    z8.trigger           1
+#~C2    -7:40    z8.trigger           1
 
-c2      0    z7.quality       NEF (Raw)
-c2      0    z7.iso           400
-c2      0    z7.shutter_speed 1/400
-c2      0    z7.fstop         f/4
+#~# P10
+#~c2    -2:02    z8.quality           NEF (Raw)
+#~c2    -2:02    z8.capture_target    memory card
+#~c2    -2:02    z8.fstop             f/8
+#~c2    -2:02    z8.iso               800
+#~c2    -2:02    z8.shutter_speed     1/400
+#~C2    -2:00    z8.trigger           1
+#~C2    -1:58    z8.trigger           1
+#~C2    -1:56    z8.trigger           1
 
-c2      1    z7.trigger       1
+#-----------------------------------------------------------------------------
+# Baily beads: C2
+#-----------------------------------------------------------------------------
+c2    -12.0    z8.quality           NEF (Raw)
+c2    -12.0    z8.capture_target    memory card
+c2    -12.0    z8.fstop             f/8
+c2    -12.0    z8.iso               64
+c2    -12.0    z8.shutter_speed     1/2000
+
+# 4 FPS
+c2   -11.75    z8.trigger           1
+c2   -11.50    z8.trigger           1
+c2   -11.25    z8.trigger           1
+c2   -11.00    z8.trigger           1
+c2   -10.75    z8.trigger           1
+c2   -10.50    z8.trigger           1
+c2   -10.25    z8.trigger           1
+c2   -10.00    z8.trigger           1
+c2    -9.75    z8.trigger           1
+c2    -9.50    z8.trigger           1
+c2    -9.25    z8.trigger           1
+c2    -9.00    z8.trigger           1
+c2    -8.75    z8.trigger           1
+c2    -8.50    z8.trigger           1
+c2    -8.25    z8.trigger           1
+c2    -8.00    z8.trigger           1
+c2    -7.75    z8.trigger           1
+c2    -7.50    z8.trigger           1
+c2    -7.25    z8.trigger           1
+c2    -7.00    z8.trigger           1
+c2    -6.75    z8.trigger           1
+c2    -6.50    z8.trigger           1
+c2    -6.25    z8.trigger           1
+c2    -6.00    z8.trigger           1
+
+#-----------------------------------------------------------------------------
+# Diamond Ring / Chromosphere
+#-----------------------------------------------------------------------------
+
+c2    -5.75    z8.shutter_speed     1/500
+c2    -4.75    z8.trigger           1
+
+c2    -4.50    z8.shutter_speed     1/250
+c2    -3.50    z8.trigger           1
+
+c2    -3.25    z8.shutter_speed     1/125
+c2    -2.25    z8.trigger           1
+
+c2    -2.00    z8.shutter_speed     1/60
+c2    -1.00    z8.trigger           1
+
+c2    -0.75    z8.shutter_speed     1/30
+c2     0.25    z8.trigger           1
+c2     0.50    z8.trigger           1
+c2     0.75    z8.trigger           1
+c2     1.00    z8.trigger           1
+
+c2     1.25    z8.shutter_speed     1/60
+c2     2.25    z8.trigger           1
+
+c2     2.50    z8.shutter_speed     1/125
+c2     3.50    z8.trigger           1
+
+c2     3.75    z8.shutter_speed     1/250
+c2     4.00    z8.trigger           1
+
+c2     4.25    z8.shutter_speed     1/500
+c2     5.00    z8.trigger           1
+
+
+#-----------------------------------------------------------------------------
+# C2 sequence: Totality Time 1:46, 1/2 of that is 53 seconds
+#-----------------------------------------------------------------------------
+c2     5.25    z8.quality           NEF (Raw)
+c2     5.25    z8.capture_target    memory card
+c2     5.25    z8.fstop             f/8
+c2     5.25    z8.iso               64
+
+c2     5.25    z8.shutter_speed     4
+c2     6.25    z8.trigger           1
+c2    10.50    z8.trigger           1
+c2    14.75    z8.trigger           1
+c2    19.00    z8.trigger           1
+
+c2    23.25    z8.shutter_speed     1
+c2    24.25    z8.trigger           1
+c2    25.50    z8.trigger           1
+c2    26.75    z8.trigger           1
+c2    28.00    z8.trigger           1
+
+c2    28.25    z8.shutter_speed     1/4
+c2    29.25    z8.trigger           1
+c2    29.75    z8.trigger           1
+c2    30.25    z8.trigger           1
+c2    30.75    z8.trigger           1
+
+c2    31.25    z8.shutter_speed     1/15
+c2    32.25    z8.trigger           1
+c2    32.50    z8.trigger           1
+c2    32.75    z8.trigger           1
+c2    33.00    z8.trigger           1
+
+c2    34.00    z8.shutter_speed     1/60
+c2    35.00    z8.trigger           1
+c2    35.25    z8.trigger           1
+c2    35.50    z8.trigger           1
+c2    35.75    z8.trigger           1
+
+c2    36.00    z8.shutter_speed     1/250
+c2    37.00    z8.trigger           1
+c2    37.25    z8.trigger           1
+c2    37.50    z8.trigger           1
+c2    37.75    z8.trigger           1
+
+c2    38.00    z8.shutter_speed     1/1000
+c2    39.00    z8.trigger           1
+c2    39.25    z8.trigger           1
+c2    39.50    z8.trigger           1
+c2    39.75    z8.trigger           1
+
+# libgphoto2 doesn't support 1/4000 on the z8!
+c2    40.00    z8.shutter_speed     1/3200
+c2    41.00    z8.trigger           1
+c2    41.25    z8.trigger           1
+c2    41.50    z8.trigger           1
+c2    41.75    z8.trigger           1
+
+#-----------------------------------------------------------------------------
+# Eathshine #1
+#-----------------------------------------------------------------------------
+c2    42.00    z8.shutter_speed     8
+c2    43.00    z8.trigger           1
+
+# c2  51.25
+
+mid   0.00     z8.shutter_speed     1/2000
+mid   1.00     z8.trigger           1
+mid   1.25     z8.trigger           1
+mid   1.50     z8.trigger           1
+mid   1.75     z8.trigger           1
+
+mid   2.00     z8.shutter_speed     1/500
+mid   3.00     z8.trigger           1
+mid   3.25     z8.trigger           1
+mid   3.50     z8.trigger           1
+mid   3.75     z8.trigger           1
+
+mid   4.00     z8.shutter_speed     1/125
+mid   5.00     z8.trigger           1
+mid   5.25     z8.trigger           1
+mid   5.50     z8.trigger           1
+mid   5.75     z8.trigger           1
+
+mid   6.00     z8.shutter_speed     1/30
+mid   7.00     z8.trigger           1
+mid   7.25     z8.trigger           1
+mid   7.50     z8.trigger           1
+mid   7.75     z8.trigger           1
+
+mid   8.00     z8.shutter_speed     1/8
+mid   9.00     z8.trigger           1
+mid   9.25     z8.trigger           1
+mid   9.50     z8.trigger           1
+mid   9.75     z8.trigger           1
+
+mid  10.00     z8.shutter_speed     1/2
+mid  11.00     z8.trigger           1
+mid  11.75     z8.trigger           1
+mid  12.50     z8.trigger           1
+mid  13.25     z8.trigger           1
+
+mid  14.00     z8.shutter_speed     2
+mid  13.00     z8.trigger           1
+mid  15.25     z8.trigger           1
+mid  17.50     z8.trigger           1
+mid  19.75     z8.trigger           1
+
+#-----------------------------------------------------------------------------
+# Eathshine #2
+#-----------------------------------------------------------------------------
+mid  20.00     z8.shutter_speed     8
+mid  21.00     z8.trigger           1
+
+mid  29.25     z8.shutter_speed     4
+mid  30.50     z8.trigger           1
+
+mid  34.75     z8.shutter_speed     2
+mid  35.75     z8.trigger           1
+
+mid  38.00     z8.shutter_speed     1
+mid  39.00     z8.trigger           1
+
+mid  40.25     z8.shutter_speed     1/2
+mid  41.25     z8.trigger           1
+
+mid  42.00     z8.shutter_speed     1/4
+mid  43.00     z8.trigger           1
+
+mid  43.50     z8.shutter_speed     1/8
+mid  44.50     z8.trigger           1
+
+mid  44.75     z8.shutter_speed     1/15
+mid  45.75     z8.trigger           1
+
+mid  46.00     z8.shutter_speed     1/30
+mid  47.00     z8.trigger           1
+
+mid  47.25     z8.shutter_speed     1/60
+mid  48.25     z8.trigger           1
+
+mid  48.50     z8.shutter_speed     1/125
+mid  49.50     z8.trigger           1
+
+mid  49.75     z8.shutter_speed     1/250
+mid  50.75     z8.trigger           1
+
+mid  51.00     z8.shutter_speed     1/500
+mid  52.00     z8.trigger           1
+
+#-----------------------------------------------------------------------------
+# Diamond Ring / Chromosphere
+#-----------------------------------------------------------------------------
+
+c3    0.00     z8.shutter_speed     1/30
+c3    1.00     z8.trigger           1
+c3    1.25     z8.trigger           1
+c3    1.50     z8.trigger           1
+c3    1.75     z8.trigger           1
+
+c3    2.00     z8.shutter_speed     1/60
+c3    3.00     z8.trigger           1
+
+c3    3.25     z8.shutter_speed     1/125
+c3    4.25     z8.trigger           1
+
+c3    4.50     z8.shutter_speed     1/250
+c3    5.50     z8.trigger           1
+
+#-----------------------------------------------------------------------------
+# Baileys beads
+#-----------------------------------------------------------------------------
+
+c3    5.75     z8.quality           NEF (Raw)
+c3    5.75     z8.capture_target    memory card
+c3    5.75     z8.fstop             f/8
+c3    5.75     z8.iso               64
+c3    5.75     z8.shutter_speed     1/2000
+
+c3    6.75     z8.trigger           1
+c3    7.00     z8.trigger           1
+c3    7.25     z8.trigger           1
+c3    7.50     z8.trigger           1
+c3    7.75     z8.trigger           1
+c3    8.00     z8.trigger           1
+c3    8.25     z8.trigger           1
+c3    8.50     z8.trigger           1
+c3    8.75     z8.trigger           1
+c3    9.00     z8.trigger           1
+c3    9.25     z8.trigger           1
+c3    9.50     z8.trigger           1
+c3    9.75     z8.trigger           1
+c3   10.00     z8.trigger           1
+c3   10.25     z8.trigger           1
+c3   10.50     z8.trigger           1
+c3   10.75     z8.trigger           1
+c3   11.00     z8.trigger           1
+c3   11.25     z8.trigger           1
+c3   11.50     z8.trigger           1
+c3   11.75     z8.trigger           1
+c3   13.00     z8.trigger           1
+c3   13.25     z8.trigger           1
+c3   13.50     z8.trigger           1
+c3   13.75     z8.trigger           1
+
+#-----------------------------------------------------------------------------
+# Partials: C3 to C4
+#-----------------------------------------------------------------------------
+
+#~# P1
+#~c3     1:58    z8.quality           NEF (Raw)
+#~c3     1:58    z8.capture_target    memory card
+#~c3     1:58    z8.fstop             f/8
+#~c3     1:58    z8.iso               800
+#~c3     1:58    z8.shutter_speed     1/400
+#~C3     2:00    z8.trigger           1
+#~C3     2:02    z8.trigger           1
+#~C3     2:04    z8.trigger           1
+
+#~# P2
+#~c3     7:17    z8.quality           NEF (Raw)
+#~c3     7:17    z8.capture_target    memory card
+#~c3     7:17    z8.fstop             f/8
+#~c3     7:17    z8.iso               800
+#~c3     7:17    z8.shutter_speed     1/400
+#~C3     7:19    z8.trigger           1
+#~C3     7:21    z8.trigger           1
+#~C3     7:23    z8.trigger           1
+
+#~# P3
+#~c3    12:36    z8.quality           NEF (Raw)
+#~c3    12:36    z8.capture_target    memory card
+#~c3    12:36    z8.fstop             f/8
+#~c3    12:36    z8.iso               800
+#~c3    12:36    z8.shutter_speed     1/400
+#~C3    12:38    z8.trigger           1
+#~C3    12:40    z8.trigger           1
+#~C3    12:42    z8.trigger           1
+
+#~# P4
+#~c3    17:55    z8.quality           NEF (Raw)
+#~c3    17:55    z8.capture_target    memory card
+#~c3    17:55    z8.fstop             f/8
+#~c3    17:55    z8.iso               800
+#~c3    17:55    z8.shutter_speed     1/400
+#~C3    17:57    z8.trigger           1
+#~C3    17:59    z8.trigger           1
+#~C3    18:01    z8.trigger           1
+
+#~# P5
+#~c3    23:14    z8.quality           NEF (Raw)
+#~c3    23:14    z8.capture_target    memory card
+#~c3    23:14    z8.fstop             f/8
+#~c3    23:14    z8.iso               800
+#~c3    23:14    z8.shutter_speed     1/400
+#~C3    23:16    z8.trigger           1
+#~C3    23:18    z8.trigger           1
+#~C3    23:20    z8.trigger           1
+
+#~# P6
+#~c3    28:33    z8.quality           NEF (Raw)
+#~c3    28:33    z8.capture_target    memory card
+#~c3    28:33    z8.fstop             f/8
+#~c3    28:33    z8.iso               800
+#~c3    28:33    z8.shutter_speed     1/400
+#~C3    28:35    z8.trigger           1
+#~C3    28:37    z8.trigger           1
+#~C3    28:39    z8.trigger           1
+
+#~# P7
+#~c3    33:52    z8.quality           NEF (Raw)
+#~c3    33:52    z8.capture_target    memory card
+#~c3    33:52    z8.fstop             f/8
+#~c3    33:52    z8.iso               800
+#~c3    33:52    z8.shutter_speed     1/400
+#~C3    33:54    z8.trigger           1
+#~C3    33:56    z8.trigger           1
+#~C3    33:58    z8.trigger           1
+
+#~# P8
+#~c3    39:11    z8.quality           NEF (Raw)
+#~c3    39:11    z8.capture_target    memory card
+#~c3    39:11    z8.fstop             f/8
+#~c3    39:11    z8.iso               800
+#~c3    39:11    z8.shutter_speed     1/400
+#~C3    39:13    z8.trigger           1
+#~C3    39:15    z8.trigger           1
+#~C3    39:17    z8.trigger           1
+
+#~# P9
+#~c3    44:30    z8.quality           NEF (Raw)
+#~c3    44:30    z8.capture_target    memory card
+#~c3    44:30    z8.fstop             f/8
+#~c3    44:30    z8.iso               800
+#~c3    44:30    z8.shutter_speed     1/400
+#~C3    44:32    z8.trigger           1
+#~C3    44:34    z8.trigger           1
+#~C3    44:36    z8.trigger           1
+
+#~# P10
+#~c3    49:56    z8.quality           NEF (Raw)
+#~c3    49:56    z8.capture_target    memory card
+#~c3    49:56    z8.fstop             f/8
+#~c3    49:56    z8.iso               800
+#~c3    49:56    z8.shutter_speed     1/400
+#~C3    49:58    z8.trigger           1
+#~C3    50:00    z8.trigger           1
+#~C3    50:02    z8.trigger           1
